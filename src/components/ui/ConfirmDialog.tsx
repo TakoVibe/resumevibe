@@ -35,13 +35,14 @@ export function ConfirmDialog({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                className="rv-modal-backdrop absolute inset-0 transition-opacity"
                 onClick={onCancel}
             />
 
             {/* Dialog Panel */}
-            <div className="relative bg-[var(--bg-card)] rounded-lg shadow-[var(--shadow)] w-full max-w-sm p-6 transform transition-all scale-100 opacity-100 border border-[var(--border-color)]">
-                <h3 className="text-lg font-semibold text-[var(--text-main)] mb-2">
+            <div className="rv-modal relative w-full max-w-sm p-6 opacity-100">
+                <p className="rv-kicker">Please confirm</p>
+                <h3 className="mb-2 mt-1 font-serif-ed text-2xl text-[var(--text-main)]">
                     {title}
                 </h3>
 
@@ -52,15 +53,15 @@ export function ConfirmDialog({
                 <div className="flex justify-end gap-3">
                     <button
                         onClick={(e) => { e.stopPropagation(); onCancel(); }}
-                        className="px-4 py-2 text-sm font-medium text-[var(--text-muted)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:text-[var(--text-main)] hover:bg-[var(--bg-input)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="rv-button-secondary"
                     >
                         {cancelText}
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onConfirm(); }}
-                        className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-95 transition-all ${isDestructive
-                            ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500 shadow-lg shadow-red-900/20'
-                            : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 shadow-lg shadow-blue-900/20'
+                        className={`rv-button-primary ${isDestructive
+                            ? '!border-red-600 !bg-red-600 !text-white hover:!bg-red-700'
+                            : ''
                             }`}
                     >
                         {confirmText}

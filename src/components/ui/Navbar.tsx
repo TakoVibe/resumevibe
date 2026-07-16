@@ -18,14 +18,14 @@ export function Navbar({ children }: NavbarProps) {
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     return (
-        <nav className="sticky top-0 z-[60] flex items-center px-4 md:px-8 h-16 md:h-[64px] bg-[var(--glass-bg-strong)] backdrop-blur-xl border-b border-[var(--border-color)] text-[var(--text-main)] gap-4 select-none font-sans-ed transition-colors duration-500">
+        <nav className="sticky top-0 z-[60] flex h-16 items-center gap-2 border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-2 text-[var(--text-main)] backdrop-blur-xl transition-colors duration-300 sm:gap-3 sm:px-4 md:px-6">
 
             {/* ── Zone 1: Brand (fixed left) ── */}
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
                 <div className="hidden md:block"><BrandSwitcher /></div>
                 <div className="md:hidden"><BrandSwitcher compact /></div>
-                <div className="w-px h-5 bg-[var(--border-color)] hidden md:block"></div>
-                <WhyMenu />
+                <div className="hidden h-5 w-px bg-[var(--border-color)] xl:block"></div>
+                <div className="hidden xl:block"><WhyMenu /></div>
             </div>
 
             {/* ── Zone 2: Page-specific actions (fluid center) ── */}
@@ -151,7 +151,7 @@ export function Navbar({ children }: NavbarProps) {
                     </button>
                 )}
 
-                <ThemeToggle />
+                    <div className="hidden sm:block"><ThemeToggle /></div>
             </div>
         </nav>
     );

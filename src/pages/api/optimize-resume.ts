@@ -105,7 +105,7 @@ Your task is to rewrite the user's resume to align perfectly with the target job
 4. **Formatting**: Use standard headings. No tables, columns, or complex graphics
 5. **Keyword Integration**: Identify top 10 high-priority keywords from JD and naturally integrate them
 6. **Action-Oriented**: Start every bullet point with strong action verbs (e.g., "Architected," "Optimized," "Spearheaded")
-7. **Quantifiable Impact**: Use the Google "XYZ Formula": Accomplished [X] as measured by [Y], by doing [Z]
+7. **Quantifiable Impact**: Use the Google "XYZ Formula" only when the source resume already contains the metric. Never invent numbers, tools, responsibilities, employers, seniority, or outcomes.
 8. **Skill Re-categorization**: Group skills into relevant categories matching JD requirements
 9. **Tech Stack Alignment**: Highlight technologies mentioned in the JD
 10. **Professional Summary**: Rewrite to mirror the JD's key requirements and desired qualifications
@@ -117,6 +117,8 @@ Your task is to rewrite the user's resume to align perfectly with the target job
     - Leadership or strategic actions (e.g., <strong>Architected</strong>, <strong>Spearheaded</strong>).
     - **Balance**: Limit bolding to 2-3 truly important instances per section or bullet point. Do not bold entire sentences.
     - Ensure tags are properly closed.
+14. **Factual Integrity**: Reframe and prioritize existing evidence only. If the job requires something the candidate has not demonstrated, do not add it to the resume. Report it as an issue and flag any adjacent rewrite as a risk.
+15. **Reviewability**: Every changed section must have a concise review record explaining what changed, why it helps, the exact job requirement it addresses, and whether the change could overstate the candidate's evidence.
 
 **OUTPUT REQUIREMENTS:**
 - You MUST respond with ONLY a valid JSON object, no additional text or explanation
@@ -129,7 +131,17 @@ Your task is to rewrite the user's resume to align perfectly with the target job
     "odds": {
         "selectionChance": 85,
         "rejectionReasoning": "Brief explanation of what factors might cause rejection despite optimization."
-    }
+    },
+    "changeReviews": [
+        {
+            "section": "summary|skills|experience",
+            "whatChanged": "Plain-language summary of the proposed edit",
+            "why": "Why this improves relevance or clarity",
+            "jobRequirement": "The requirement or phrase from the job description this addresses",
+            "riskLevel": "none|low|high",
+            "risk": "No unsupported claim detected, or a precise warning about possible overstatement"
+        }
+    ]
 }
 - Do NOT include any other parts of the resume.`;
 
@@ -179,7 +191,7 @@ export const POST: APIRoute = async ({ request }) => {
     ${JSON.stringify(targetedResumeElements, null, 2)}${auditContext}
 
 Please optimize these sections for the job description above. Return the data adhering to the required JSON structure including any 'issues' if they exist.
-If critical gaps are listed above, prioritize fixing them by adding relevant skills, rewriting bullets to demonstrate those competencies, or adjusting the summary.`;
+If critical gaps are listed above, only surface a skill or competency when it is already evidenced in the source resume. Otherwise, report the gap as an issue instead of fabricating experience.`;
 
         // Call OpenAI with structured output
         const completion = await openai.chat.completions.create({
@@ -203,11 +215,24 @@ If critical gaps are listed above, prioritize fixing them by adding relevant ski
         let optimizedResume;
         let issues: string[] = [];
         let odds: any = null;
+        let changeReviews: any[] = [];
 
         try {
             const parsed = JSON.parse(responseText);
             issues = Array.isArray(parsed.issues) ? parsed.issues : [];
             odds = parsed.odds || null;
+            changeReviews = Array.isArray(parsed.changeReviews)
+                ? parsed.changeReviews
+                    .filter((review: any) => review && ['summary', 'skills', 'experience'].includes(review.section))
+                    .map((review: any) => ({
+                        section: review.section,
+                        whatChanged: String(review.whatChanged || 'Content was rewritten for the target role.'),
+                        why: String(review.why || 'Improves alignment with the job description.'),
+                        jobRequirement: String(review.jobRequirement || 'Relevant role requirements'),
+                        riskLevel: ['none', 'low', 'high'].includes(review.riskLevel) ? review.riskLevel : 'low',
+                        risk: String(review.risk || 'Review this change against your experience before applying.')
+                    }))
+                : [];
 
             // Normalize summary if it's an array or object (AI quirk)
             let newSummary = parsed.optimizedSummary || resume.summary;
@@ -261,6 +286,7 @@ If critical gaps are listed above, prioritize fixing them by adding relevant ski
                 optimizedResume,
                 issues,
                 odds,
+                changeReviews,
                 usage: completion.usage
             }),
             {

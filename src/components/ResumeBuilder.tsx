@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Settings, Sparkles, UserCheck, Lock, X, Moon, Sun } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -23,20 +22,20 @@ import { RecruiterPanel } from './RecruiterPanel';
 import { ShareModal } from './ShareModal';
 import { CareerGuidanceModal } from './editor/CareerGuidanceModal';
 import { AuthProvider, useAuth } from '../context/AuthContext';
-import { CoverLetterModal } from './CoverLetterModal';
 import { TokenProvider } from '../context/TokenContext';
 import { GoogleLogin } from './GoogleLogin';
 import { api } from '../lib/api';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { useToken } from '../context/TokenContext';
 import { UpgradeModal } from './ui/UpgradeModal';
+import { TailoredApplicationReview } from './TailoredApplicationReview';
+import { StandaloneCoverLetterModal } from './StandaloneCoverLetterModal';
+import { RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
 
 function ResumeBuilderContent() {
     const { data, updateResume, resetToDefault, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
     const { user, isAuthenticated, logout } = useAuth();
     const { showUpgradeModal, setShowUpgradeModal } = useToken();
-    const { isDarkMode } = useTheme();
-    const [showUserMenu, setShowUserMenu] = useState(false);
     const [showMoreActions, setShowMoreActions] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'parser'>('editor');
     const [showInfoModal, setShowInfoModal] = useState(false);
@@ -47,8 +46,9 @@ function ResumeBuilderContent() {
     const [showRecruiterAI, setShowRecruiterAI] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showGuidanceModal, setShowGuidanceModal] = useState(false);
-    const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
     const [showAutoOptimize, setShowAutoOptimize] = useState(false);
+    const [showTailoredApplication, setShowTailoredApplication] = useState(false);
+    const [showCoverLetterGenerator, setShowCoverLetterGenerator] = useState(false);
     const [guidanceInsights, setGuidanceInsights] = useState<Array<{ type: 'good' | 'warning' | 'info'; text: string }>>([]);
     const [guidanceAuditResult, setGuidanceAuditResult] = useState<any>(null);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -186,20 +186,21 @@ function ResumeBuilderContent() {
 
         const html = element.outerHTML;
 
-        // Add dynamic @page margins based on user config to ensure every page has correct margins
-        const marginMap = {
-            compact: '30pt',
-            narrow: '40pt',
-            standard: '50pt',
-            wide: '60pt',
-            relaxed: '72pt'
-        };
         const isSinglePageMode = data.config?.documentMode === 'singlePage';
-        const currentMargin = isSinglePageMode ? '0' : (marginMap[data.config?.margins || 'standard'] || '50pt');
+        const marginKey = resolveResumeMarginKey(data.config?.margins, isSinglePageMode);
+        const standardPageMargin = RESUME_MARGIN_PADDING[marginKey];
+        const continuationTopPadding = SINGLE_PAGE_PADDING[marginKey].continuationTop;
+        const firstPageBottomPadding = SINGLE_PAGE_PADDING[marginKey].firstPageBottom;
+        const pageRules = isSinglePageMode
+            ? `
+                @page { margin: ${continuationTopPadding} 0 0 0 !important; size: A4; }
+                @page :first { margin: 0 0 ${firstPageBottomPadding} 0 !important; }
+            `
+            : `@page { margin: ${standardPageMargin} !important; size: A4; }`;
 
         const dynamicStyles = `
             <style>
-                @page { margin: ${currentMargin} !important; size: A4; }
+                ${pageRules}
                 body { background: white !important; }
                 #resume-preview-content, #resume-preview-for-generation { 
                     padding: 0 !important;
@@ -355,255 +356,252 @@ function ResumeBuilderContent() {
         }
     };
 
+    const profileFields = [
+        data.personalInfo.fullName,
+        data.personalInfo.email,
+        data.personalInfo.phone,
+        data.personalInfo.location,
+        data.personalInfo.title,
+    ];
+    const profileCompletion = Math.round(
+        (profileFields.filter((field) => Boolean(field?.trim())).length / profileFields.length) * 100
+    );
+    const visibleSectionCount = Object.values(data.visibleSections || {}).filter(Boolean).length;
+    const documentTitle = resumeMetadata?.name || data.personalInfo.fullName || 'Untitled resume';
+
     return (
-        <div className="flex flex-col h-screen bg-[var(--bg-main)] selection:bg-purple-500/30">
+        <div className="flex flex-col h-screen bg-[var(--bg-main)] selection:bg-[var(--accent)]/20">
             {/* Hidden instance for PDF generation scraping */}
             <div className="fixed left-[-9999px] top-0 pointer-events-none opacity-0">
                 <ResumePreview data={data} id="resume-preview-for-generation" />
             </div>
 
-            {/* Premium Unified Navbar - Responsive */}
+            {/* Focused workspace header */}
             <Navbar>
-                {/* Editor specific actions */}
-                <div className="flex bg-[var(--bg-input)] rounded-lg p-1 border border-[var(--border-color)] shrink-0 h-10" role="tablist" aria-label="Editor Views">
-                    <button
-                        onClick={() => setActiveTab('editor')}
-                        className={`px-1.5 sm:px-4 flex items-center gap-2 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'editor' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-                    >
-                        <Edit size={14} /> <span className="hidden md:inline">Editor</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('preview')}
-                        className={`px-1.5 sm:px-4 flex items-center gap-2 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'preview' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-                    >
-                        <FileText size={14} /> <span className="hidden md:inline">Preview</span>
-                    </button>
-                </div>
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:justify-between">
+                    <div className="hidden min-w-0 xl:block">
+                        <p className="truncate text-sm font-semibold text-[var(--text-main)]">{documentTitle}</p>
+                        <p className="text-[10px] font-medium text-[var(--text-muted)]">
+                            {isSaving ? 'Saving changes…' : lastSaved ? 'All changes saved' : 'Ready to edit'}
+                        </p>
+                    </div>
 
-                <div className="w-px h-6 bg-[var(--border-color)] hidden lg:block mx-1 shrink-0"></div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Secondary Actions - Responsive Grouping */}
-                    <div className="hidden lg:flex items-center gap-1.5">
+                    <div className="flex h-9 shrink-0 items-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-1" role="tablist" aria-label="Editor views">
                         <button
-                            onClick={() => setShowImportModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl font-bold uppercase tracking-widest shadow-sm transition-all"
-                            title="Import Resume"
+                            onClick={() => setActiveTab('editor')}
+                            className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'editor' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
-                            <FileText size={16} />
-                            <span className="text-[10px]">Import</span>
+                            <Edit size={13} /> <span className="hidden sm:inline">Edit</span>
                         </button>
-
                         <button
-                            onClick={handleSaveVersion}
-                            disabled={isSaving}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl font-bold uppercase tracking-widest shadow-sm disabled:opacity-50 transition-all"
-                            title="Save as New Version"
+                            onClick={() => setActiveTab('preview')}
+                            className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'preview' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
-                            <History size={16} />
-                            <span className="text-[10px]">Version</span>
-                        </button>
-
-                        <button
-                            onClick={() => setShowCoverLetterModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl font-bold uppercase tracking-widest shadow-sm transition-all"
-                            title="Cover Letter"
-                        >
-                            <FileText size={16} />
-                            <span className="text-[10px]">Letter</span>
-                        </button>
-
-                        <button
-                            onClick={() => setShowShareModal(true)}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl font-bold uppercase tracking-widest shadow-sm transition-all"
-                        >
-                            <Globe size={16} />
-                            <span className="text-[10px]">Share</span>
+                            <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
                         </button>
                     </div>
 
-                    {/* Mobile "More" Menu for secondary actions */}
-                    <div className="lg:hidden relative">
+                    <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] disabled:opacity-50 md:w-auto md:px-3"
+                            title="Save changes"
+                        >
+                            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                            <span className="ml-1.5 hidden text-[11px] font-semibold md:inline">Save</span>
+                        </button>
+
+                        <button
+                            onClick={handleDownload}
+                            disabled={isGenerating}
+                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 text-[11px] font-semibold text-[var(--bg-main)] shadow-sm transition hover:-translate-y-px hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+                        >
+                            {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            <span className="hidden sm:inline">{isGenerating ? 'Exporting…' : 'Export PDF'}</span>
+                        </button>
+
+                        <div className="relative">
                         <button
                             onClick={() => setShowMoreActions(!showMoreActions)}
-                            className="w-10 h-10 flex items-center justify-center bg-[var(--bg-input)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-card)] transition-all shadow-sm active:scale-95"
-                            title="More Actions"
+                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] transition hover:text-[var(--text-main)]"
+                                title="More actions"
                         >
-                            <ChevronDown size={18} className={`transition-transform duration-300 ${showMoreActions ? 'rotate-180 text-purple-500' : ''}`} />
+                                <ChevronDown size={16} className={`transition-transform ${showMoreActions ? 'rotate-180' : ''}`} />
                         </button>
 
                         {showMoreActions && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreActions(false)} />
-                                <div className="absolute right-0 mt-2 w-48 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="p-2 flex flex-col gap-1">
-                                        <a
-                                            href="/why-resumevibe"
-                                            className="flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold text-[var(--text-main)] hover:bg-[var(--bg-input)] rounded-xl transition-colors w-full text-left uppercase tracking-widest"
-                                        >
-                                            <Zap size={16} className="text-purple-500" />
-                                            Why ResumeVibe?
-                                        </a>
+                                    <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2 shadow-2xl">
+                                        <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Document actions</p>
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
                                                 setShowImportModal(true);
                                             }}
-                                            className="flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold text-[var(--text-main)] hover:bg-[var(--bg-input)] rounded-xl transition-colors w-full text-left uppercase tracking-widest"
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
-                                            <FileText size={16} className="text-blue-500" />
-                                            Import
+                                            <FileText size={15} className="text-[var(--accent)]" /> Import resume
                                         </button>
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
                                                 handleSaveVersion();
                                             }}
-                                            className="flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold text-[var(--text-main)] hover:bg-[var(--bg-input)] rounded-xl transition-colors w-full text-left uppercase tracking-widest"
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
-                                            <History size={16} className="text-orange-500" />
-                                            Version
+                                            <History size={15} className="text-[var(--accent)]" /> Save new version
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowMoreActions(false);
+                                                setShowTailoredApplication(true);
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
+                                        >
+                                            <Sparkles size={15} className="text-[var(--accent)]" /> Tailor application
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowMoreActions(false);
+                                                setShowCoverLetterGenerator(true);
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
+                                        >
+                                            <Mail size={15} className="text-[var(--accent)]" /> Generate cover letter
                                         </button>
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
                                                 setShowShareModal(true);
                                             }}
-                                            className="flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold text-[var(--text-main)] hover:bg-[var(--bg-input)] rounded-xl transition-colors w-full text-left uppercase tracking-widest"
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
-                                            <Globe size={16} className="text-emerald-500" />
-                                            Share
+                                            <Globe size={15} className="text-[var(--accent)]" /> Share resume
                                         </button>
+                                        <div className="my-1 border-t border-[var(--border-color)]" />
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
                                                 resetToDefault();
                                             }}
-                                            className="flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition-colors w-full text-left uppercase tracking-widest"
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-red-500 hover:bg-red-500/10"
                                         >
-                                            <RotateCcw size={16} />
-                                            Reset All
+                                            <RotateCcw size={15} /> Reset document
                                         </button>
-                                        <div className="px-3 py-2.5 flex items-center justify-between border-t border-[var(--border-color)] mt-1">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">Theme</span>
+                                        <div className="mt-1 flex items-center justify-between border-t border-[var(--border-color)] px-3 pb-1 pt-2.5">
+                                            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Appearance</span>
                                             <ThemeToggle compact />
                                         </div>
                                     </div>
-                                </div>
                             </>
                         )}
+                        </div>
                     </div>
-
-                    <div className="w-px h-6 bg-[var(--border-color)] hidden md:block mx-1 shrink-0"></div>
-
-                    {/* Primary Actions - Always Visible */}
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="w-10 h-10 md:w-auto md:px-3 md:py-2 flex items-center justify-center gap-2 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 border border-purple-500/20 rounded-xl font-bold uppercase tracking-widest shadow-sm disabled:opacity-50 transition-all active:scale-95"
-                        title="Save Changes"
-                    >
-                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        <span className="hidden md:inline text-[10px]">{isSaving ? 'Saving...' : 'Save'}</span>
-                    </button>
-
-                    <button
-                        onClick={handleDownload}
-                        disabled={isGenerating}
-                        className="w-10 h-10 sm:w-auto sm:px-4 md:px-6 flex items-center justify-center gap-2 md:gap-3 text-[10px] md:text-xs bg-[var(--text-main)] hover:opacity-90 text-[var(--bg-main)] rounded-xl font-bold uppercase tracking-[0.1em] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl active:scale-95 transition-all"
-                    >
-                        {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                        <span className="hidden sm:inline">{isGenerating ? 'Generating...' : 'Download'}</span>
-                    </button>
                 </div>
             </Navbar>
 
-            {/* Hidden resume for generation */}
-            < div className="absolute top-0 left-0 -z-50 invisible h-0 w-0 overflow-hidden" >
-                <ResumePreview
-                    data={data}
-                    id="resume-preview-for-generation"
-                    isEditable={false}
-
-                />
-            </div >
-
-            {/* Main Content - Single Pane Layout */}
-            < main className="flex flex-1 overflow-hidden bg-[var(--bg-main)] relative items-stretch" >
-                <div className="flex-1 flex flex-col relative overflow-hidden">
-                    {/* Desktop Toolbar */}
-                    {activeTab === 'editor' && <div className="hidden md:block"><EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} /></div>}
-
-                    {activeTab === 'editor' && !showRecruiterAI && (
-                        <button
-                            onClick={() => setShowRecruiterAI(true)}
-                            className="hidden xl:flex fixed right-8 bottom-8 z-50 h-14 min-w-[196px] bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl shadow-[var(--shadow)] items-center gap-3 px-4 active:scale-95 hover:border-[var(--accent)]/40 hover:bg-[var(--bg-input)] transition-all group overflow-visible"
-                            aria-label="Tailor resume for a job"
-                        >
-                            <div className="absolute inset-0 rounded-[18px] overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 w-1 bg-[var(--accent)] opacity-80" />
+            <main className="relative flex flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
+                {activeTab === 'editor' && (
+                    <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] lg:flex xl:w-64">
+                        <div className="border-b border-[var(--border-color)] px-5 py-5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Your workspace</p>
+                            <h2 className="mt-1.5 truncate font-serif-ed text-2xl leading-tight text-[var(--text-main)]">{documentTitle}</h2>
+                            <div className="mt-4 flex items-center justify-between text-[11px] font-medium">
+                                <span className="text-[var(--text-muted)]">Profile details</span>
+                                <span className="text-[var(--text-main)]">{profileCompletion}%</span>
                             </div>
-                            <div className="absolute right-0 bottom-[calc(100%+10px)] w-64 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 text-left text-[var(--text-main)] shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0 transition-all duration-200">
-                                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">How it works</div>
-                                <div className="mt-2 space-y-1.5 text-[11px] font-semibold leading-snug">
-                                    <div>1. Paste a job description</div>
-                                    <div>2. AI finds missing keywords and gaps</div>
-                                    <div>3. Apply targeted resume edits</div>
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-input)]">
+                                <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${profileCompletion}%` }} />
+                            </div>
+                        </div>
+
+                        <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                            <div>
+                                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Build</p>
+                                <div className="mt-2 space-y-1">
+                                    <button onClick={() => setShowInfoModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><User size={15} /></span>
+                                        <span className="min-w-0">
+                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Personal details</span>
+                                            <span className="block text-[10px] text-[var(--text-muted)]">Name, links and contact</span>
+                                        </span>
+                                    </button>
+                                    <button onClick={() => setShowSectionTypeModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><FileText size={15} /></span>
+                                        <span className="min-w-0">
+                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Add a section</span>
+                                            <span className="block text-[10px] text-[var(--text-muted)]">{visibleSectionCount} sections visible</span>
+                                        </span>
+                                    </button>
+                                    <button onClick={() => setShowImportModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Download size={15} /></span>
+                                        <span className="min-w-0">
+                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Import resume</span>
+                                            <span className="block text-[10px] text-[var(--text-muted)]">Start from an existing PDF</span>
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
-                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent)]/20">
-                                <Zap size={18} className="group-hover:rotate-12 transition-transform" />
-                            </span>
-                            <span className="relative flex flex-col items-start leading-none">
-                                <span className="text-[11px] font-black uppercase tracking-[0.18em]">Tailor for Job</span>
-                                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Paste JD {'>'} apply edits</span>
-                            </span>
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--accent)] rounded-full border-2 border-[var(--bg-main)] animate-pulse" />
-                        </button>
+
+                            <div>
+                                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Improve</p>
+                                <button
+                                    onClick={() => setShowTailoredApplication(true)}
+                                    className="mt-2 w-full rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)]/40 hover:shadow-sm"
+                                >
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm"><Zap size={17} /></span>
+                                    <span className="mt-3 block text-sm font-semibold text-[var(--text-main)]">Tailor for a job</span>
+                                    <span className="mt-1 block text-[11px] leading-relaxed text-[var(--text-muted)]">Compare against a job description and apply focused edits.</span>
+                                    <span className="mt-3 block text-[10px] font-semibold text-[var(--accent)]">Create application package →</span>
+                                </button>
+                                <button onClick={() => setShowCoverLetterGenerator(true)} className="mt-2 flex w-full items-center gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Mail size={15} /></span>
+                                    <span className="min-w-0">
+                                        <span className="block text-xs font-semibold text-[var(--text-main)]">Generate cover letter</span>
+                                        <span className="block text-[10px] leading-4 text-[var(--text-muted)]">Use this resume and a job description</span>
+                                    </span>
+                                </button>
+                                <button onClick={() => setShowRecruiterAI(true)} className="mt-2 w-full rounded-xl px-3 py-2 text-left text-[10px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
+                                    Run an advanced recruiter audit →
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-[var(--border-color)] px-5 py-4">
+                            <p className="text-[10px] leading-relaxed text-[var(--text-muted)]">Tip: click directly on the resume to edit. Your layout updates as you type.</p>
+                        </div>
+                    </aside>
+                )}
+
+                <div className="flex-1 flex flex-col relative overflow-hidden">
+                    {activeTab === 'editor' && (
+                        <div className="absolute inset-x-0 top-0 z-[55] hidden h-20 items-center justify-center border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-4 backdrop-blur-xl md:flex">
+                            <EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} />
+                        </div>
                     )}
 
-                    {/* Mobile Bottom Toolbar Spacer to prevent content overlapping */}
                     {activeTab === 'editor' && (
-                        <div className="block xl:hidden fixed bottom-28 right-4 z-50 flex flex-col gap-4">
-                            {/* Premium HUD FAB for AI Cockpit */}
-                            <button
-                                onClick={() => setShowRecruiterAI(true)}
-                                className="h-14 w-[180px] max-w-[calc(100vw-2rem)] bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl shadow-[var(--shadow)] flex items-center gap-2.5 px-3 active:scale-90 hover:border-[var(--accent)]/40 transition-all group relative overflow-hidden"
-                                aria-label="Tailor resume for a job"
-                            >
-                                <div className="absolute inset-y-0 left-0 w-1 bg-[var(--accent)] opacity-80" />
-                                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent)]/20">
-                                    <Zap size={18} className="group-hover:rotate-12 transition-transform" />
-                                </span>
-                                <span className="relative flex min-w-0 flex-col items-start leading-none">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.14em]">Tailor for Job</span>
-                                    <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">Paste JD {'>'} edits</span>
-                                </span>
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--accent)] rounded-full border-2 border-[var(--bg-main)] animate-pulse" />
-                            </button>
-
-                            <button
-                                onClick={() => setShowSectionTypeModal(true)}
-                                className="w-14 h-14 bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-[20px] shadow-2xl flex items-center justify-center active:scale-95 transition-all relative"
-                            >
-                                <div className="absolute inset-0 rounded-[20px] animate-ping bg-[var(--accent)] opacity-5 pointer-events-none"></div>
-                                <span className="text-3xl font-light mb-1 opacity-60">+</span>
-                            </button>
+                        <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-[var(--border-color)] bg-[var(--glass-bg-strong)] p-1.5 shadow-2xl backdrop-blur-xl lg:hidden">
+                            <button onClick={() => setShowInfoModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><User size={15} /> Details</button>
+                            <button onClick={() => setShowSectionTypeModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><FileText size={15} /> Add</button>
+                            <button onClick={() => setShowTailoredApplication(true)} className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-[11px] font-semibold text-white"><Zap size={15} /> Tailor</button>
                         </div>
                     )}
 
                     {/* Mobile Top Toolbar (Unified for editing context) */}
                     {activeTab === 'editor' && (
-                        <div className="md:hidden sticky top-0 left-0 right-0 z-[55] bg-[var(--bg-main)] border-b border-[var(--border-color)] px-3 py-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
+                        <div className="sticky left-0 right-0 top-0 z-[55] border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-2 py-2 backdrop-blur-xl md:hidden">
                             <EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} isMobile={true} />
                         </div>
                     )}
                     {activeTab === 'editor' && (
-                        <div className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center bg-[var(--bg-main)] scroll-smooth pt-4 md:pt-24 pb-32" style={{ overscrollBehaviorY: 'contain' }}>
+                        <div className="workspace-canvas flex h-full w-full flex-col items-center overflow-x-hidden overflow-y-auto scroll-smooth pb-32 pt-3 md:pt-24" style={{ overscrollBehaviorY: 'contain' }}>
                             {/* Mobile-optimized Container - Fits Width Automatically */}
-                            <div className="w-full md:w-auto relative mt-4 md:mt-8 px-2 md:px-0 flex justify-center">
+                            <div className="relative mt-2 flex w-full justify-center px-2 md:mt-8 md:w-auto md:px-0">
                                 {/* Only apply transform scale on non-mobile, on mobile we use CSS Zoom or Width constraints */}
-                                <div className="hidden md:block scale-[0.8] md:scale-[0.95] lg:scale-[1.08] xl:scale-[1.12] origin-top transition-transform duration-300">
+                                <div className="hidden origin-top scale-[0.88] transition-transform duration-300 md:block lg:scale-[0.9] xl:scale-[0.98] 2xl:scale-[1.04]">
                                     <ResumePreview
                                         data={data}
                                         id="resume-preview-content"
@@ -699,12 +697,6 @@ function ResumeBuilderContent() {
                         onRequireAuth={() => setShowLoginModal(true)}
                     />
 
-                    <CoverLetterModal
-                        isOpen={showCoverLetterModal}
-                        onClose={() => setShowCoverLetterModal(false)}
-                        resume={data}
-                    />
-
                     {showGuidanceModal && (
                         <CareerGuidanceModal
                             isOpen={showGuidanceModal}
@@ -713,20 +705,19 @@ function ResumeBuilderContent() {
                             insights={guidanceInsights}
                             auditResult={guidanceAuditResult}
                             onFixAll={() => {
-                                setShowAutoOptimize(true);
-                                setShowOptimizeModal(true);
+                                setShowTailoredApplication(true);
                             }}
                         />
                     )}
 
                     {/* PDF Preview Mode */}
                     {activeTab === 'preview' && (
-                        <div className="w-full h-full bg-[var(--bg-main)] overflow-y-auto p-4 md:p-8 flex justify-center">
-                            <div className="w-full h-full max-w-[210mm] flex flex-col shadow-2xl">
+                        <div className="workspace-canvas flex h-full w-full justify-center overflow-y-auto p-3 md:p-8">
+                            <div className="flex h-full w-full max-w-[210mm] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] shadow-2xl">
                                 {pdfPreviewUrl ? (
                                     <iframe
                                         src={pdfPreviewUrl}
-                                        className="w-full flex-1 rounded-lg bg-white"
+                                        className="w-full flex-1 bg-white"
                                         title="PDF Preview"
                                     />
                                 ) : (
@@ -810,8 +801,16 @@ function ResumeBuilderContent() {
                         </div>
                     </div>
                 )}
-            </main >
+            </main>
 
+            <TailoredApplicationReview
+                isOpen={showTailoredApplication}
+                onClose={() => setShowTailoredApplication(false)}
+            />
+            <StandaloneCoverLetterModal
+                isOpen={showCoverLetterGenerator}
+                onClose={() => setShowCoverLetterGenerator(false)}
+            />
             <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
             <LoginModal />
         </div >

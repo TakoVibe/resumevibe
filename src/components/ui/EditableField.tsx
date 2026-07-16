@@ -72,9 +72,9 @@ export function EditableField({
     const containerClasses = [
         className,
         isEditable ? 'rounded-sm transition-[opacity,outline,background-color] duration-200 cursor-text' : '',
-        isFocused ? 'outline outline-2 outline-blue-500/30 z-10 relative' : '',
+        isFocused ? 'outline outline-2 outline-[var(--accent)]/30 z-10 relative' : '',
         !value && isEditable ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400' : '',
-        '[&_a]:!underline [&_a]:underline-offset-2 [&_a]:text-blue-600 [&_a]:cursor-pointer [&_a]:relative'
+        '[&_a]:!underline [&_a]:underline-offset-2 [&_a]:text-[var(--accent)] [&_a]:cursor-pointer [&_a]:relative'
     ].join(' ');
 
     const handleBlur = React.useCallback((e: React.FocusEvent<HTMLElement>) => {
@@ -325,7 +325,7 @@ export function EditableField({
                                 type={aiProps!.type}
                                 context={aiProps!.context}
                                 onAccept={onSave}
-                                className="shadow-lg shadow-purple-900/10 border border-purple-200"
+                                className="border border-[var(--accent)]/20 shadow-lg"
                             />
                         )}
                         {actions && (

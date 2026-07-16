@@ -15,6 +15,7 @@ import { EditableField } from './ui/EditableField';
 import { Plus, Type, Eye, AlertTriangle } from 'lucide-react';
 import { THEME_PRESETS } from '../styles/themes';
 import { useTheme } from '../context/ThemeContext';
+import { MOBILE_RESUME_PADDING, RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
 
 interface Props {
     data: ResumeSchema;
@@ -141,48 +142,11 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
 
     const { isDarkMode } = useTheme();
 
-    // Map margins to padding
-    const marginMap = {
-        compact: '30pt', // 0.4in
-        narrow: '40pt',
-        standard: '50pt', // 0.7in
-        wide: '60pt',
-        relaxed: '72pt'  // 1in
-    };
-    const mobilePaddingMap = {
-        compact: '12px',
-        narrow: '16px',
-        standard: '20px',
-        wide: '28px',
-        relaxed: '32px'
-    };
-    const marginKey = data.config?.margins || (isSinglePage ? 'compact' : 'standard');
+    const marginKey = resolveResumeMarginKey(data.config?.margins, isSinglePage);
     const padding = isMobile
-        ? (mobilePaddingMap[marginKey] || '20px')
-        : (marginMap[marginKey] || '50pt');
-    const singlePagePaddingMap = {
-        compact: {
-            sidebar: '26pt 18pt 24pt 20pt',
-            main: '30pt 30pt 26pt 30pt'
-        },
-        narrow: {
-            sidebar: '29pt 20pt 26pt 22pt',
-            main: '33pt 34pt 28pt 34pt'
-        },
-        standard: {
-            sidebar: '32pt 23pt 28pt 24pt',
-            main: '36pt 38pt 30pt 36pt'
-        },
-        wide: {
-            sidebar: '36pt 26pt 32pt 28pt',
-            main: '42pt 44pt 36pt 42pt'
-        },
-        relaxed: {
-            sidebar: '40pt 30pt 36pt 32pt',
-            main: '48pt 50pt 42pt 48pt'
-        }
-    };
-    const singlePagePadding = singlePagePaddingMap[marginKey as keyof typeof singlePagePaddingMap] || singlePagePaddingMap.compact;
+        ? MOBILE_RESUME_PADDING[marginKey]
+        : RESUME_MARGIN_PADDING[marginKey];
+    const singlePagePadding = SINGLE_PAGE_PADDING[marginKey];
     const singlePageBase = Number(baseFontSize) || 10;
 
     const theme = THEME_PRESETS.standard;
@@ -316,14 +280,14 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
             if (!isEditable) return null;
 
             return (
-                <div key={key} className="mb-4 p-2 border-2 border-dashed border-gray-200 rounded flex items-center justify-between text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all bg-gray-50/50 print:hidden group/hidden">
-                    <span className="text-sm font-medium italic flex items-center gap-2">
+                <div key={key} className="resume-editor-hidden print:hidden group/hidden">
+                    <span className="flex items-center gap-2 font-medium">
                         <Eye size={14} /> {sectionTitle} (Hidden)
                     </span>
                     <div className="flex gap-2">
                         <button
                             onClick={() => unhideSection(key)}
-                            className="text-xs bg-white border border-gray-200 px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 font-medium shadow-sm transition-colors flex items-center gap-1"
+                            className="transition-colors"
                             title="Show Section"
                         >
                             <Eye size={12} /> Show Section
@@ -731,14 +695,14 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                         else sectionTitle = SECTION_LABELS[key] || sectionTitle;
 
                         return (
-                            <div key={key} className="mb-4 p-2 border-2 border-dashed border-gray-200 rounded flex items-center justify-between text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all bg-gray-50/50 print:hidden group/hidden">
-                                <span className="text-sm font-medium italic flex items-center gap-2">
+                            <div key={key} className="resume-editor-hidden print:hidden group/hidden">
+                                <span className="flex items-center gap-2 font-medium">
                                     <Eye size={14} /> {sectionTitle} (Hidden)
                                 </span>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => unhideSection(key)}
-                                        className="text-xs bg-white border border-gray-200 px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 font-medium shadow-sm transition-colors flex items-center gap-1"
+                                        className="transition-colors"
                                         title="Show Section"
                                     >
                                         <Eye size={12} /> Show Section

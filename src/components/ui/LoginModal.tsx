@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Lock, Loader2 } from "lucide-react";
+import React from "react";
+import { Lock, X } from "lucide-react";
 import { GoogleLogin } from "../GoogleLogin";
 
 export function LoginModal() {
@@ -14,29 +14,35 @@ export function LoginModal() {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--text-main)]/10 backdrop-blur-sm animate-in fade-in duration-300 font-sans-ed">
-            <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] rounded-sm shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 group">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="rv-modal-backdrop absolute inset-0" onClick={() => setIsOpen(false)} />
+            <div className="rv-modal relative w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
 
-                <div className="relative p-10 h-full flex flex-col items-center text-center">
+                <button onClick={() => setIsOpen(false)} className="absolute right-4 top-4 rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]" aria-label="Close login dialog">
+                    <X size={17} />
+                </button>
 
-                    <div className="relative mb-8">
-                        <div className="w-16 h-16 border border-[var(--text-main)] flex items-center justify-center bg-[var(--text-main)]/5">
-                            <Lock className="w-6 h-6 text-[var(--text-main)] font-light" strokeWidth={1} />
+                <div className="relative flex h-full flex-col items-center p-7 text-center sm:p-9">
+
+                    <div className="relative mb-5">
+                        <div className="rv-icon-tile h-12 w-12">
+                            <Lock className="h-5 w-5" strokeWidth={1.5} />
                         </div>
                     </div>
 
-                    <h2 className="font-serif-ed text-4xl text-[var(--text-main)] mb-4 tracking-tight">Unlock Access</h2>
-                    <p className="mb-10 text-[var(--text-muted)] text-[10px] uppercase tracking-[0.2em] leading-loose px-2">
-                        Sign in to save your progress, create multiple versions, and share your resume with the world.
+                    <p className="rv-kicker">ResumeVibe account</p>
+                    <h2 id="login-modal-title" className="mb-3 mt-1 font-serif-ed text-3xl text-[var(--text-main)]">Continue to your workspace</h2>
+                    <p className="mb-7 px-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                        Sign in to save versions, share your resume, and return directly to your first saved document.
                     </p>
 
-                    <div className="w-full flex justify-center mb-8">
+                    <div className="mb-5 flex w-full justify-center">
                         <GoogleLogin />
                     </div>
 
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="text-[9px] uppercase tracking-[0.2em] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors py-3 px-8 border border-transparent hover:border-[var(--text-main)]"
+                        className="rv-button-quiet"
                     >
                         Close
                     </button>

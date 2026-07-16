@@ -374,7 +374,7 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
                                         <li className="flex justify-center mt-1 opacity-40 hover:opacity-100 group-hover/item-content:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => addMetric(project.id)}
-                                                className="text-[9pt] text-[var(--accent)] hover:underline flex items-center gap-1"
+                                                className="resume-editor-add-inline"
                                             >
                                                 <Plus size={12} /> Add Point
                                             </button>
@@ -391,7 +391,7 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
                 <button
                     onClick={addItem}
                     aria-label="Add new project"
-                    className="mt-6 w-full py-3 bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--accent)] border border-dashed border-[var(--border-color)] hover:border-[var(--accent)]/50 rounded-2xl flex items-center justify-center gap-2.5 font-bold uppercase tracking-widest text-[10px] group"
+                    className="resume-editor-add group"
                 >
                     <div className="p-1 bg-[var(--bg-card)] rounded-lg group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
                         <Plus size={14} />

@@ -17,6 +17,23 @@ export function GoogleLogin() {
     // Use isDarkTheme logic if needed, or pass as prop
     const buttonRef = useRef<HTMLDivElement>(null);
 
+    const redirectToFirstResume = async () => {
+        try {
+            const response = await api.get('/api/resumes/');
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            const resumes = Array.isArray(payload) ? payload : (payload.results || []);
+            const firstResume = resumes[0];
+            if (firstResume?.slug) {
+                window.location.assign(`/?edit=${encodeURIComponent(firstResume.slug)}`);
+            }
+        } catch (error) {
+            // Authentication succeeded; a resume-list failure should not block login.
+            console.error('Could not redirect to the first resume:', error);
+        }
+    };
+
     useEffect(() => {
         if (user) return;
 
@@ -59,6 +76,7 @@ export function GoogleLogin() {
                                 const data = await res.json();
                                 login(data.data.auth_token, data.data.user);
                                 toast.success("Successfully logged in!");
+                                await redirectToFirstResume();
                             } else {
                                 console.error("Authentication failed");
                                 toast.error("Login failed. Please try again.");
@@ -75,13 +93,13 @@ export function GoogleLogin() {
                 window.google.accounts.id.renderButton(
                     buttonRef.current,
                     {
-                        theme: "filled_blue",
+                        theme: "outline",
                         size: "large",
                         type: "standard",
-                        shape: "pill",
-                        text: "signin_with",
+                        shape: "rectangular",
+                        text: "continue_with",
                         logo_alignment: "left",
-                        width: 250
+                        width: 300
                     }
                 );
             }

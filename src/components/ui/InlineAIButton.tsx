@@ -88,27 +88,27 @@ export function InlineAIButton({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/60 z-[9999] print:hidden backdrop-blur-md transition-opacity"
+                className="rv-modal-backdrop fixed inset-0 z-[9999] print:hidden transition-opacity"
                 onClick={handleReject}
             />
 
             {/* Floating Modal */}
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[90%] max-w-2xl print:hidden animate-in fade-in zoom-in-95 duration-200">
-                <div className="bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow)] border border-[var(--border-color)] overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="rv-modal flex max-h-[90vh] flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)] bg-gradient-to-br from-purple-500/10 to-transparent">
+                    <div className="flex items-center justify-between border-b border-[var(--border-color)] p-5 sm:p-6">
                         <div className="flex items-center gap-4">
-                            <div className="p-2.5 bg-purple-600 rounded-xl shadow-lg shadow-purple-900/20">
-                                <Sparkles className="text-white" size={20} />
+                            <div className="rv-icon-tile">
+                                <Sparkles size={18} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-[var(--text-main)] tracking-tight">Smart Enhancement</h3>
-                                <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5 tracking-wide">Review and apply high-impact suggestions</p>
+                                <p className="rv-kicker">AI writing assist</p>
+                                <h3 className="mt-1 font-serif-ed text-2xl leading-none text-[var(--text-main)]">Review suggestion</h3>
                             </div>
                         </div>
                         <button
                             onClick={handleReject}
-                            className="text-[var(--text-muted)] hover:text-[var(--text-main)] p-2 hover:bg-[var(--bg-input)] rounded-full transition-all active:scale-90"
+                            className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]"
                             title="Close"
                         >
                             <X size={20} />
@@ -120,8 +120,8 @@ export function InlineAIButton({
                         <div className="grid md:grid-cols-2 gap-6">
                             {/* Original */}
                             <div className="space-y-3">
-                                <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Original</p>
-                                <div className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl p-5 h-full min-h-[160px] shadow-inner text-[var(--text-main)]">
+                                <p className="rv-kicker !text-[var(--text-muted)]">Original</p>
+                                <div className="h-full min-h-[160px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-5 text-[var(--text-main)]">
                                     <p
                                         className="text-sm leading-relaxed whitespace-pre-wrap opacity-80 font-medium"
                                         dangerouslySetInnerHTML={{ __html: text }}
@@ -131,15 +131,12 @@ export function InlineAIButton({
 
                             {/* Optimized */}
                             <div className="space-y-3">
-                                <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] flex items-center gap-1.5 ml-1">
-                                    <Sparkles size={12} className="animate-pulse" /> Suggested
+                                <p className="rv-kicker flex items-center gap-1.5">
+                                    <Sparkles size={12} /> Suggested
                                 </p>
-                                <div className="bg-purple-500/[0.03] border-2 border-purple-500/20 rounded-xl p-5 h-full min-h-[160px] ring-4 ring-purple-500/[0.02] shadow-sm relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity">
-                                        <Sparkles size={24} className="text-purple-500" />
-                                    </div>
+                                <div className="relative h-full min-h-[160px] overflow-hidden rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)] p-5">
                                     <p
-                                        className="text-sm leading-relaxed font-bold text-[var(--text-main)] whitespace-pre-wrap relative z-10"
+                                        className="relative z-10 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[var(--text-main)]"
                                         dangerouslySetInnerHTML={{ __html: optimizedText || '' }}
                                     />
                                 </div>
@@ -150,13 +147,13 @@ export function InlineAIButton({
                         <div className="flex gap-4 justify-end pt-4 border-t border-[var(--border-color)]">
                             <button
                                 onClick={handleReject}
-                                className="px-6 py-2.5 text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-input)] rounded-xl transition-all active:scale-95"
+                                className="rv-button-quiet"
                             >
                                 Discard
                             </button>
                             <button
                                 onClick={handleAccept}
-                                className="flex items-center gap-2 px-8 py-2.5 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl font-black text-sm transition-all shadow-xl shadow-purple-900/20 active:scale-95"
+                                className="rv-button-primary"
                             >
                                 <Check size={18} />
                                 Apply Changes
@@ -172,13 +169,13 @@ export function InlineAIButton({
         <button
             onClick={handleOptimize}
             disabled={isOptimizing || !text.trim()}
-            className={`flex items-center justify-center p-2 bg-white hover:bg-purple-50 text-[var(--text-main)] rounded-lg shadow-lg shadow-purple-900/5 active:scale-95 transition-all border border-purple-100 ${isOptimizing ? 'opacity-80' : ''} disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+            className={`flex items-center justify-center rounded-lg border border-[var(--accent)]/20 bg-white p-2 text-[var(--accent)] shadow-sm transition hover:bg-[var(--accent-subtle)] ${isOptimizing ? 'opacity-80' : ''} disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
             title="Enhance with AI"
         >
             {isOptimizing ? (
-                <Loader2 size={14} className="animate-spin text-purple-600" />
+                <Loader2 size={14} className="animate-spin" />
             ) : (
-                <Sparkles size={14} className="text-purple-600 fill-purple-600/10" />
+                <Sparkles size={14} />
             )}
         </button>
     );

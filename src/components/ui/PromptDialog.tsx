@@ -53,13 +53,14 @@ export function PromptDialog({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-left">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                className="rv-modal-backdrop absolute inset-0 transition-opacity"
                 onClick={onCancel}
             />
 
             {/* Dialog Panel */}
-            <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-[var(--shadow)] w-full max-w-sm p-8 transform transition-all scale-100 opacity-100 border border-[var(--border-color)] animate-in fade-in zoom-in-95 duration-300">
-                <h3 className="text-xl font-bold text-[var(--text-main)] mb-6 tracking-tight">
+            <div className="rv-modal relative w-full max-w-sm p-6 opacity-100 animate-in fade-in zoom-in-95 duration-200 sm:p-7">
+                <p className="rv-kicker">Resume editor</p>
+                <h3 className="mb-5 mt-1 font-serif-ed text-2xl text-[var(--text-main)]">
                     {title}
                 </h3>
 
@@ -70,20 +71,20 @@ export function PromptDialog({
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                         placeholder={placeholder}
-                        className="w-full px-4 py-3 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-4 focus:ring-[var(--accent)]/10 focus:border-[var(--accent)]/40 mb-8 text-[var(--text-main)] placeholder:text-[var(--text-muted)]/50 transition-all font-medium"
+                        className="rv-field mb-6 w-full px-4 py-3 text-sm placeholder:text-[var(--text-muted)]/50"
                     />
 
                     <div className="flex justify-end gap-3">
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onCancel(); }}
-                            className="px-6 py-2.5 text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                            className="rv-button-quiet"
                         >
                             {cancelText}
                         </button>
                         <button
                             type="submit"
-                            className="px-6 py-2.5 text-sm font-bold text-white bg-[var(--accent)] rounded-xl hover:bg-[var(--accent-hover)] transition-all active:scale-95 shadow-lg shadow-purple-500/20"
+                            className="rv-button-primary"
                         >
                             {confirmText}
                         </button>

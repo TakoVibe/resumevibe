@@ -163,7 +163,7 @@ export function CustomSection({ sectionData, isEditable = false, onUpdate, showS
             {isEditable && (
                 <button
                     onClick={addItem}
-                    className="mt-2 w-full py-1.5 border-2 border-dashed border-gray-200 rounded text-sm text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors flex items-center justify-center gap-1"
+                    className="resume-editor-add"
                 >
                     <Plus size={14} /> Add Item
                 </button>

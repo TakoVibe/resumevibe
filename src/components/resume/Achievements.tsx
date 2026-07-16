@@ -202,7 +202,7 @@ export function Achievements({ achievements, isEditable = false, onUpdate, title
             {isEditable && (
                 <button
                     onClick={addItem}
-                    className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-500 flex items-center justify-center gap-2 transition-colors"
+                    className="resume-editor-add"
                 >
                     <Plus size={16} /> Add Achievement
                 </button>

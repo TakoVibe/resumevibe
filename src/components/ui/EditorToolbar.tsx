@@ -56,8 +56,8 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
     ];
 
     const containerClasses = isMobile
-        ? "w-full grid grid-cols-2 gap-3 p-1 bg-[var(--bg-main)] overflow-visible"
-        : "absolute top-4 left-1/2 -translate-x-1/2 z-[55] w-fit max-w-[calc(100vw-2rem)] bg-[var(--glass-bg-strong)] backdrop-blur-xl border border-[var(--glass-border)] rounded-2xl px-2 py-1.5 flex items-center justify-center gap-2 select-none animate-in fade-in slide-in-from-top-4 duration-500 overflow-visible";
+        ? "no-scrollbar flex w-full items-center gap-2 overflow-x-auto"
+        : "flex w-fit max-w-full items-center justify-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-card)] px-2 py-1.5 shadow-sm select-none";
 
     const btnClass = "p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-main)] rounded-lg transition-colors";
 
@@ -65,31 +65,31 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
         <div className={containerClasses} style={!isMobile ? { boxShadow: 'var(--shadow)' } : undefined}>
 
             {/* Formatting Group */}
-            <div className={`flex h-10 items-center gap-0.5 px-1 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] ${isMobile ? 'justify-around' : 'shrink-0'}`}>
+            <div className="flex h-10 shrink-0 items-center gap-0.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] px-1">
                 <button
                     onMouseDown={(e) => { e.preventDefault(); exec('bold'); }}
-                    className={`${btnClass} ${isMobile ? 'flex-1 flex justify-center' : ''}`}
+                    className={btnClass}
                     title="Bold"
                 >
                     <Bold size={15} />
                 </button>
                 <button
                     onMouseDown={(e) => { e.preventDefault(); exec('italic'); }}
-                    className={`${btnClass} ${isMobile ? 'flex-1 flex justify-center' : ''}`}
+                    className={btnClass}
                     title="Italic"
                 >
                     <Italic size={15} />
                 </button>
                 <div className="w-px h-4 bg-[var(--border-color)] mx-0.5"></div>
                 <div
-                    className={`p-2 text-[var(--text-muted)] opacity-40 cursor-help ${isMobile ? 'flex-1 flex justify-center' : ''}`}
+                    className="cursor-help p-2 text-[var(--text-muted)] opacity-40"
                     title="Press Ctrl+K to add link"
                 >
                     <Keyboard size={15} />
                 </div>
                 <button
                     onMouseDown={(e) => { e.preventDefault(); exec('insertUnorderedList'); }}
-                    className={`${btnClass} ${isMobile ? 'flex-1 flex justify-center' : ''}`}
+                    className={btnClass}
                     title="Bullet List"
                 >
                     <List size={15} />
@@ -97,9 +97,9 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
             </div>
 
             {/* Add Section */}
-            <div className={`flex items-center ${isMobile ? 'w-full' : 'shrink-0'}`}>
+            <div className="flex shrink-0 items-center">
                 <button
-                    className={`${isMobile ? 'flex-[3]' : 'px-4'} h-10 flex items-center justify-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors`}
+                    className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-[11px] font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
                     style={{ boxShadow: '0 2px 8px var(--accent-glow)' }}
                     onClick={onAddSection}
                 >
@@ -109,31 +109,31 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
             </div>
 
             {/* Typography Group */}
-            <div className={`flex h-10 items-center gap-1 px-1.5 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] ${isMobile ? 'w-full justify-between' : 'shrink-0'}`}>
+            <div className="flex h-10 shrink-0 items-center gap-1 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] px-1.5">
                 <CustomSelect
                     value={config.fontFamily || 'Inter'}
                     options={fontOptions}
                     onChange={(val) => updateConfig('fontFamily', val)}
                     icon={<Type size={13} />}
-                    className={isMobile ? "flex-1 min-w-0" : "min-w-[124px]"}
+                    className="min-w-[124px]"
                 />
                 <div className="w-px h-4 bg-[var(--border-color)]"></div>
                 <CustomSelect
                     value={config.baseFontSize || 10}
                     options={fontSizeOptions}
                     onChange={(val) => updateConfig('baseFontSize', val)}
-                    className={isMobile ? "w-14" : "min-w-[60px]"}
+                    className="min-w-[60px]"
                 />
             </div>
 
             {/* Layout Group */}
-            <div className={`flex h-10 items-center gap-1 px-1.5 bg-[var(--bg-input)] rounded-xl border border-[var(--border-color)] ${isMobile ? 'w-full' : 'shrink-0'}`}>
+            <div className="flex h-10 shrink-0 items-center gap-1 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] px-1.5">
                 <CustomSelect
                     value={config.documentMode || 'standard'}
                     options={documentModeOptions}
                     onChange={(val) => updateDocumentMode(val)}
                     icon={<Files size={13} />}
-                    className={isMobile ? "flex-1 min-w-0" : "min-w-[132px]"}
+                    className="min-w-[132px]"
                 />
                 <div className="w-px h-4 bg-[var(--border-color)]"></div>
                 <CustomSelect
@@ -141,7 +141,7 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
                     options={marginOptions}
                     onChange={(val) => updateConfig('margins', val)}
                     icon={<LayoutTemplate size={13} />}
-                    className={isMobile ? "flex-1" : "min-w-[110px]"}
+                    className="min-w-[110px]"
                 />
             </div>
         </div>

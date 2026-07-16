@@ -31,27 +31,29 @@ export function SectionTypeDialog({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                className="rv-modal-backdrop absolute inset-0 transition-opacity"
                 onClick={onClose}
             />
 
             {/* Dialog Panel */}
-            <div className="relative bg-[var(--bg-card)] rounded-3xl shadow-[var(--shadow)] w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-[var(--border-color)]">
-                <div className="p-8 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-card)]/30 backdrop-blur-md">
+            <div className="rv-modal relative w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-labelledby="add-section-title">
+                <div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-5 sm:px-7 sm:py-6">
                     <div>
-                        <h3 className="text-2xl font-bold text-[var(--text-main)] tracking-tight">Add Section</h3>
-                        <p className="text-sm font-medium text-[var(--text-muted)] mt-1 opacity-80">Enhance your professional story with new blocks</p>
+                        <p className="rv-kicker">Resume structure</p>
+                        <h3 id="add-section-title" className="mt-1 font-serif-ed text-3xl leading-none text-[var(--text-main)]">Add a section</h3>
+                        <p className="mt-2 text-xs text-[var(--text-muted)]">Choose the next block in your professional story.</p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-3 bg-[var(--bg-input)] hover:bg-[var(--bg-input)]/80 rounded-2xl transition-all text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                        className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]"
+                        aria-label="Close section dialog"
                     >
-                        <Plus size={24} className="rotate-45" />
+                        <Plus size={18} className="rotate-45" />
                     </button>
                 </div>
 
-                <div className="p-8 max-h-[70vh] overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="max-h-[70vh] overflow-y-auto p-5 sm:p-7">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         {sections.map((section) => {
                             const Icon = section.icon;
 
@@ -62,16 +64,16 @@ export function SectionTypeDialog({
                                         onSelect(section.id, section.label);
                                         onClose();
                                     }}
-                                    className="flex items-start gap-4 p-5 rounded-2xl border text-left transition-all duration-300 group bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--accent)] hover:shadow-xl hover:shadow-[var(--accent)]/5 hover:translate-y-[-2px] cursor-pointer"
+                                    className="group flex items-start gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 text-left transition hover:border-[var(--accent)]/50 hover:bg-[var(--accent-subtle)]"
                                 >
-                                    <div className="p-4 rounded-xl bg-[var(--bg-input)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white group-hover:scale-110 transition-all duration-300">
-                                        <Icon size={24} />
+                                    <div className="rv-icon-tile h-9 w-9">
+                                        <Icon size={16} />
                                     </div>
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-[var(--text-main)] text-sm tracking-tight leading-none mb-1.5 transition-colors group-hover:text-[var(--accent)]">
+                                        <h4 className="mb-1 text-xs font-semibold leading-none text-[var(--text-main)]">
                                             {section.label}
                                         </h4>
-                                        <p className="text-[11px] font-medium text-[var(--text-muted)] leading-relaxed opacity-80">
+                                        <p className="text-[10px] leading-relaxed text-[var(--text-muted)]">
                                             {section.description}
                                         </p>
                                     </div>
@@ -81,8 +83,8 @@ export function SectionTypeDialog({
                     </div>
                 </div>
 
-                <div className="p-4 bg-[var(--bg-main)] border-t border-[var(--border-color)] text-center text-xs text-[var(--text-muted)]">
-                    Pro tip: You can rename custom sections after adding them.
+                <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-3 text-center text-[10px] text-[var(--text-muted)]">
+                    Custom sections can be renamed after they are added.
                 </div>
             </div>
         </div>

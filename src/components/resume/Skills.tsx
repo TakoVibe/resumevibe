@@ -151,7 +151,7 @@ export function Skills({ skills, isEditable = false, onUpdate, title = "Key Skil
                 <button
                     onClick={addSkillGroup}
                     aria-label="Add new skill category"
-                    className="mt-6 w-full py-3 bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--accent)] border border-dashed border-[var(--border-color)] hover:border-[var(--accent)]/50 rounded-2xl flex items-center justify-center gap-2.5 font-bold uppercase tracking-widest text-[10px] group"
+                    className="resume-editor-add group"
                 >
                     <div className="p-1 bg-[var(--bg-card)] rounded-lg group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
                         <Plus size={14} />

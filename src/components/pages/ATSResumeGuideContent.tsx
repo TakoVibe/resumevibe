@@ -1,233 +1,175 @@
 import React from 'react';
-import { AuthOnlyProviders } from '../Providers';
-import { Navbar } from '../ui/Navbar';
-import { Footer } from '../ui/Footer';
 import {
-    ChevronLeft,
-    Shield,
-    CheckCircle,
-    XCircle,
     ArrowRight,
-} from "lucide-react";
+    Check,
+    ChevronLeft,
+    FileCheck2,
+    FileText,
+    Mail,
+    SearchCheck,
+    ShieldCheck,
+    Sparkles,
+    Target,
+} from 'lucide-react';
+import { AuthOnlyProviders } from '../Providers';
+import { Footer } from '../ui/Footer';
+import { Navbar } from '../ui/Navbar';
+
+const foundations = [
+    {
+        number: '01',
+        title: 'Make the document easy to parse',
+        description: 'Use a single reading order, familiar section names, selectable text, and consistent dates. Decorative layouts should never interrupt the resume’s content hierarchy.',
+    },
+    {
+        number: '02',
+        title: 'Lead with evidence, not keyword volume',
+        description: 'Relevant terminology helps only when it is supported by your actual work. Connect skills to responsibilities, outcomes, scope, and tools you can confidently discuss.',
+    },
+    {
+        number: '03',
+        title: 'Tailor for one role at a time',
+        description: 'A strong application prioritizes the evidence that matters for the current job instead of trying to represent every possible direction in one document.',
+    },
+];
+
+const reviewChecks = [
+    'Every metric and outcome already exists in your source resume.',
+    'Tools and skills are attached to experience you can explain in an interview.',
+    'The summary describes demonstrated strengths rather than unsupported requirements.',
+    'The cover letter matches the resume edits you actually approve.',
+];
 
 export function ATSResumeGuideContent() {
     return (
         <AuthOnlyProviders>
             <Navbar>
-                <div className="flex items-center gap-4">
-                    <a
-                        href="/"
-                        className="flex items-center gap-2 px-2 md:px-4 py-2 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors whitespace-nowrap"
-                    >
-                        <ChevronLeft size={16} />
-                        <span className="hidden sm:inline">Back to Editor</span>
-                        <span className="sm:hidden">Back</span>
-                    </a>
-                </div>
+                <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
+                    <ChevronLeft size={14} /> Back to editor
+                </a>
             </Navbar>
 
-            <main className="max-w-5xl mx-auto px-6 py-16 lg:py-24 selection:bg-purple-500/30">
-                <header className="mb-24 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 mb-8">
-                        <Shield size={12} className="text-blue-500" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-500">2026 Labor Market Research</span>
+            <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8 lg:py-20">
+                <header className="grid gap-10 border-b border-[var(--border-color)] pb-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:pb-20">
+                    <div>
+                        <p className="rv-kicker">ResumeVibe expert guide</p>
+                        <h1 className="mt-5 max-w-4xl font-serif-ed text-5xl leading-[0.98] text-[var(--text-main)] sm:text-6xl lg:text-7xl">
+                            Build an application that is clear, relevant, and defensible.
+                        </h1>
+                        <p className="mt-7 max-w-2xl text-base leading-7 text-[var(--text-muted)] sm:text-lg">
+                            ATS compatibility starts with readable structure. A strong application goes further: it connects the job’s requirements to evidence you have already earned, then gives you final control over every proposed change.
+                        </p>
                     </div>
-                    <h1 className="text-4xl lg:text-7xl font-black tracking-tighter mb-8 text-[var(--text-main)] leading-[0.9]">
-                        Algorithmic <span className="text-purple-500">Sovereignty</span> <br />
-                        <span className="text-3xl lg:text-5xl opacity-40">in 2026 Recruitment</span>
-                    </h1>
-                    <p className="text-xl text-[var(--text-muted)] leading-relaxed font-medium max-w-3xl">
-                        The 2026 labor market is defined by a "low-hire, low-fire"
-                        dynamic. With application volumes surging by 250% per role,
-                        Applicant Tracking Systems (ATS) have transitioned from
-                        screening tools to clinical gatekeepers of professional
-                        visibility.
-                    </p>
+                    <div className="rv-panel p-5 sm:p-6">
+                        <div className="flex items-start gap-3">
+                            <span className="rv-icon-tile"><ShieldCheck size={17} /></span>
+                            <div>
+                                <p className="text-sm font-semibold text-[var(--text-main)]">The non-negotiable rule</p>
+                                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Never add a skill, metric, responsibility, or outcome simply because it appears in the job description. Surface unsupported requirements as gaps.</p>
+                            </div>
+                        </div>
+                    </div>
                 </header>
 
-                {/* Macroeconomic Section */}
-                <section className="mb-24">
-                    <div className="flex items-center gap-4 mb-12">
-                        <h2 className="text-xs font-black uppercase tracking-widest text-purple-500">I. The 2026 Economic Framework</h2>
-                        <div className="h-[1px] flex-1 bg-gradient-to-r from-purple-500/50 to-transparent"></div>
+                <section className="py-16 lg:py-24">
+                    <div className="mb-10 max-w-2xl">
+                        <p className="rv-kicker">Part I · Foundations</p>
+                        <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)] sm:text-5xl">What an ATS-friendly resume needs</h2>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        <div className="space-y-6 text-[var(--text-muted)] leading-relaxed font-medium">
-                            <p>
-                                Current economic consumption is disproportionately
-                                buoyed by the top 10% of earners, while middle-income
-                                groups pull back in response to inflation. This "Tale of
-                                Two Economies" has intensified competition for
-                                professional roles.
-                            </p>
-                            <p>
-                                The <strong>"2% Rule"</strong> is now a statistical reality:
-                                only 2-3 out of every 100 applicants successfully navigate
-                                the automated gauntlet to secure an interview. For Fortune
-                                500 roles, AI screening rejects 75% of the pool within 0.3
-                                seconds of submission.
-                            </p>
+                    <div className="grid gap-px overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--border-color)] lg:grid-cols-3">
+                        {foundations.map((item) => (
+                            <article key={item.number} className="bg-[var(--bg-card)] p-6 sm:p-8">
+                                <span className="font-serif-ed text-3xl text-[var(--accent)]">{item.number}</span>
+                                <h3 className="mt-8 text-base font-semibold text-[var(--text-main)]">{item.title}</h3>
+                                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{item.description}</p>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="border-y border-[var(--border-color)] py-16 lg:py-24">
+                    <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+                        <div>
+                            <p className="rv-kicker">Part II · Agent workflow</p>
+                            <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)] sm:text-5xl">Tailor the complete application together</h2>
+                            <p className="mt-5 text-sm leading-7 text-[var(--text-muted)]">ResumeVibe uses the same source evidence to prepare both artifacts. That keeps the cover letter aligned with the resume proposal and makes the full package reviewable in one place.</p>
                         </div>
-                        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl overflow-hidden shadow-2xl">
-                            <div className="p-6 border-b border-[var(--border-color)] bg-[var(--bg-input)]">
-                                <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-main)]">Projected 2026 Labor Scenarios</h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-[11px] border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-[var(--border-color)] text-[var(--text-main)] font-black uppercase">
-                                            <th className="p-4">Metric</th>
-                                            <th className="p-4">Consensus</th>
-                                            <th className="p-4">Downside</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-[var(--text-muted)] font-medium">
-                                        <tr className="border-b border-[var(--border-color)]/50">
-                                            <td className="p-4">Real GDP Growth</td>
-                                            <td className="p-4 text-green-500">1.8%</td>
-                                            <td className="p-4 text-red-500">0.9%</td>
-                                        </tr>
-                                        <tr className="border-b border-[var(--border-color)]/50">
-                                            <td className="p-4">App Volume / Role</td>
-                                            <td className="p-4">250+</td>
-                                            <td className="p-4 text-red-500 text-bold">400+</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="p-4">Remote Share</td>
-                                            <td className="p-4">8.2%</td>
-                                            <td className="p-4">7.5%</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div className="space-y-3">
+                            {[
+                                { icon: Target, label: 'Paste the job description', detail: 'Include responsibilities, requirements, and the role context.' },
+                                { icon: Sparkles, label: 'Generate one application package', detail: 'The agent prepares targeted resume edits, requirement coverage, risks, and a cover letter together.' },
+                                { icon: SearchCheck, label: 'Review the evidence', detail: 'See which requirements are matched, partially supported, or missing from the source resume.' },
+                                { icon: FileCheck2, label: 'Approve with control', detail: 'Accept or reject proposals individually, then save approved resume edits as a new version.' },
+                            ].map((step, index) => (
+                                <div key={step.label} className="rv-panel flex items-start gap-4 p-4 sm:p-5">
+                                    <span className="rv-icon-tile shrink-0"><step.icon size={16} /></span>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">Step {index + 1}</p>
+                                        <h3 className="mt-1 text-sm font-semibold text-[var(--text-main)]">{step.label}</h3>
+                                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{step.detail}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </section>
 
-                {/* Technical Anatomy */}
-                <section className="mb-24">
-                    <div className="flex items-center gap-4 mb-12">
-                        <h2 className="text-xs font-black uppercase tracking-widest text-blue-500">II. Anatomy of the Digital Gatekeeper</h2>
-                        <div className="h-[1px] flex-1 bg-gradient-to-r from-blue-500/50 to-transparent"></div>
+                <section className="py-16 lg:py-24">
+                    <div className="mb-10 max-w-2xl">
+                        <p className="rv-kicker">Part III · The review screen</p>
+                        <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)] sm:text-5xl">Where everything lives</h2>
+                        <p className="mt-5 text-sm leading-7 text-[var(--text-muted)]">After generation, use the two visible tabs at the top of Tailored Application Review.</p>
                     </div>
-                    <div className="prose prose-invert max-w-none mb-12">
-                        <p className="text-[var(--text-muted)] font-medium text-lg leading-relaxed">
-                            Modern systems like <span className="text-[var(--text-main)]">Workday, Greenhouse, and Lever</span> employ a multi-stage pipeline involving normalization, tokenization, and semantic vector similarity.
-                        </p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                            { title: "Normalization", desc: "Strip away images, logos, and complex markers. Scanned PDFs are immediately rejected as 'unreadable'." },
-                            { title: "POS Tagging", desc: "Assigns grammatical categories to tokens to distinguish between 'Project' (noun) and 'Project' (verb)." },
-                            { title: "Vector Similarity", desc: "LLMs like GPT-4o evaluate semantic alignment. Scores below 0.76 are typically auto-rejected." }
-                        ].map((item, i) => (
-                            <div key={i} className="p-8 rounded-[2.5rem] bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-blue-500/30 transition-all group">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-6 text-blue-500 font-black">
-                                    {i + 1}
+                    <div className="grid gap-5 lg:grid-cols-2">
+                        <article className="rv-panel overflow-hidden">
+                            <div className="border-b border-[var(--border-color)] bg-[var(--bg-input)] p-5">
+                                <div className="flex items-center gap-3"><FileText size={18} className="text-[var(--accent)]" /><h3 className="text-base font-semibold text-[var(--text-main)]">Resume changes</h3></div>
+                            </div>
+                            <div className="p-5 sm:p-6">
+                                <p className="text-sm leading-6 text-[var(--text-muted)]">This tab contains requirement coverage, evidence gaps, before-and-after edits, why each change helps, and its risk level.</p>
+                                <div className="mt-5 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.08em]">
+                                    <span className="rounded-full bg-green-500/10 px-3 py-1.5 text-green-600">Matched</span>
+                                    <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-amber-600">Partial</span>
+                                    <span className="rounded-full bg-red-500/10 px-3 py-1.5 text-red-500">Gap</span>
                                 </div>
-                                <h3 className="text-lg font-black mb-3 text-[var(--text-main)] group-hover:text-blue-500 transition-colors">{item.title}</h3>
-                                <p className="text-sm text-[var(--text-muted)] leading-relaxed font-medium">{item.desc}</p>
+                            </div>
+                        </article>
+                        <article className="rv-panel overflow-hidden border-[var(--accent)]/30">
+                            <div className="border-b border-[var(--border-color)] bg-[var(--accent-subtle)] p-5">
+                                <div className="flex items-center gap-3"><Mail size={18} className="text-[var(--accent)]" /><h3 className="text-base font-semibold text-[var(--text-main)]">Cover letter</h3></div>
+                            </div>
+                            <div className="p-5 sm:p-6">
+                                <p className="text-sm leading-6 text-[var(--text-muted)]">Open the dedicated <strong className="text-[var(--text-main)]">Cover letter</strong> tab to read the complete draft and accept or reject it. The footer also includes a direct “Review cover letter” button.</p>
+                                <p className="mt-4 rounded-xl bg-[var(--bg-input)] p-3 text-xs leading-5 text-[var(--text-muted)]">The letter is saved only when you approve it. Resume edits you reject are not applied.</p>
+                                <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]"><strong className="text-[var(--text-main)]">Need only the letter?</strong> Choose “Generate cover letter” in the editor. It uses your current resume and job description without proposing resume changes.</p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section className="rv-panel grid gap-10 p-6 sm:p-10 lg:grid-cols-[1fr_0.9fr] lg:p-12">
+                    <div>
+                        <p className="rv-kicker">Final approval checklist</p>
+                        <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)]">Read it like an interviewer</h2>
+                        <p className="mt-5 text-sm leading-7 text-[var(--text-muted)]">The agent can prioritize and rewrite evidence, but you remain the authority on whether every claim is accurate.</p>
+                    </div>
+                    <div className="space-y-3">
+                        {reviewChecks.map((check) => (
+                            <div key={check} className="flex items-start gap-3 rounded-xl bg-[var(--bg-input)] p-3.5">
+                                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-600"><Check size={12} /></span>
+                                <p className="text-xs leading-5 text-[var(--text-main)]">{check}</p>
                             </div>
                         ))}
                     </div>
-
-                    {/* Parsing Mechanics Table */}
-                    <div className="mt-12 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl overflow-hidden shadow-xl">
-                        <div className="p-6 border-b border-[var(--border-color)] bg-[var(--bg-input)]">
-                            <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-main)]">The Multi-Stage Parsing Pipeline</h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-[11px] border-collapse">
-                                <thead>
-                                    <tr className="border-b border-[var(--border-color)] text-[var(--text-main)] font-black uppercase">
-                                        <th className="p-4">Stage</th>
-                                        <th className="p-4">Technical Mechanism</th>
-                                        <th className="p-4">Candidate Impact</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-[var(--text-muted)] font-medium">
-                                    <tr className="border-b border-[var(--border-color)]/50">
-                                        <td className="p-4 font-black">Ingestion</td>
-                                        <td className="p-4">Format normalization and stripped metadata conversion.</td>
-                                        <td className="p-4">Immediate rejection for scanned or image-based files.</td>
-                                    </tr>
-                                    <tr className="border-b border-[var(--border-color)]/50">
-                                        <td className="p-4 font-black">Segmentation</td>
-                                        <td className="p-4">Header-based pattern recognition.</td>
-                                        <td className="p-4">Determines if your experience is "seen" or ignored.</td>
-                                    </tr>
-                                    <tr className="border-b border-[var(--border-color)]/50">
-                                        <td className="p-4 font-black">Vectorization</td>
-                                        <td className="p-4">Conversion of text into numerical semantic vectors.</td>
-                                        <td className="p-4">Measures "closeness" to requirements (LLM scoring).</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="p-4 font-black">Ranking</td>
-                                        <td className="p-4">Threshold-based priority scoring.</td>
-                                        <td className="p-4">Only the top 2-3% of candidates ever reach a human.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </section>
 
-                {/* Platform nuance */}
-                <section className="mb-24">
-                    <div className="p-12 lg:p-16 rounded-[4rem] bg-[var(--bg-card)] border border-[var(--border-color)] relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-purple-500/5 to-transparent"></div>
-                        <h2 className="text-2xl font-black mb-12 tracking-tighter text-[var(--text-main)]">Platform-Specific Behavior</h2>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                            <div className="space-y-8">
-                                <div>
-                                    <h4 className="text-purple-500 font-black uppercase text-[10px] tracking-widest mb-2">Workday (Enterprise)</h4>
-                                    <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed">Rigid parsing. Sensitive to date formats (MM/YYYY). Rejects non-standard section labels immediately.</p>
-                                </div>
-                                <div>
-                                    <h4 className="text-blue-500 font-black uppercase text-[10px] tracking-widest mb-2">Greenhouse / Lever (Modern)</h4>
-                                    <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed">Utilizes contextual NLP. Can handle native columns with 80% confidence, but prone to contact info errors in text boxes.</p>
-                                </div>
-                            </div>
-                            <div className="bg-[var(--bg-input)]/50 rounded-3xl p-8 border border-[var(--border-color)] shadow-inner">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-main)] mb-6">The "Reading Order" Problem</h4>
-                                <div className="space-y-4">
-                                    <div className="flex items-start gap-3">
-                                        <XCircle className="text-red-500 shrink-0" size={16} />
-                                        <p className="text-xs text-[var(--text-muted)] font-medium leading-relaxed"><strong>Multi-Column Trap:</strong> Parsers may merge disjointed columns into an unreadable text block.</p>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <CheckCircle className="text-green-500 shrink-0" size={16} />
-                                        <p className="text-xs text-[var(--text-muted)] font-medium leading-relaxed"><strong>Solution:</strong> ResumeVibe's Optimized Single-Column architecture ensures a fail-safe linear path.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <section className="py-20 text-center lg:py-28">
+                    <p className="rv-kicker">Ready when you are</p>
+                    <h2 className="mx-auto mt-4 max-w-3xl font-serif-ed text-4xl text-[var(--text-main)] sm:text-6xl">Create a package you can confidently stand behind.</h2>
+                    <a href="/" className="rv-button-primary mx-auto mt-8 w-fit px-6 py-3">
+                        Open resume editor <ArrowRight size={15} />
+                    </a>
                 </section>
-
-                {/* Call to Action */}
-                <section className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[4rem] blur-[80px] opacity-20"></div>
-                    <div className="relative p-12 lg:p-20 rounded-[4rem] bg-gradient-to-br from-purple-600 to-indigo-800 text-white text-center overflow-hidden">
-                        <div className="absolute -top-24 -left-24 w-64 h-64 bg-white/5 rounded-full blur-3xl animate-pulse"></div>
-                        <h2 className="text-4xl lg:text-6xl font-black mb-8 tracking-tighter">Turn the Algorithm <br /> into your <span className="text-purple-300">Advantage.</span></h2>
-                        <p className="mb-12 text-purple-100 font-medium max-w-2xl mx-auto text-lg leading-relaxed">
-                            75% of candidates are rejected because they are <strong>unreadable</strong>, not <strong>unqualified</strong>. ResumeVibe engineers
-                            your document for 100% parse rates and high semantic alignment.
-                        </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                            <a href="/" className="group flex items-center gap-3 px-12 py-6 bg-white text-purple-700 rounded-[2rem] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl">
-                                Build Free Resume <ArrowRight className="group-hover:translate-x-2 transition-transform" />
-                            </a>
-                        </div>
-                    </div>
-                </section>
-
-                <footer className="mt-32 pt-12 border-t border-[var(--border-color)]/30 text-center mb-16">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] opacity-30 italic">
-                        Derived from Indeed Hiring Lab, Blue Chip Forecasts, and TakoVibe Engineering Research
-                    </p>
-                </footer>
             </main>
             <Footer />
         </AuthOnlyProviders>

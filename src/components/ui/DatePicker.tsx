@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar, X } from 'lucide-react';
 
 interface DatePickerProps {
     value: string; // "MM/YYYY - MM/YYYY", "MM/YYYY - Present", or "MM/YYYY"
@@ -135,11 +135,11 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
     const popover = (
         <div
             data-datepicker-popover="true"
-            className="fixed p-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl z-[300] w-72 animate-in fade-in slide-in-from-top-2 duration-200"
+            className="rv-panel fixed z-[300] w-72 p-4 animate-in fade-in slide-in-from-top-2 duration-200"
             style={{ top: popoverPosition.top, left: popoverPosition.left }}
         >
             <div className="flex items-center justify-between mb-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">
+                <h4 className="rv-kicker">
                     {mode === 'single' ? 'Select Date' : 'Work Duration'}
                 </h4>
                 <button onClick={() => setIsOpen(false)} className="text-[var(--text-muted)] hover:text-red-500">
@@ -150,21 +150,21 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
             <div className="space-y-4">
                 {/* Start Date / Single Date */}
                 <div>
-                    <label className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] block mb-2">
+                    <label className="mb-2 block text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                         {mode === 'single' ? 'Date' : 'Start Date'}
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                         <select
                             value={startMonth}
                             onChange={(e) => setStartMonth(e.target.value)}
-                            className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-xs p-2 outline-none focus:border-[var(--accent)]"
+                            className="rv-field p-2 text-xs"
                         >
                             {months.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                         <select
                             value={startYear}
                             onChange={(e) => setStartYear(e.target.value)}
-                            className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-xs p-2 outline-none focus:border-[var(--accent)]"
+                            className="rv-field p-2 text-xs"
                         >
                             {years.map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
@@ -175,7 +175,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
                 {mode === 'range' && (
                     <div className={isCurrentlyWorking ? 'opacity-50' : ''}>
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] block">End Date</label>
+                            <label className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">End date</label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -183,7 +183,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
                                     onChange={(e) => setIsCurrentlyWorking(e.target.checked)}
                                     className="w-3 h-3 rounded bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--accent)] focus:ring-0"
                                 />
-                                <span className="text-[9px] font-bold uppercase text-[var(--accent)]">Present</span>
+                                <span className="text-[9px] font-semibold uppercase text-[var(--accent)]">Present</span>
                             </label>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -191,7 +191,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
                                 disabled={isCurrentlyWorking}
                                 value={endMonth}
                                 onChange={(e) => setEndMonth(e.target.value)}
-                                className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-xs p-2 outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                                className="rv-field p-2 text-xs disabled:opacity-50"
                             >
                                 {months.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
@@ -199,7 +199,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
                                 disabled={isCurrentlyWorking}
                                 value={endYear}
                                 onChange={(e) => setEndYear(e.target.value)}
-                                className="bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-xs p-2 outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                                className="rv-field p-2 text-xs disabled:opacity-50"
                             >
                                 {years.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
@@ -213,15 +213,15 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
                             onSave('');
                             setIsOpen(false);
                         }}
-                        className="px-4 py-3 bg-[var(--bg-input)] hover:bg-red-50 text-[var(--text-muted)] hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                        className="rv-button-quiet"
                     >
                         Clear
                     </button>
                     <button
                         onClick={handleApply}
-                        className="flex-1 py-3 bg-[var(--accent)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-purple-500/20"
+                        className="rv-button-primary flex-1"
                     >
-                        Apply Filter
+                        Apply date
                     </button>
                 </div>
             </div>
@@ -232,7 +232,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
         <div className="relative inline-block group/datepicker whitespace-nowrap" ref={containerRef}>
             <div
                 onClick={() => setIsOpen(!isOpen)}
-                className={`${className} cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 px-1 rounded transition-colors flex items-center gap-2 inline-flex group-hover/datepicker:text-[var(--accent)]`}
+                className={`${className} inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 transition-colors hover:bg-black/5 group-hover/datepicker:text-[var(--accent)] dark:hover:bg-white/5`}
             >
                 {value || (mode === 'single' ? 'Select Date' : 'Select Dates')}
                 <Calendar size={12} className="opacity-0 group-hover/datepicker:opacity-100 transition-opacity flex-shrink-0" />

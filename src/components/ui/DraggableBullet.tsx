@@ -78,9 +78,9 @@ export function DraggableBullet({
     };
 
     const dropIndicatorClass = dropPosition === 'above'
-        ? 'before:absolute before:top-0 before:left-0 before:right-0 before:h-[2px] before:bg-blue-500 before:rounded-full before:z-20'
+        ? 'before:absolute before:top-0 before:left-0 before:right-0 before:h-[2px] before:bg-[var(--accent)] before:rounded-full before:z-20'
         : dropPosition === 'below'
-            ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-blue-500 after:rounded-full after:z-20'
+            ? 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[var(--accent)] after:rounded-full after:z-20'
             : '';
 
     return React.createElement(
