@@ -9,9 +9,10 @@ interface Props {
     description?: string;
     image?: string;
     keywords?: string;
+    includeResumeStyles?: boolean;
 }
 
-const { title, description, image, keywords } = Astro.props;
+const { title, description, image, keywords, includeResumeStyles = false } = Astro.props;
 ---
 
 <html lang="en">
@@ -46,8 +47,8 @@ const { title, description, image, keywords } = Astro.props;
                 rel="stylesheet"
             />
         </noscript>
-        <link rel="preload" href="/resume.css" as="style" />
-        <link rel="stylesheet" href="/resume.css" />
+        {includeResumeStyles && <link rel="preload" href="/resume.css" as="style" />}
+        {includeResumeStyles && <link rel="stylesheet" href="/resume.css" />}
         <script is:inline>
             // Immediate theme application to prevent flash
             const theme = (() => {

@@ -388,13 +388,39 @@ function ResumeBuilderContent() {
 
                     <div className="flex h-9 shrink-0 items-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-1" role="tablist" aria-label="Editor views">
                         <button
+                            id="editor-view-tab"
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === 'editor'}
+                            aria-controls="editor-view-panel"
+                            tabIndex={activeTab === 'editor' ? 0 : -1}
                             onClick={() => setActiveTab('editor')}
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowRight' || event.key === 'End') {
+                                    event.preventDefault();
+                                    setActiveTab('preview');
+                                    document.getElementById('preview-view-tab')?.focus();
+                                }
+                            }}
                             className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'editor' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
                             <Edit size={13} /> <span className="hidden sm:inline">Edit</span>
                         </button>
                         <button
+                            id="preview-view-tab"
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === 'preview'}
+                            aria-controls="preview-view-panel"
+                            tabIndex={activeTab === 'preview' ? 0 : -1}
                             onClick={() => setActiveTab('preview')}
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowLeft' || event.key === 'Home') {
+                                    event.preventDefault();
+                                    setActiveTab('editor');
+                                    document.getElementById('editor-view-tab')?.focus();
+                                }
+                            }}
                             className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'preview' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
                             <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
@@ -575,7 +601,13 @@ function ResumeBuilderContent() {
                     </aside>
                 )}
 
-                <div className="flex-1 flex flex-col relative overflow-hidden">
+                <div
+                    id={activeTab === 'preview' ? 'preview-view-panel' : 'editor-view-panel'}
+                    role="tabpanel"
+                    aria-labelledby={activeTab === 'preview' ? 'preview-view-tab' : 'editor-view-tab'}
+                    tabIndex={0}
+                    className="flex-1 flex flex-col relative overflow-hidden"
+                >
                     {activeTab === 'editor' && (
                         <div className="absolute inset-x-0 top-0 z-[55] hidden h-20 items-center justify-center border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-4 backdrop-blur-xl md:flex">
                             <EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} />

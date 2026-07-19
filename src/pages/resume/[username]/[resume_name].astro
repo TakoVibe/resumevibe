@@ -27,6 +27,7 @@ try {
 ---
 
 <Layout
+  includeResumeStyles
   title={resumeData?.personalInfo?.fullName
     ? `${resumeData.personalInfo.fullName} - Resume`
     : "Resume Not Found"}
@@ -54,8 +55,3 @@ try {
     }
   </div>
 </Layout>
-
-<script>
-  // Import resume.css to ensure styles are applied
-  import "../../../styles/resume.css";
-</script>

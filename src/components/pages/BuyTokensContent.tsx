@@ -6,7 +6,21 @@ import { LoginModal } from '../ui/LoginModal';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
-import { Check, CheckCircle, Loader2, Lock, XCircle, X, Zap } from 'lucide-react';
+import {
+    ArrowRight,
+    BadgeCheck,
+    Check,
+    CheckCircle,
+    CreditCard,
+    Loader2,
+    Lock,
+    ReceiptText,
+    ShieldCheck,
+    Sparkles,
+    XCircle,
+    X,
+    Zap,
+} from 'lucide-react';
 
 const PACKS = [
     { tokens: 100,  price: '₹85',   usd: '~$1',   savings: null,      popular: false },
@@ -156,7 +170,7 @@ function BuyTokensInner() {
                         request_id: requestId,
                     },
                     theme: {
-                        color: '#7c3aed',
+                        color: '#8B7355',
                     },
                 });
 
@@ -181,134 +195,187 @@ function BuyTokensInner() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-main)] flex flex-col">
+        <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-main)] flex flex-col font-sans-ed">
             <Navbar />
             <LoginModal />
 
-            <main className="max-w-6xl mx-auto w-full px-6 py-14 lg:py-20">
-                <section className="mb-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-500 mb-4">VibeTokens</p>
-                    <h1 className="text-4xl lg:text-6xl font-black tracking-tighter mb-4">Purchase Tokens</h1>
-                    <p className="text-sm lg:text-base text-[var(--text-muted)] max-w-2xl">
-                        Use tokens for advanced AI actions like Pilot Mode, Deep Audit, and inline improvements.
-                    </p>
-                    <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]">
-                        <Zap size={16} className="text-purple-500" />
-                        <span className="text-xs font-bold">Current Balance: {tokenBalance} tokens</span>
-                    </div>
-                </section>
+            <main className="relative flex-1 overflow-hidden">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_62%_0%,var(--accent-glow),transparent_42%)] opacity-70" />
 
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="relative mx-auto w-full max-w-7xl px-5 py-12 sm:px-8 lg:py-20">
+                    <header className="grid gap-10 border-b border-[var(--border-color)] pb-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:pb-16">
+                        <div>
+                            <div className="mb-7 flex items-center gap-4">
+                                <p className="rv-kicker">VibeTokens · Your AI budget</p>
+                                <div className="h-px w-12 bg-[var(--accent)]/50" />
+                            </div>
+                            <h1 className="max-w-4xl font-serif-ed text-5xl font-normal leading-[0.92] tracking-tight text-[var(--text-main)] sm:text-6xl lg:text-8xl">
+                                Keep the <span className="italic text-[var(--accent)]">momentum.</span>
+                            </h1>
+                            <p className="mt-7 max-w-2xl text-base leading-7 text-[var(--text-muted)] sm:text-lg">
+                                Add tokens when you need more room for focused applications, deeper audits, and the small improvements that make a resume feel finished.
+                            </p>
+                        </div>
+
+                        <aside className="rv-panel relative overflow-hidden p-6 sm:p-7">
+                            <div className="absolute right-0 top-0 h-16 w-16 border-b border-l border-[var(--border-color)] bg-[var(--bg-main)]/60" />
+                            <div className="relative flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="rv-kicker">Your wallet</p>
+                                    <p className="mt-5 font-serif-ed text-6xl leading-none text-[var(--text-main)]">{tokenBalance}</p>
+                                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">tokens available</p>
+                                </div>
+                                <span className="rv-icon-tile"><Zap size={18} /></span>
+                            </div>
+                            <div className="mt-7 flex items-center gap-2 border-t border-[var(--border-color)] pt-4 text-xs text-[var(--text-muted)]">
+                                <BadgeCheck size={15} className="text-[var(--accent)]" />
+                                <span>Tokens never expire</span>
+                            </div>
+                        </aside>
+                    </header>
+
+                    <section className="py-14 lg:py-20">
+                        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p className="rv-kicker">Choose your pack</p>
+                                <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)] sm:text-5xl">Buy only what you need.</h2>
+                            </div>
+                            <p className="max-w-xs text-xs leading-5 text-[var(--text-muted)] sm:text-right">One token supports a focused AI action inside your ResumeVibe workspace.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                     {PACKS.map((pack) => (
                         <article
                             key={pack.tokens}
-                            className={`relative rounded-3xl p-6 border bg-[var(--bg-card)] ${
+                            className={`rv-panel group relative flex min-h-[25rem] flex-col p-6 transition-transform duration-300 hover:-translate-y-1 sm:p-7 ${
                                 pack.popular
-                                    ? 'border-purple-500/60 shadow-xl shadow-purple-500/10'
-                                    : 'border-[var(--border-color)]'
+                                    ? 'border-[var(--accent)] shadow-[0_18px_50px_-24px_var(--accent-glow)]'
+                                    : ''
                             }`}
                         >
                             {pack.popular && (
-                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
-                                    Most Popular
+                                <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--bg-main)]">
+                                    <Sparkles size={11} /> Most popular
                                 </div>
                             )}
-                            <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-xl font-black">{pack.tokens} Tokens</h2>
+                            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-color)] pb-5">
+                                <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Pack {PACKS.indexOf(pack) + 1}</p>
+                                    <h3 className="mt-2 font-serif-ed text-3xl text-[var(--text-main)]">{pack.tokens} tokens</h3>
+                                </div>
                                 {pack.savings && (
-                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-purple-500/10 text-purple-500">
+                                    <span className="rounded-full bg-[var(--accent-subtle)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--accent)]">
                                         {pack.savings}
                                     </span>
                                 )}
                             </div>
 
-                            <p className="text-4xl font-black">{pack.price}</p>
-                            <p className="text-xs text-[var(--text-muted)] font-bold mb-6">{pack.usd}</p>
+                            <div className="mt-6 flex items-baseline gap-2">
+                                <p className="font-serif-ed text-5xl leading-none text-[var(--text-main)]">{pack.price}</p>
+                                <p className="text-sm font-medium text-[var(--text-muted)]">{pack.usd}</p>
+                            </div>
 
-                            <ul className="space-y-3 mb-8">
-                                <li className="flex items-center gap-2 text-sm">
-                                    <Check size={16} className="text-green-500" />
-                                    <span>No expiration date</span>
+                            <ul className="mt-7 space-y-3.5 text-sm text-[var(--text-muted)]">
+                                <li className="flex items-center gap-3">
+                                    <Check size={15} className="shrink-0 text-[var(--accent)]" />
+                                    <span>Never expires</span>
                                 </li>
-                                <li className="flex items-center gap-2 text-sm">
-                                    <Check size={16} className="text-green-500" />
-                                    <span>Instantly applied to your account</span>
+                                <li className="flex items-center gap-3">
+                                    <Check size={15} className="shrink-0 text-[var(--accent)]" />
+                                    <span>Applied instantly</span>
                                 </li>
-                                <li className="flex items-center gap-2 text-sm">
-                                    <Check size={16} className="text-green-500" />
-                                    <span>UPI, Cards &amp; Netbanking</span>
+                                <li className="flex items-center gap-3">
+                                    <Check size={15} className="shrink-0 text-[var(--accent)]" />
+                                    <span>UPI, cards &amp; netbanking</span>
                                 </li>
                             </ul>
 
                             <button
                                 onClick={() => handlePurchase(pack.tokens)}
                                 disabled={loadingPack !== null}
-                                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:opacity-95 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                                className="rv-button-primary mt-auto w-full"
                             >
                                 {loadingPack === pack.tokens ? (
-                                    <><Loader2 size={14} className="animate-spin" /> Processing...</>
+                                    <><Loader2 size={14} className="animate-spin" /> Processing</>
                                 ) : (
-                                    `Buy ${pack.tokens} Tokens`
+                                    <>Buy pack <ArrowRight size={14} /></>
                                 )}
                             </button>
                         </article>
                     ))}
-                </section>
+                        </div>
 
-                <p className="mt-8 text-[11px] text-[var(--text-muted)] font-bold flex items-center gap-2">
-                    <Lock size={14} />
-                    All payments are processed by Razorpay. We do not store card details.
-                </p>
-                {error && (
-                    <p className="mt-3 text-[11px] font-bold text-red-500">{error}</p>
-                )}
+                        <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border-color)] pt-5 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
+                            <p className="flex items-center gap-2"><Lock size={14} className="text-[var(--accent)]" /> Payments are securely processed by Razorpay.</p>
+                            <p className="flex items-center gap-2"><CreditCard size={14} /> We never store card details.</p>
+                        </div>
+                        {error && (
+                            <p className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs font-medium text-red-500">{error}</p>
+                        )}
+                    </section>
+
+                    <section className="grid gap-px overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--border-color)] sm:grid-cols-3">
+                        {[
+                            { icon: Sparkles, label: 'Focused AI actions', detail: 'Spend tokens on the moments that need a second pair of eyes.' },
+                            { icon: ReceiptText, label: 'Clear usage', detail: 'See what each action costs before you approve it.' },
+                            { icon: ShieldCheck, label: 'Your final say', detail: 'Every suggestion stays reviewable before it touches your resume.' },
+                        ].map((item) => (
+                            <div key={item.label} className="bg-[var(--bg-card)] p-6 sm:p-7">
+                                <item.icon size={18} className="text-[var(--accent)]" />
+                                <h3 className="mt-5 text-sm font-semibold text-[var(--text-main)]">{item.label}</h3>
+                                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{item.detail}</p>
+                            </div>
+                        ))}
+                    </section>
+                </div>
             </main>
 
             <Footer />
 
             {paymentModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                    <div className="relative w-full max-w-md bg-[var(--bg-card)] border border-[var(--border-color)] rounded-3xl p-8 flex flex-col items-center text-center">
+                    <div className="rv-modal-backdrop absolute inset-0" />
+                    <div className="rv-modal relative w-full max-w-md p-7 text-center sm:p-9">
                         {paymentModal.state !== 'processing' && (
                             <button
                                 onClick={() => {
                                     stopPolling();
                                     setPaymentModal(null);
                                 }}
-                                className="absolute top-3 right-3 p-2 rounded-lg hover:bg-[var(--bg-input)] text-[var(--text-muted)]"
+                                className="absolute right-3 top-3 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)]"
                             >
                                 <X size={16} />
                             </button>
                         )}
-                        <div className="mb-4">
+                        <div className="mb-5 flex justify-center">
                             {paymentModal.state === 'success' && (
-                                <CheckCircle size={52} className="text-green-500" />
+                                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/10 text-green-600"><CheckCircle size={32} /></span>
                             )}
                             {paymentModal.state === 'failed' && (
-                                <XCircle size={52} className="text-red-500" />
+                                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-red-500"><XCircle size={32} /></span>
                             )}
                             {paymentModal.state === 'processing' && (
-                                <Loader2 size={52} className="text-purple-500 animate-spin" />
+                                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-subtle)] text-[var(--accent)]"><Loader2 size={32} className="animate-spin" /></span>
                             )}
                         </div>
-                        <h3 className="text-lg font-black mb-2">
+                        <p className="rv-kicker">VibeTokens checkout</p>
+                        <h3 className="mt-3 text-xl font-semibold text-[var(--text-main)]">
                             {paymentModal.state === 'success'
                                 ? 'Payment Successful'
                                 : paymentModal.state === 'failed'
                                 ? 'Payment Failed'
                                 : 'Processing Payment'}
                         </h3>
-                        <p className="text-sm text-[var(--text-muted)] mb-3">{paymentModal.message}</p>
+                        <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{paymentModal.message}</p>
                         {paymentModal.state === 'processing' && (
-                            <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-bold">
+                            <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                                 Verifying with Razorpay every 5 seconds
                             </p>
                         )}
                         {paymentModal.state === 'failed' && (
                             <button
                                 onClick={() => { stopPolling(); setPaymentModal(null); }}
-                                className="mt-4 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-widest transition"
+                                className="rv-button-primary mt-6 px-5"
                             >
                                 Try Again
                             </button>
@@ -316,7 +383,7 @@ function BuyTokensInner() {
                         {paymentModal.state === 'success' && (
                             <button
                                 onClick={() => { stopPolling(); setPaymentModal(null); }}
-                                className="mt-4 px-5 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase tracking-widest transition"
+                                className="rv-button-primary mt-6 px-5"
                             >
                                 Done
                             </button>

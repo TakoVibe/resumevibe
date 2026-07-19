@@ -12,7 +12,7 @@
     --bg-input: rgba(26, 26, 26, 0.03);
     --border-color: rgba(26, 26, 26, 0.15);
     --text-main: #1A1A1A;
-    --text-muted: rgba(26, 26, 26, 0.6);
+    --text-muted: #5f5a52;
     --accent: #8B7355;
     --accent-hover: #6e5b42;
     --accent-subtle: rgba(139, 115, 85, 0.08);
@@ -37,7 +37,7 @@
     --bg-input: rgba(244, 243, 237, 0.04);
     --border-color: rgba(244, 243, 237, 0.12);
     --text-main: #F4F3ED;
-    --text-muted: rgba(244, 243, 237, 0.6);
+    --text-muted: #b8b0a4;
     --accent: #A68F6C;
     --accent-hover: #c4ae8b;
     --accent-subtle: rgba(166, 143, 108, 0.08);
