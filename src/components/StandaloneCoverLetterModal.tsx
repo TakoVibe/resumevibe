@@ -2,6 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Check, Clipboard, FileText, Loader2, Mail, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useResume } from '../hooks/useResume';
+import { useAuth } from '../context/AuthContext';
+import { useToken } from '../context/TokenContext';
+
+const COVER_LETTER_TOKEN_COST = 30;
 
 interface StandaloneCoverLetterModalProps {
     isOpen: boolean;
@@ -10,6 +14,8 @@ interface StandaloneCoverLetterModalProps {
 
 export function StandaloneCoverLetterModal({ isOpen, onClose }: StandaloneCoverLetterModalProps) {
     const { data: resume } = useResume();
+    const { isAuthenticated } = useAuth();
+    const { tokenBalance, fetchTokenData, setShowUpgradeModal } = useToken();
     const [jobDescription, setJobDescription] = useState(resume.targetJD || '');
     const [coverLetter, setCoverLetter] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -27,20 +33,44 @@ export function StandaloneCoverLetterModal({ isOpen, onClose }: StandaloneCoverL
             setError('Paste a complete job description so the letter can be grounded in the role.');
             return;
         }
+        if (!isAuthenticated) {
+            window.dispatchEvent(new CustomEvent('show-login-modal'));
+            setError('Sign in to generate a cover letter.');
+            return;
+        }
+        if (tokenBalance < COVER_LETTER_TOKEN_COST) {
+            setShowUpgradeModal(true);
+            setError(`You need ${COVER_LETTER_TOKEN_COST} tokens to generate a cover letter.`);
+            return;
+        }
 
         setError(null);
         setIsGenerating(true);
         try {
+            const authToken = localStorage.getItem('auth_token');
+            const requestId = `cover-letter-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             const response = await fetch('/api/generate-cover-letter', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+                    'X-Request-ID': requestId,
+                },
                 body: JSON.stringify({ resume, jobDescription: trimmedJobDescription }),
             });
             const data = await response.json();
+            if (response.status === 401) {
+                window.dispatchEvent(new CustomEvent('show-login-modal'));
+            }
+            if (response.status === 402) {
+                setShowUpgradeModal(true);
+            }
             if (!response.ok || !data.success || !data.coverLetter) {
                 throw new Error(data.error || 'Could not generate the cover letter.');
             }
             setCoverLetter(data.coverLetter);
+            await fetchTokenData();
+            toast.success(`${COVER_LETTER_TOKEN_COST} tokens used after successful generation.`);
         } catch (generationError) {
             setError(generationError instanceof Error ? generationError.message : 'Cover letter generation failed.');
         } finally {
@@ -98,8 +128,14 @@ export function StandaloneCoverLetterModal({ isOpen, onClose }: StandaloneCoverL
                             </div>
                             {error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500"><ShieldCheck size={14} className="mt-0.5 shrink-0" />{error}</div>}
                             <button type="button" onClick={generateCoverLetter} disabled={isGenerating} className="rv-button-primary mt-6 w-full py-3">
-                                {isGenerating ? <><Loader2 size={15} className="animate-spin" /> Writing from verified resume evidence…</> : <><Mail size={15} /> Generate cover letter</>}
+                                {isGenerating
+                                    ? <><Loader2 size={15} className="animate-spin" /> Writing from verified resume evidence…</>
+                                    : <><Mail size={15} /> Generate cover letter <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px]">30 tokens</span></>}
                             </button>
+                            <div className="mt-2 flex items-center justify-between text-[9px] text-[var(--text-muted)]">
+                                <span>Charged only after successful generation.</span>
+                                <span>Your balance: {tokenBalance} tokens</span>
+                            </div>
                         </>
                     ) : (
                         <>

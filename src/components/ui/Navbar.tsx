@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { BrandSwitcher } from '../brand/BrandSwitcher';
-import { ChevronDown, FileText, LogIn, LogOut, User, Wallet, Zap } from 'lucide-react';
+import { ChevronDown, FileText, LogIn, LogOut, Sparkles, User, Wallet, Zap } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useToken } from '../../context/TokenContext';
 import { WhyMenu } from './WhyMenu';
@@ -24,8 +24,17 @@ export function Navbar({ children }: NavbarProps) {
             <div className="flex items-center gap-2 md:gap-3 shrink-0">
                 <div className="hidden md:block"><BrandSwitcher /></div>
                 <div className="md:hidden"><BrandSwitcher compact /></div>
-                <div className="hidden h-5 w-px bg-[var(--border-color)] xl:block"></div>
-                <div className="hidden xl:block"><WhyMenu /></div>
+                <div className="hidden h-5 w-px bg-[var(--border-color)] 2xl:block"></div>
+                <div className="hidden 2xl:block"><WhyMenu /></div>
+                <a
+                    href="/ai-tools"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)] px-2 text-[10px] font-semibold text-[var(--accent)] transition hover:-translate-y-px hover:border-[var(--accent)]/45 sm:px-3"
+                    aria-label="Explore all AI tools"
+                >
+                    <Sparkles size={13} />
+                    <span className="sm:hidden">AI</span>
+                    <span className="hidden sm:inline">AI tools</span>
+                </a>
             </div>
 
             {/* ── Zone 2: Page-specific actions (fluid center) ── */}

@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { ApplicationCopilotContent } from '../components/pages/ApplicationCopilotContent';
+---
+
+<Layout
+    title="Application Copilot | ResumeVibe"
+    description="Compare your resume with a job, inspect the supporting evidence, and build a truthful tailored application package."
+>
+    <ApplicationCopilotContent client:load />
+</Layout>

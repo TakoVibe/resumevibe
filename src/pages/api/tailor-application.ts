@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import OpenAI from 'openai';
 
 const MAX_JOB_DESCRIPTION_CHARS = 16_000;
+const APPLICATION_PACKAGE_TOKEN_COST = 30;
+const BACKEND_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 
 const APPLICATION_RESPONSE_FORMAT = {
     type: 'json_schema' as const,
@@ -224,6 +226,37 @@ export const POST: APIRoute = async ({ request }) => {
     const startedAt = Date.now();
 
     try {
+        const token = request.headers.get('authorization')?.replace('Bearer ', '')?.replace('Token ', '');
+        if (!token) {
+            return new Response(
+                JSON.stringify({ error: 'Sign in to create an application package.' }),
+                { status: 401, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+
+        const tokenStatusResponse = await fetch(`${BACKEND_URL}/api/users/tokens/`, {
+            headers: { Authorization: `Token ${token}` },
+        });
+        if (!tokenStatusResponse.ok) {
+            return new Response(
+                JSON.stringify({ error: 'Your session could not be verified. Please sign in again.' }),
+                { status: 401, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+        const tokenStatus = await tokenStatusResponse.json();
+        const tokenBalance = Number(tokenStatus.token_balance || 0);
+        if (tokenBalance < APPLICATION_PACKAGE_TOKEN_COST) {
+            return new Response(
+                JSON.stringify({
+                    error: `This application package requires ${APPLICATION_PACKAGE_TOKEN_COST} tokens.`,
+                    requires_tokens: true,
+                    tokens_required: APPLICATION_PACKAGE_TOKEN_COST,
+                    token_balance: tokenBalance,
+                }),
+                { status: 402, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+
         const { resume, jobDescription, auditResult } = await request.json();
         const trimmedJobDescription = typeof jobDescription === 'string' ? jobDescription.trim() : '';
 
@@ -289,6 +322,34 @@ export const POST: APIRoute = async ({ request }) => {
         const coverLetter = typeof parsed.coverLetter === 'string' ? parsed.coverLetter.trim() : '';
         if (!coverLetter) throw new Error('The application package did not include a cover letter.');
 
+        const requestId = request.headers.get('x-request-id') || `application-package-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        const useTokenResponse = await fetch(`${BACKEND_URL}/api/users/tokens/use/`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Token ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action_type: 'tailored_application_package',
+                tokens: APPLICATION_PACKAGE_TOKEN_COST,
+                product: 'resumevibe',
+                request_id: requestId,
+                description: 'Tailored resume and cover letter package',
+            }),
+        });
+        if (!useTokenResponse.ok) {
+            const tokenError = await useTokenResponse.json().catch(() => ({}));
+            return new Response(
+                JSON.stringify({
+                    error: tokenError.error || 'Tokens could not be reserved for this application package.',
+                    requires_tokens: useTokenResponse.status === 402,
+                    tokens_required: APPLICATION_PACKAGE_TOKEN_COST,
+                }),
+                { status: useTokenResponse.status === 402 ? 402 : 400, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+        const tokenResult = await useTokenResponse.json();
+
         return new Response(JSON.stringify({
             success: true,
             optimizedResume,
@@ -298,6 +359,8 @@ export const POST: APIRoute = async ({ request }) => {
             requirements: Array.isArray(parsed.requirements) ? parsed.requirements : [],
             usage: completion.usage,
             timingMs: Date.now() - startedAt,
+            tokens_used: APPLICATION_PACKAGE_TOKEN_COST,
+            token_balance: tokenResult.token_balance,
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },

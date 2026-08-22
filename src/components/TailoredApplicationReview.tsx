@@ -14,6 +14,8 @@ import {
     XCircle,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { useToken } from '../context/TokenContext';
 import { useResume } from '../hooks/useResume';
 import type { ResumeSchema } from '../types/resume';
 
@@ -40,6 +42,15 @@ interface RequirementReview {
 interface TailoredApplicationReviewProps {
     isOpen: boolean;
     onClose: () => void;
+    initialJobDescription?: string;
+    onApplied?: (applicationPackage: AppliedApplicationPackage) => void;
+}
+
+export interface AppliedApplicationPackage {
+    approvedResume: ResumeSchema;
+    coverLetter: string;
+    acceptedCount: number;
+    jobDescription: string;
 }
 
 const VERSION_STORAGE_KEY = 'resume-versions-v1';
@@ -95,7 +106,7 @@ function applicationCacheId(resume: ResumeSchema, jobDescription: string) {
 function getCachedApplication(id: string): TailoredApplicationResult | null {
     try {
         const entries = JSON.parse(sessionStorage.getItem(APPLICATION_CACHE_KEY) || '[]');
-        const match = Array.isArray(entries) ? entries.find((entry) => entry?.id === id) : null;
+        const match = Array.isArray(entries) ? entries.find((entry) => entry?.id === id && entry?.version === 2) : null;
         return match?.result || null;
     } catch {
         return null;
@@ -107,7 +118,7 @@ function cacheApplication(id: string, result: TailoredApplicationResult) {
         const stored = JSON.parse(sessionStorage.getItem(APPLICATION_CACHE_KEY) || '[]');
         const entries = Array.isArray(stored) ? stored.filter((entry) => entry?.id !== id) : [];
         sessionStorage.setItem(APPLICATION_CACHE_KEY, JSON.stringify([
-            { id, result, createdAt: Date.now() },
+            { id, version: 2, result, createdAt: Date.now() },
             ...entries,
         ].slice(0, 3)));
     } catch (storageError) {
@@ -115,8 +126,10 @@ function cacheApplication(id: string, result: TailoredApplicationResult) {
     }
 }
 
-export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicationReviewProps) {
+export function TailoredApplicationReview({ isOpen, onClose, initialJobDescription, onApplied }: TailoredApplicationReviewProps) {
     const { data: resume, updateResume } = useResume();
+    const { isAuthenticated } = useAuth();
+    const { fetchTokenData, setShowUpgradeModal } = useToken();
     const [view, setView] = useState<ReviewView>('input');
     const [jobDescription, setJobDescription] = useState(resume.targetJD || '');
     const [optimizedResume, setOptimizedResume] = useState<ResumeSchema | null>(null);
@@ -135,8 +148,8 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen && view === 'input') setJobDescription(resume.targetJD || '');
-    }, [isOpen, resume.targetJD, view]);
+        if (isOpen && view === 'input') setJobDescription(initialJobDescription || resume.targetJD || '');
+    }, [initialJobDescription, isOpen, resume.targetJD, view]);
 
     useEffect(() => {
         if (view !== 'generating') return;
@@ -193,6 +206,12 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
             return;
         }
 
+        if (!isAuthenticated) {
+            window.dispatchEvent(new CustomEvent('show-login-modal'));
+            setError('Sign in to create and save an application package.');
+            return;
+        }
+
         setError(null);
         setView('generating');
 
@@ -201,12 +220,23 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
             const cacheId = applicationCacheId(resume, trimmedJobDescription);
             const cachedResult = getCachedApplication(cacheId);
             const applicationData = cachedResult || await (async () => {
+                const authToken = localStorage.getItem('auth_token');
                 const response = await fetch('/api/tailor-application', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+                        'X-Request-ID': `application-package-${cacheId}`,
+                    },
                     body: JSON.stringify({ resume, jobDescription: trimmedJobDescription }),
                 });
                 const data = await response.json();
+                if (response.status === 401) {
+                    window.dispatchEvent(new CustomEvent('show-login-modal'));
+                }
+                if (response.status === 402) {
+                    setShowUpgradeModal(true);
+                }
                 if (!response.ok || !data.success || !data.optimizedResume || !data.coverLetter) {
                     throw new Error(data.error || data.details || 'Could not create the application package.');
                 }
@@ -219,6 +249,7 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
                     requirements: Array.isArray(data.requirements) ? data.requirements : [],
                 };
                 cacheApplication(cacheId, result);
+                await fetchTokenData();
                 return result;
             })();
 
@@ -298,6 +329,12 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
         }
 
         updateResume(approvedResume);
+        onApplied?.({
+            approvedResume,
+            coverLetter: decisions.coverLetter === 'accept' ? coverLetter : '',
+            acceptedCount,
+            jobDescription: jobDescription.trim(),
+        });
         toast.success(`Applied ${acceptedCount} approved item${acceptedCount === 1 ? '' : 's'} and saved a new version.`);
         resetAndClose();
     };
@@ -379,7 +416,7 @@ export function TailoredApplicationReview({ isOpen, onClose }: TailoredApplicati
                         </div>
                         {error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500"><AlertTriangle size={15} className="shrink-0" />{error}</div>}
                         <button onClick={generateApplication} className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--text-main)] text-sm font-semibold text-[var(--bg-main)] transition hover:-translate-y-px hover:shadow-lg">
-                            Create application package <ArrowRight size={16} />
+                            Create application package <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">30 tokens</span> <ArrowRight size={16} />
                         </button>
                     </div>
                 )}

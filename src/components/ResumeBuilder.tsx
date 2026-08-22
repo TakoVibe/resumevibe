@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail } from 'lucide-react';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, BarChart3 } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -31,10 +31,11 @@ import { UpgradeModal } from './ui/UpgradeModal';
 import { TailoredApplicationReview } from './TailoredApplicationReview';
 import { StandaloneCoverLetterModal } from './StandaloneCoverLetterModal';
 import { RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
+import { fetchLatestResume, resumeEditorUrl } from '../lib/resumeNavigation';
 
 function ResumeBuilderContent() {
     const { data, updateResume, resetToDefault, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
-    const { user, isAuthenticated, logout } = useAuth();
+    const { user, isAuthenticated, logout, isLoading: isAuthLoading } = useAuth();
     const { showUpgradeModal, setShowUpgradeModal } = useToken();
     const [showMoreActions, setShowMoreActions] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'parser'>('editor');
@@ -56,6 +57,7 @@ function ResumeBuilderContent() {
     const [lastDownloadedFile, setLastDownloadedFile] = useState('');
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [isPublicView, setIsPublicView] = useState(false);
+    const [isResolvingInitialResume, setIsResolvingInitialResume] = useState(true);
 
     // Close login modal when authenticated
     useEffect(() => {
@@ -64,36 +66,103 @@ function ResumeBuilderContent() {
         }
     }, [isAuthenticated]);
 
-    // Check for public view or edit mode
+    // Resolve a requested resume, or continue a returning user's most recently
+    // updated resume when they arrive at the bare homepage.
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('view') === 'public') {
-            setIsPublicView(true);
-        }
+        if (!isLoaded || isAuthLoading) return;
+        let cancelled = false;
 
-        const editResumeName = params.get('edit');
-        if (editResumeName && isAuthenticated) {
-            loadResume(editResumeName);
-        }
-    }, [isAuthenticated]);
-
-    const loadResume = async (slug: string) => {
-        try {
-            const response = await api.get(`/api/resumes/${slug}/`);
-            if (response.ok) {
-                const resume = await response.json();
-                updateResume(resume.resume_data);
-                setResumeMetadata({
-                    id: resume.id,
-                    slug: resume.slug,
-                    name: resume.resume_name,
-                    isPublic: resume.is_public
-                });
+        const resolveInitialResume = async () => {
+            if (!cancelled) setIsResolvingInitialResume(true);
+            const params = new URLSearchParams(window.location.search);
+            const isPublic = params.get('view') === 'public';
+            if (isPublic) {
+                if (!cancelled) {
+                    setIsPublicView(true);
+                    setIsResolvingInitialResume(false);
+                }
+                return;
             }
-        } catch (error) {
-            console.error("Failed to load resume:", error);
+
+            const requestedSlug = params.get('edit');
+            if (requestedSlug) {
+                if (!isAuthenticated) {
+                    if (!cancelled) setIsResolvingInitialResume(false);
+                    return;
+                }
+
+                try {
+                    const response = await api.get(`/api/resumes/${encodeURIComponent(requestedSlug)}/`);
+                    if (response.ok) {
+                        const resume = await response.json();
+                        if (!cancelled) {
+                            updateResume(resume.resume_data);
+                            setResumeMetadata({
+                                id: resume.id,
+                                slug: resume.slug,
+                                name: resume.resume_name,
+                                isPublic: resume.is_public,
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load resume:', error);
+                } finally {
+                    if (!cancelled) setIsResolvingInitialResume(false);
+                }
+                return;
+            }
+
+            const isExplicitNewDocument = params.has('new');
+            if (isAuthenticated && !isExplicitNewDocument && window.location.pathname === '/') {
+                try {
+                    const latestResume = await fetchLatestResume();
+                    if (latestResume?.slug && !cancelled) {
+                        const requestedAITool = params.get('ai');
+                        window.location.replace(resumeEditorUrl(
+                            latestResume.slug,
+                            requestedAITool ? { ai: requestedAITool } : undefined,
+                        ));
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Could not continue the latest resume:', error);
+                }
+            }
+
+            if (!cancelled) setIsResolvingInitialResume(false);
+        };
+
+        resolveInitialResume();
+        return () => { cancelled = true; };
+    }, [isAuthLoading, isAuthenticated, isLoaded, setResumeMetadata, updateResume]);
+
+    // Deep links from the AI tools page open the requested workflow after the
+    // correct resume has been resolved.
+    useEffect(() => {
+        if (!isLoaded || isAuthLoading || isResolvingInitialResume || isPublicView) return;
+        const requestedAITool = new URLSearchParams(window.location.search).get('ai');
+        if (!requestedAITool) return;
+
+        if (requestedAITool === 'audit') {
+            setShowRecruiterAI(true);
+            return;
         }
-    };
+        if (requestedAITool === 'cover-letter') {
+            setShowCoverLetterGenerator(true);
+            return;
+        }
+        if (requestedAITool === 'import') {
+            setShowImportModal(true);
+            return;
+        }
+        if (requestedAITool === 'writing') {
+            setActiveTab('editor');
+            window.setTimeout(() => {
+                document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 350);
+        }
+    }, [isAuthLoading, isLoaded, isPublicView, isResolvingInitialResume]);
 
     // Auto-generate PDF preview when switching to 'preview' tab
     useEffect(() => {
@@ -123,7 +192,9 @@ function ResumeBuilderContent() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
 
-    if (!isLoaded) return <LoadingScreen message="Unlocking your professional potential..." />;
+    if (!isLoaded || isAuthLoading || isResolvingInitialResume) {
+        return <LoadingScreen message={isAuthenticated ? 'Opening your latest resume...' : 'Unlocking your professional potential...'} />;
+    }
 
     if (isPublicView) {
         return (
@@ -379,7 +450,7 @@ function ResumeBuilderContent() {
             {/* Focused workspace header */}
             <Navbar>
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:justify-between">
-                    <div className="hidden min-w-0 xl:block">
+                    <div className="hidden min-w-0 2xl:block">
                         <p className="truncate text-sm font-semibold text-[var(--text-main)]">{documentTitle}</p>
                         <p className="text-[10px] font-medium text-[var(--text-muted)]">
                             {isSaving ? 'Saving changes…' : lastSaved ? 'All changes saved' : 'Ready to edit'}
@@ -482,7 +553,7 @@ function ResumeBuilderContent() {
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
-                                                setShowTailoredApplication(true);
+                                                window.location.href = '/application-copilot';
                                             }}
                                             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
@@ -496,6 +567,7 @@ function ResumeBuilderContent() {
                                             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
                                             <Mail size={15} className="text-[var(--accent)]" /> Generate cover letter
+                                            <span className="ml-auto rounded-md bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[8px] text-[var(--accent)]">30 tokens</span>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -572,10 +644,13 @@ function ResumeBuilderContent() {
                             </div>
 
                             <div>
-                                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Improve</p>
+                                <div className="flex items-center justify-between gap-2 px-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">AI career tools</p>
+                                    <a href="/ai-tools" className="text-[9px] font-semibold text-[var(--accent)] hover:underline">View all</a>
+                                </div>
                                 <button
-                                    onClick={() => setShowTailoredApplication(true)}
-                                    className="mt-2 w-full rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)]/40 hover:shadow-sm"
+                                    onClick={() => { window.location.href = '/application-copilot'; }}
+                                    className="rv-ai-home-glow mt-2 w-full rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)]/50 hover:shadow-md"
                                 >
                                     <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm"><Zap size={17} /></span>
                                     <span className="mt-3 block text-sm font-semibold text-[var(--text-main)]">Tailor for a job</span>
@@ -586,12 +661,21 @@ function ResumeBuilderContent() {
                                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Mail size={15} /></span>
                                     <span className="min-w-0">
                                         <span className="block text-xs font-semibold text-[var(--text-main)]">Generate cover letter</span>
-                                        <span className="block text-[10px] leading-4 text-[var(--text-muted)]">Use this resume and a job description</span>
+                                        <span className="block text-[10px] leading-4 text-[var(--text-muted)]">30 tokens · charged only on success</span>
                                     </span>
                                 </button>
-                                <button onClick={() => setShowRecruiterAI(true)} className="mt-2 w-full rounded-xl px-3 py-2 text-left text-[10px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
-                                    Run an advanced recruiter audit →
-                                </button>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <button onClick={() => setShowRecruiterAI(true)} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
+                                        <BarChart3 size={15} className="text-[var(--accent)]" />
+                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--text-main)]">AI audit</span>
+                                        <span className="mt-1 block text-[9px] text-[var(--text-muted)]">30 tokens</span>
+                                    </button>
+                                    <button onClick={() => setShowImportModal(true)} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
+                                        <Sparkles size={15} className="text-[var(--accent)]" />
+                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--text-main)]">AI import</span>
+                                        <span className="mt-1 block text-[9px] text-[var(--text-muted)]">From PDF</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -618,7 +702,7 @@ function ResumeBuilderContent() {
                         <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-[var(--border-color)] bg-[var(--glass-bg-strong)] p-1.5 shadow-2xl backdrop-blur-xl lg:hidden">
                             <button onClick={() => setShowInfoModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><User size={15} /> Details</button>
                             <button onClick={() => setShowSectionTypeModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><FileText size={15} /> Add</button>
-                            <button onClick={() => setShowTailoredApplication(true)} className="flex h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-[11px] font-semibold text-white"><Zap size={15} /> Tailor</button>
+                            <button onClick={() => { window.location.href = '/application-copilot'; }} className="rv-ai-home-glow flex h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-[11px] font-semibold text-white"><Zap size={15} /> Job fit</button>
                         </div>
                     )}
 

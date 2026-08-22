@@ -1,15 +1,21 @@
 import React from "react";
 import { Lock, X } from "lucide-react";
 import { GoogleLogin } from "../GoogleLogin";
+import { useAuth } from "../../context/AuthContext";
 
 export function LoginModal() {
     const [isOpen, setIsOpen] = React.useState(false);
+    const { isAuthenticated } = useAuth();
 
     React.useEffect(() => {
         const handleShow = () => setIsOpen(true);
         window.addEventListener('show-login-modal', handleShow);
         return () => window.removeEventListener('show-login-modal', handleShow);
     }, []);
+
+    React.useEffect(() => {
+        if (isAuthenticated) setIsOpen(false);
+    }, [isAuthenticated]);
 
     if (!isOpen) return null;
 
@@ -33,7 +39,7 @@ export function LoginModal() {
                     <p className="rv-kicker">ResumeVibe account</p>
                     <h2 id="login-modal-title" className="mb-3 mt-1 font-serif-ed text-3xl text-[var(--text-main)]">Continue to your workspace</h2>
                     <p className="mb-7 px-2 text-xs leading-relaxed text-[var(--text-muted)]">
-                        Sign in to save versions, share your resume, and return directly to your first saved document.
+                        Sign in to save versions, create application packages, and return to your work from any device.
                     </p>
 
                     <div className="mb-5 flex w-full justify-center">

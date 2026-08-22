@@ -320,6 +320,10 @@ export function WhyResumeVibeContent() {
                                     <span className="font-bold text-[var(--text-main)]">Deep AI Audit</span>
                                     <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">30 Tokens</span>
                                 </li>
+                                <li className="flex justify-between gap-4 items-center py-3">
+                                    <span className="font-bold text-[var(--text-main)]">Cover Letter</span>
+                                    <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">30 Tokens</span>
+                                </li>
                                 <li className="flex justify-between gap-4 items-center py-3 last:pb-0">
                                     <span className="font-bold text-[var(--text-main)]">Inline Enhancements</span>
                                     <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">5 Tokens</span>

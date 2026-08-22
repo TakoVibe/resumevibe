@@ -6,11 +6,14 @@ import { RecommendedJobs } from './RecommendedJobs';
 import { LoginModal } from '../ui/LoginModal';
 import { Footer } from '../ui/Footer';
 import {
+    ArrowRight,
     ChevronLeft,
+    Check,
     FileText,
     Loader2,
     Plus,
     Briefcase,
+    Sparkles,
     TrendingDown,
     TrendingUp,
     User,
@@ -35,7 +38,7 @@ function ProfileDashboardInner() {
     const { user } = useAuth();
     const { tokenBalance, totalConsumed, history, isLoading: tokenLoading } = useToken();
     const [paymentMessage, setPaymentMessage] = React.useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-    const [activeTab, setActiveTab] = React.useState<Tab>('wallet');
+    const [activeTab, setActiveTab] = React.useState<Tab>('resumes');
 
     React.useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -43,6 +46,8 @@ function ProfileDashboardInner() {
             const tab = params.get('tab');
             if (tab === 'opportunities' || tab === 'jobs') {
                 setActiveTab('jobs');
+            } else if (tab === 'wallet' || window.location.hash === '#tokens') {
+                setActiveTab('wallet');
             } else if (tab === 'resumes' || window.location.hash === '#resumes') {
                 setActiveTab('resumes');
             }
@@ -188,7 +193,7 @@ function ProfileDashboardInner() {
                 </div>
 
                 {/* ── Content ── */}
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
                     {activeTab === 'wallet' && (
                         <section id="tokens">
@@ -252,17 +257,61 @@ function ProfileDashboardInner() {
                     )}
 
                     {activeTab === 'resumes' && (
-                        <section id="resumes">
-                            <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My Resumes</h2>
-                                <a
-                                    href="/"
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--text-main)] text-[var(--bg-main)] text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
-                                >
-                                    <Plus size={12} /> Create New
-                                </a>
+                        <section id="resumes" className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_330px] xl:items-start">
+                            <section className="rv-ai-feature-card relative order-first overflow-hidden rounded-[28px] border border-[var(--accent)]/40 bg-[var(--bg-card)] p-1 shadow-xl xl:order-last xl:sticky xl:top-24" aria-labelledby="application-copilot-promo-title">
+                                <div className="rv-ai-feature-sheen pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/15 to-transparent blur-xl" />
+                                <div className="relative overflow-hidden rounded-[23px] bg-[radial-gradient(circle_at_12%_0%,var(--accent-glow),transparent_52%),var(--bg-card)] p-6 sm:p-7">
+                                    <div>
+                                        <div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+                                                    <span className="relative flex h-2 w-2">
+                                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-50 motion-reduce:animate-none" />
+                                                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
+                                                    </span>
+                                                    Most powerful feature
+                                                </span>
+                                                <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-input)] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">30 tokens</span>
+                                            </div>
+
+                                            <span className="mt-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent-glow)]"><Sparkles size={19} /></span>
+                                            <h2 id="application-copilot-promo-title" className="mt-5 font-serif-ed text-4xl leading-[0.98] tracking-tight">
+                                                Auto-tailor your resume <span className="italic text-[var(--accent)]">and cover letter.</span>
+                                            </h2>
+                                            <p className="mt-4 text-sm leading-6 text-[var(--text-muted)]">
+                                                Paste one job description. ResumeVibe proposes focused resume edits and writes the matching cover letter in one reviewable package.
+                                            </p>
+
+                                            <div className="mt-5 space-y-2.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-input)] p-4">
+                                                {['Automatic resume edits', 'Matching cover letter', 'Review every proposal'].map((benefit) => (
+                                                    <span key={benefit} className="flex items-center gap-2 text-[11px] font-semibold text-[var(--text-muted)]"><Check size={13} className="text-green-500" />{benefit}</span>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-6 flex flex-col gap-2">
+                                                <a href="/application-copilot" className="rv-button-primary group w-full px-4 py-3.5 text-xs shadow-lg shadow-[var(--accent-glow)]">
+                                                    Tailor my application
+                                                    <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+                                                </a>
+                                                <a href="/ai-tools" className="inline-flex items-center justify-center px-4 py-2.5 text-[9px] font-semibold text-[var(--text-muted)] transition hover:text-[var(--text-main)]">See how it works</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="min-w-0">
+                                <div className="mb-5 flex items-center justify-between">
+                                    <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My Resumes</h2>
+                                    <a
+                                        href="/"
+                                        className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[var(--bg-main)] transition-all hover:opacity-90"
+                                    >
+                                        <Plus size={12} /> Create New
+                                    </a>
+                                </div>
+                                <UserResumes />
                             </div>
-                            <UserResumes />
                         </section>
                     )}
 
