@@ -23,7 +23,7 @@ export function Summary({ summary, isEditable = false, onUpdate, title = "Summar
     );
 
     return (
-        <section className="resume-section-mb-12">
+        <section data-tour={isEditable ? 'resume-summary' : undefined} className="resume-section-mb-12">
             <SectionTitle
                 title={title}
                 isEditable={isEditable}

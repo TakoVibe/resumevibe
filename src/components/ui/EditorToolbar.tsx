@@ -99,6 +99,7 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
             {/* Add Section */}
             <div className="flex shrink-0 items-center">
                 <button
+                    data-tour="add-section"
                     className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-[11px] font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
                     style={{ boxShadow: '0 2px 8px var(--accent-glow)' }}
                     onClick={onAddSection}

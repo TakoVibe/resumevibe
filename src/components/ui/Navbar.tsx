@@ -28,6 +28,7 @@ export function Navbar({ children }: NavbarProps) {
                 <div className="hidden 2xl:block"><WhyMenu /></div>
                 <a
                     href="/ai-tools"
+                    data-tour="ai-tools"
                     className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)] px-2 text-[10px] font-semibold text-[var(--accent)] transition hover:-translate-y-px hover:border-[var(--accent)]/45 sm:px-3"
                     aria-label="Explore all AI tools"
                 >

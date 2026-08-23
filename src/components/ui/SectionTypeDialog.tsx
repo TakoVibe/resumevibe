@@ -44,6 +44,7 @@ export function SectionTypeDialog({
                         <p className="mt-2 text-xs text-[var(--text-muted)]">Choose the next block in your professional story.</p>
                     </div>
                     <button
+                        data-tour="close-section-dialog"
                         onClick={onClose}
                         className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]"
                         aria-label="Close section dialog"

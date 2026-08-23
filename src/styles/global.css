@@ -500,10 +500,68 @@ nav,
     animation: rv-ai-home-glow 3.2s ease-in-out infinite;
 }
 
+@keyframes rv-tour-focus-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px var(--accent), 0 0 0 7px color-mix(in srgb, var(--accent) 24%, transparent), 0 16px 48px -22px var(--accent);
+    }
+    50% {
+        box-shadow: 0 0 0 2px var(--accent), 0 0 0 13px transparent, 0 20px 62px -18px var(--accent);
+    }
+}
+
+@keyframes rv-tour-card-enter {
+    from {
+        opacity: 0;
+        filter: blur(2px);
+    }
+    to {
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+@keyframes rv-tour-click-bob {
+    0%, 100% { transform: translate(25%, -25%) rotate(-8deg); }
+    50% { transform: translate(25%, -40%) rotate(-8deg); }
+}
+
+.rv-tour-focus-ring {
+    animation: rv-tour-focus-pulse 1.55s ease-in-out infinite;
+    border-radius: 14px;
+    pointer-events: none;
+}
+
+.rv-tour-card {
+    animation: rv-tour-card-enter 220ms ease-out both;
+}
+
+.rv-tour-click-marker {
+    align-items: center;
+    animation: rv-tour-click-bob 1.15s ease-in-out infinite;
+    background: var(--accent);
+    border: 2px solid var(--bg-card);
+    border-radius: 999px;
+    color: white;
+    display: flex;
+    height: 30px;
+    justify-content: center;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 30px;
+}
+
+.rv-tour-active-target {
+    cursor: pointer !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .rv-ai-feature-card,
     .rv-ai-feature-sheen,
-    .rv-ai-home-glow {
+    .rv-ai-home-glow,
+    .rv-tour-focus-ring,
+    .rv-tour-card,
+    .rv-tour-click-marker {
         animation: none;
     }
 }

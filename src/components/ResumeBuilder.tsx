@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, BarChart3 } from 'lucide-react';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, BarChart3, CircleHelp } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -32,6 +32,76 @@ import { TailoredApplicationReview } from './TailoredApplicationReview';
 import { StandaloneCoverLetterModal } from './StandaloneCoverLetterModal';
 import { RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
 import { fetchLatestResume, resumeEditorUrl } from '../lib/resumeNavigation';
+import { ProductTour, replayProductTour, type ProductTourStep } from './ui/ProductTour';
+
+const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
+    {
+        id: 'welcome',
+        title: 'Build your resume with confidence.',
+        description: 'This quick walkthrough uses the real workspace. You will click a few controls and see exactly what each one does.',
+    },
+    {
+        id: 'personal-details',
+        title: 'Start with your details.',
+        description: 'Your name, role, contact information, and professional links all live here.',
+        target: '[data-tour="personal-details"]',
+        advanceOn: 'target-click',
+        instruction: 'Click Personal details to open the editor.',
+    },
+    {
+        id: 'personal-details-done',
+        title: 'Keep your header accurate.',
+        description: 'Update anything you need in this form. Your resume preview refreshes as soon as you save it.',
+        target: '[data-tour="personal-details-done"]',
+        advanceOn: 'target-click',
+        instruction: 'Click Done to return to your resume.',
+    },
+    {
+        id: 'direct-editing',
+        title: 'Edit directly on the page.',
+        description: 'Click resume text, type your changes, and click away to save. The formatting controls above help you tune the layout.',
+        target: '[data-tour="resume-summary"]',
+        advanceOn: 'next',
+    },
+    {
+        id: 'add-section',
+        title: 'Add the sections you need.',
+        description: 'Bring in projects, certifications, education, skills, or a custom section whenever your story needs more space.',
+        target: '[data-tour="add-section"]',
+        advanceOn: 'target-click',
+        instruction: 'Click Add to see the available section types.',
+    },
+    {
+        id: 'section-chooser',
+        title: 'Choose a building block.',
+        description: 'Selecting any card adds that section to the resume. We will leave your document unchanged during this tour.',
+        target: '[data-tour="close-section-dialog"]',
+        advanceOn: 'target-click',
+        instruction: 'Click the close button to continue the tour.',
+    },
+    {
+        id: 'ai-tools',
+        title: 'Get focused AI assistance.',
+        description: 'Open AI tools for resume review, writing help, importing, cover letters, and job-specific application support.',
+        target: '[data-tour="ai-tools"]',
+        advanceOn: 'next',
+    },
+    {
+        id: 'preview',
+        title: 'Check the finished document.',
+        description: 'Preview shows the PDF layout your recruiter will receive before you export it.',
+        target: '[data-tour="preview-resume"]',
+        advanceOn: 'target-click',
+        instruction: 'Click Preview to switch views.',
+    },
+    {
+        id: 'export',
+        title: 'You are ready to export.',
+        description: 'When everything looks right, Export PDF creates the final file. You can replay this walkthrough anytime from More actions.',
+        target: '[data-tour="export-resume"]',
+        advanceOn: 'next',
+    },
+];
 
 function ResumeBuilderContent() {
     const { data, updateResume, resetToDefault, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
@@ -191,6 +261,32 @@ function ResumeBuilderContent() {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
+
+    const prepareProductTourStep = useCallback((nextIndex: number) => {
+        setShowMoreActions(false);
+        setShowRecruiterAI(false);
+        setShowOptimizeModal(false);
+        setShowImportModal(false);
+        setShowShareModal(false);
+        setShowGuidanceModal(false);
+        setShowCoverLetterGenerator(false);
+        setShowInfoModal(nextIndex === 2);
+        setShowSectionTypeModal(nextIndex === 5);
+        setActiveTab(nextIndex === 8 ? 'preview' : 'editor');
+    }, []);
+
+    const handleProductTourStart = useCallback(() => {
+        prepareProductTourStep(0);
+        setShowSuccessModal(false);
+        setShowTailoredApplication(false);
+    }, [prepareProductTourStep]);
+
+    const handleProductTourEnd = useCallback((reason: 'completed' | 'skipped') => {
+        setShowInfoModal(false);
+        setShowSectionTypeModal(false);
+        setShowRecruiterAI(false);
+        if (reason === 'skipped') setActiveTab('editor');
+    }, []);
 
     if (!isLoaded || isAuthLoading || isResolvingInitialResume) {
         return <LoadingScreen message={isAuthenticated ? 'Opening your latest resume...' : 'Unlocking your professional potential...'} />;
@@ -479,6 +575,7 @@ function ResumeBuilderContent() {
                         </button>
                         <button
                             id="preview-view-tab"
+                            data-tour="preview-resume"
                             type="button"
                             role="tab"
                             aria-selected={activeTab === 'preview'}
@@ -510,6 +607,7 @@ function ResumeBuilderContent() {
                         </button>
 
                         <button
+                            data-tour="export-resume"
                             onClick={handleDownload}
                             disabled={isGenerating}
                             className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 text-[11px] font-semibold text-[var(--bg-main)] shadow-sm transition hover:-translate-y-px hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
@@ -578,6 +676,15 @@ function ResumeBuilderContent() {
                                         >
                                             <Globe size={15} className="text-[var(--accent)]" /> Share resume
                                         </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowMoreActions(false);
+                                                replayProductTour();
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
+                                        >
+                                            <CircleHelp size={15} className="text-[var(--accent)]" /> Replay walkthrough
+                                        </button>
                                         <div className="my-1 border-t border-[var(--border-color)]" />
                                         <button
                                             onClick={() => {
@@ -619,14 +726,14 @@ function ResumeBuilderContent() {
                             <div>
                                 <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Build</p>
                                 <div className="mt-2 space-y-1">
-                                    <button onClick={() => setShowInfoModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
+                                    <button data-tour="personal-details" onClick={() => setShowInfoModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
                                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><User size={15} /></span>
                                         <span className="min-w-0">
                                             <span className="block text-xs font-semibold text-[var(--text-main)]">Personal details</span>
                                             <span className="block text-[10px] text-[var(--text-muted)]">Name, links and contact</span>
                                         </span>
                                     </button>
-                                    <button onClick={() => setShowSectionTypeModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
+                                    <button data-tour="add-section" onClick={() => setShowSectionTypeModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
                                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><FileText size={15} /></span>
                                         <span className="min-w-0">
                                             <span className="block text-xs font-semibold text-[var(--text-main)]">Add a section</span>
@@ -700,8 +807,8 @@ function ResumeBuilderContent() {
 
                     {activeTab === 'editor' && (
                         <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-[var(--border-color)] bg-[var(--glass-bg-strong)] p-1.5 shadow-2xl backdrop-blur-xl lg:hidden">
-                            <button onClick={() => setShowInfoModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><User size={15} /> Details</button>
-                            <button onClick={() => setShowSectionTypeModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><FileText size={15} /> Add</button>
+                            <button data-tour="personal-details" onClick={() => setShowInfoModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><User size={15} /> Details</button>
+                            <button data-tour="add-section" onClick={() => setShowSectionTypeModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><FileText size={15} /> Add</button>
                             <button onClick={() => { window.location.href = '/application-copilot'; }} className="rv-ai-home-glow flex h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 text-[11px] font-semibold text-white"><Zap size={15} /> Job fit</button>
                         </div>
                     )}
@@ -918,6 +1025,13 @@ function ResumeBuilderContent() {
                     </div>
                 )}
             </main>
+
+            <ProductTour
+                steps={RESUME_PRODUCT_TOUR_STEPS}
+                onStart={handleProductTourStart}
+                onStepChange={prepareProductTourStep}
+                onEnd={handleProductTourEnd}
+            />
 
             <TailoredApplicationReview
                 isOpen={showTailoredApplication}

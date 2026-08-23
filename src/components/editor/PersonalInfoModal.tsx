@@ -227,6 +227,7 @@ export function PersonalInfoModal({ data, onSave, onClose }: Props) {
                         Cancel
                     </button>
                     <button
+                        data-tour="personal-details-done"
                         onClick={() => { onSave(formData); onClose(); }}
                         className="px-8 py-2.5 bg-[var(--text-main)] text-[var(--bg-main)] text-[11px] font-bold uppercase tracking-[0.18em] rounded-lg hover:opacity-90 shadow-[0_18px_34px_-22px_rgba(0,0,0,0.65)] transition-all active:scale-95"
                     >
