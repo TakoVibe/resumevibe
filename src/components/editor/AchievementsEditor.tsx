@@ -3,8 +3,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { InlineEditor } from './InlineEditor';
 
 interface Props {
-    achievements: string[];
-    onChange: (achievements: string[]) => void;
+    achievements: ResumeSchema['achievements'];
+    onChange: (achievements: ResumeSchema['achievements']) => void;
 }
 
 export function AchievementsEditor({ achievements, onChange }: Props) {
@@ -18,7 +18,10 @@ export function AchievementsEditor({ achievements, onChange }: Props) {
 
     const updateItem = (index: number, value: string) => {
         const newItems = [...achievements];
-        newItems[index] = value;
+        const currentItem = newItems[index];
+        newItems[index] = typeof currentItem === 'string'
+            ? value
+            : { ...currentItem, text: value };
         onChange(newItems);
     };
 
@@ -36,7 +39,7 @@ export function AchievementsEditor({ achievements, onChange }: Props) {
                     <div key={idx} className="flex gap-2 items-start">
                         <div className="flex-1">
                             <InlineEditor
-                                content={item}
+                                content={typeof item === 'string' ? item : item.text}
                                 onChange={(val) => updateItem(idx, val)}
                                 className="min-h-[40px] text-sm border border-gray-300 rounded px-2 py-1 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
                             />

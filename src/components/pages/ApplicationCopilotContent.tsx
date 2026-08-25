@@ -33,11 +33,13 @@ import { TailoredApplicationReview, type AppliedApplicationPackage } from '../Ta
 import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
 import { useResume } from '../../hooks/useResume';
+import { trackCampaignEvent } from '../../lib/campaign';
 import { analyzeJobFit, createInterviewQuestions, createRecruiterMessage } from '../../lib/jobFit';
 import type { EvidenceReport, FitDecision, FitStatus, JobApplicationRecord } from '../../types/application';
 
 const DRAFT_STORAGE_KEY = 'application-copilot-draft-v1';
 const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
+const HANDOFF_STORAGE_KEY = 'application-copilot-handoff-v1';
 
 type WorkspaceStep = 'input' | 'report' | 'ready';
 
@@ -106,10 +108,21 @@ function ApplicationCopilotWorkspace() {
 
     useEffect(() => {
         try {
+            const handoff = JSON.parse(localStorage.getItem(HANDOFF_STORAGE_KEY) || 'null');
+            if (handoff?.report && typeof handoff.jobDescription === 'string') {
+                setCompany(typeof handoff.company === 'string' ? handoff.company : '');
+                setRole(typeof handoff.role === 'string' ? handoff.role : '');
+                setJobDescription(handoff.jobDescription);
+                setReport(handoff.report as EvidenceReport);
+                setStep('report');
+                localStorage.removeItem(HANDOFF_STORAGE_KEY);
+            }
             const draft = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || '{}');
-            setCompany(typeof draft.company === 'string' ? draft.company : '');
-            setRole(typeof draft.role === 'string' ? draft.role : '');
-            setJobDescription(typeof draft.jobDescription === 'string' ? draft.jobDescription : resume.targetJD || '');
+            if (!handoff?.report) {
+                setCompany(typeof draft.company === 'string' ? draft.company : '');
+                setRole(typeof draft.role === 'string' ? draft.role : '');
+                setJobDescription(typeof draft.jobDescription === 'string' ? draft.jobDescription : resume.targetJD || '');
+            }
             const stored = JSON.parse(localStorage.getItem(APPLICATIONS_STORAGE_KEY) || '[]');
             setApplications(Array.isArray(stored) ? stored : []);
         } catch {
@@ -153,6 +166,7 @@ function ApplicationCopilotWorkspace() {
             setShowUpgradeModal(true);
             return;
         }
+        trackCampaignEvent('tailoring_review_opened', { source: 'application_copilot' });
         setShowPackageReview(true);
     };
 
@@ -178,6 +192,7 @@ function ApplicationCopilotWorkspace() {
         setReadyApplication(record);
         setStep('ready');
         setShowPackageReview(false);
+        trackCampaignEvent('resume_updates_applied', { accepted_count: applicationPackage.acceptedCount });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -490,13 +505,13 @@ function ReportStep({
                 <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
                     <div id="build-package" className="rv-panel scroll-mt-24 p-5">
                         <span className="rv-icon-tile"><Sparkles size={17} /></span>
-                        <h2 className="mt-4 font-serif-ed text-3xl">Build the application.</h2>
-                        <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Create a tailored resume and cover letter, then approve or reject every proposal.</p>
+                        <h2 className="mt-4 font-serif-ed text-3xl">Update the resume for me.</h2>
+                        <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">Review the suggested changes once. ResumeVibe applies everything you approve directly to your resume—no manual rewriting.</p>
                         <div className="mt-5 space-y-2 border-y border-[var(--border-color)] py-4 text-xs">
                             {['Tailored resume', 'Cover letter', 'Recruiter message', 'Interview questions'].map((item) => <div key={item} className="flex items-center gap-2"><Check size={13} className="text-green-500" />{item}</div>)}
                         </div>
                         <button onClick={onCreatePackage} className="rv-button-primary mt-5 w-full py-3">
-                            Create package <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px]">30 tokens</span>
+                            Create & review suggestions <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px]">30 tokens</span>
                         </button>
                         <p className="mt-2 text-center text-[9px] text-[var(--text-muted)]">Your balance: {tokenBalance} tokens</p>
                     </div>
@@ -539,7 +554,7 @@ function ReadyStep({ application, onMarkApplied, onStartAnother }: { application
                 <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-green-500/10 text-green-600"><FileCheck2 size={28} /></span>
                 <p className="rv-kicker mt-6">Application ready</p>
                 <h1 className="mt-3 font-serif-ed text-5xl sm:text-6xl">{application.role || 'Target role'}{application.company ? <span className="italic text-[var(--accent)]"> · {application.company}</span> : null}</h1>
-                <p className="mt-4 text-sm text-[var(--text-muted)]">Your approved resume changes and application assets are saved in this browser.</p>
+                <p className="mt-4 text-sm text-[var(--text-muted)]">ResumeVibe applied your approved changes automatically and saved a restorable resume version.</p>
             </header>
 
             <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2">

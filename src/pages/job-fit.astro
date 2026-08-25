@@ -1,0 +1,14 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+import { JobFitLandingContent } from '../components/pages/JobFitLandingContent';
+---
+
+<Layout
+    title="Free Resume Job Fit Check | ResumeVibe"
+    description="Upload your resume, paste a job description, and see the evidence you can support, the gaps to address, and whether the role is worth a focused application."
+    keywords="resume job fit checker, ats resume checker, tailor resume to job description, resume match job description, ai resume analysis"
+>
+    <JobFitLandingContent client:load />
+</Layout>
+

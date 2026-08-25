@@ -379,14 +379,14 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
 
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-2 backdrop-blur-sm sm:p-4">
-            <div className={`flex max-h-[95vh] w-full flex-col overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl ${view === 'review' ? 'max-w-6xl rounded-2xl' : 'max-w-2xl rounded-3xl'}`}>
+            <div className={`flex max-h-[95vh] w-full flex-col overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl ${view === 'review' ? 'max-w-6xl rounded-2xl' : 'max-w-2xl rounded-3xl'}`} role="dialog" aria-modal="true" aria-labelledby="tailored-application-review-title">
                 <header className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4 sm:px-7 sm:py-5">
                     <div className="flex min-w-0 items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white"><Sparkles size={18} /></span>
                         <div className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Agent workflow</p>
-                            <h2 className="truncate font-serif-ed text-2xl text-[var(--text-main)] sm:text-3xl">Tailored Application Review</h2>
-                            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Nothing changes until you approve it.</p>
+                            <h2 id="tailored-application-review-title" className="truncate font-serif-ed text-2xl text-[var(--text-main)] sm:text-3xl">Tailored Application Review</h2>
+                            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Approve the suggestions you want; we apply them automatically.</p>
                         </div>
                     </div>
                     <button onClick={resetAndClose} disabled={view === 'generating'} className="rounded-xl p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-30" aria-label="Close"><X size={18} /></button>
@@ -399,7 +399,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 <Target className="mt-0.5 shrink-0 text-[var(--accent)]" size={18} />
                                 <div>
                                     <p className="text-sm font-semibold text-[var(--text-main)]">One job description, one complete application package</p>
-                                    <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">The agent will tailor your resume, draft a cover letter, and explain every proposed change before applying anything.</p>
+                                    <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">The agent will tailor your resume, draft a cover letter, and explain every proposal. After approval, the changes are applied directly—no manual copy-and-paste.</p>
                                 </div>
                             </div>
                         </div>
@@ -543,7 +543,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                         <footer className="flex flex-col gap-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
                             <div>
                                 <p className="text-xs font-semibold text-[var(--text-main)]">{decidedCount} of {reviewSections.length} proposals reviewed</p>
-                                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Approved resume changes are saved as a new version. Rejected content is discarded.</p>
+                                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Approved changes are applied automatically and saved as a new version. Rejected content is discarded.</p>
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => setView('input')} className="rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)]">Start over</button>

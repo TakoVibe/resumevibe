@@ -12,7 +12,7 @@ import { Certifications } from './resume/Certifications';
 import { CustomSection } from './resume/CustomSection';
 import { SectionControls } from './ui/SectionControls';
 import { EditableField } from './ui/EditableField';
-import { Plus, Type, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Eye, AlertTriangle } from 'lucide-react';
 import { THEME_PRESETS } from '../styles/themes';
 import { useTheme } from '../context/ThemeContext';
 import { MOBILE_RESUME_PADDING, RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';

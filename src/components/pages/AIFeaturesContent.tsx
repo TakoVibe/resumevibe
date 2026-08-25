@@ -25,8 +25,8 @@ const aiFeatures = [
         description: 'Paste a job description and see which requirements your resume supports, partially supports, or cannot prove yet.',
         value: 'Stop wasting applications on roles you cannot support—and find the exact gaps worth fixing.',
         outputs: ['Apply, Stretch, or Skip guidance', 'Requirement-by-requirement evidence', 'No invented experience'],
-        price: 'Free',
-        href: '/application-copilot',
+        price: 'Free comparison',
+        href: '/job-fit',
         action: 'Check a job fit',
         featured: true,
     },
@@ -123,7 +123,7 @@ export function AIFeaturesContent() {
                                     Choose the problem you need to solve. ResumeVibe shows the output, cost, and review step before you commit.
                                 </p>
                                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                                    <a href="/application-copilot" className="rv-button-primary px-5 py-3"><FileSearch size={16} /> Check a job fit free</a>
+                                    <a href="/job-fit" className="rv-button-primary px-5 py-3"><FileSearch size={16} /> Check a job fit</a>
                                     <a href="/?ai=audit" className="rv-button-secondary px-5 py-3"><BarChart3 size={16} /> Audit my resume</a>
                                 </div>
                             </div>
@@ -201,7 +201,7 @@ export function AIFeaturesContent() {
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-60">Start with clarity</p>
                                 <p className="mt-2 max-w-2xl font-serif-ed text-3xl">See whether your resume can prove the job requirements before you pay for AI writing.</p>
                             </div>
-                            <a href="/application-copilot" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--bg-main)] px-5 py-3 text-xs font-semibold text-[var(--text-main)]">Check fit free <ArrowRight size={14} /></a>
+                            <a href="/job-fit" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--bg-main)] px-5 py-3 text-xs font-semibold text-[var(--text-main)]">Check fit <ArrowRight size={14} /></a>
                         </div>
                     </div>
                 </section>

@@ -80,14 +80,14 @@ export function ProjectsEditor({ projects, onChange }: Props) {
                                     <div className="flex gap-2 items-start">
                                         <div className="flex-1">
                                             <InlineEditor
-                                                content={project.description}
+                                                content={project.description || ''}
                                                 onChange={(val) => updateProject(project.id, 'description', val)}
                                                 className="min-h-[80px] text-sm border border-gray-300 rounded px-2 py-1 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
                                                 placeholder="Description"
                                             />
                                         </div>
                                         <InlineAIButton
-                                            text={project.description}
+                                            text={project.description || ''}
                                             type="description"
                                             context={{
                                                 projectName: project.name,
