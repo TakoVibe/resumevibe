@@ -30,7 +30,6 @@ import { LoginModal } from '../ui/LoginModal';
 import { Navbar } from '../ui/Navbar';
 import { UpgradeModal } from '../ui/UpgradeModal';
 import { TailoredApplicationReview, type AppliedApplicationPackage } from '../TailoredApplicationReview';
-import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
 import { useResume } from '../../hooks/useResume';
 import { trackCampaignEvent } from '../../lib/campaign';
@@ -86,8 +85,7 @@ export function ApplicationCopilotContent() {
 
 function ApplicationCopilotWorkspace() {
     const { data: resume } = useResume();
-    const { isAuthenticated } = useAuth();
-    const { tokenBalance, showUpgradeModal, setShowUpgradeModal } = useToken();
+    const { tokenBalance, isLoading: isTokenLoading, canAffordTokens, showUpgradeModal, setShowUpgradeModal } = useToken();
     const [step, setStep] = useState<WorkspaceStep>('input');
     const [company, setCompany] = useState('');
     const [role, setRole] = useState('');
@@ -158,14 +156,8 @@ function ApplicationCopilotWorkspace() {
     };
 
     const openPackageReview = () => {
-        if (!isAuthenticated) {
-            window.dispatchEvent(new CustomEvent('show-login-modal'));
-            return;
-        }
-        if (tokenBalance < 30) {
-            setShowUpgradeModal(true);
-            return;
-        }
+        if (isTokenLoading) return;
+        if (!canAffordTokens(30)) return;
         trackCampaignEvent('tailoring_review_opened', { source: 'application_copilot' });
         setShowPackageReview(true);
     };
@@ -267,6 +259,7 @@ function ApplicationCopilotWorkspace() {
                             company={company}
                             role={role}
                             tokenBalance={tokenBalance}
+                            isTokenLoading={isTokenLoading}
                             expandedRequirement={expandedRequirement}
                             onExpandedRequirementChange={setExpandedRequirement}
                             onEdit={() => setStep('input')}
@@ -411,6 +404,7 @@ function ReportStep({
     company,
     role,
     tokenBalance,
+    isTokenLoading,
     expandedRequirement,
     onExpandedRequirementChange,
     onEdit,
@@ -420,6 +414,7 @@ function ReportStep({
     company: string;
     role: string;
     tokenBalance: number;
+    isTokenLoading: boolean;
     expandedRequirement: string | null;
     onExpandedRequirementChange: (id: string | null) => void;
     onEdit: () => void;
@@ -510,10 +505,12 @@ function ReportStep({
                         <div className="mt-5 space-y-2 border-y border-[var(--border-color)] py-4 text-xs">
                             {['Tailored resume', 'Cover letter', 'Recruiter message', 'Interview questions'].map((item) => <div key={item} className="flex items-center gap-2"><Check size={13} className="text-green-500" />{item}</div>)}
                         </div>
-                        <button onClick={onCreatePackage} className="rv-button-primary mt-5 w-full py-3">
-                            Create & review suggestions <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px]">30 tokens</span>
+                        <button onClick={onCreatePackage} disabled={isTokenLoading} className="rv-button-primary mt-5 w-full py-3 disabled:opacity-60">
+                            {isTokenLoading ? 'Loading balance…' : <>Create & review suggestions <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px]">30 tokens</span></>}
                         </button>
-                        <p className="mt-2 text-center text-[9px] text-[var(--text-muted)]">Your balance: {tokenBalance} tokens</p>
+                        <p className="mt-2 text-center text-[9px] text-[var(--text-muted)]">
+                            {isTokenLoading ? 'Checking your balance…' : `Your balance: ${tokenBalance} tokens`}
+                        </p>
                     </div>
 
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">

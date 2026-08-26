@@ -10,9 +10,10 @@ interface Props {
     image?: string;
     keywords?: string;
     includeResumeStyles?: boolean;
+    noindex?: boolean;
 }
 
-const { title, description, image, keywords, includeResumeStyles = false } = Astro.props;
+const { title, description, image, keywords, includeResumeStyles = false, noindex = false } = Astro.props;
 ---
 
 <html lang="en">
@@ -27,6 +28,7 @@ const { title, description, image, keywords, includeResumeStyles = false } = Ast
             description={description}
             image={image}
             keywords={keywords}
+            noindex={noindex}
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

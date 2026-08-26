@@ -1,0 +1,12 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { NotFoundContent } from '../components/pages/NotFoundContent';
+---
+
+<Layout
+    title="Page Not Found | ResumeVibe"
+    description="The requested ResumeVibe page could not be found. Return to the resume builder or explore our career tools."
+    noindex
+>
+    <NotFoundContent client:load />
+</Layout>

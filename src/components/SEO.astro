@@ -6,6 +6,7 @@ interface Props {
     canonicalURL?: URL | string;
     type?: string;
     keywords?: string;
+    noindex?: boolean;
 }
 
 const {
@@ -15,6 +16,7 @@ const {
     canonicalURL = new URL(Astro.url.pathname, Astro.site),
     type = "website",
     keywords = "resume builder, ats-friendly resume, free resume maker, ai resume optimization, professional resume templates, software engineer resume, cv maker, online resume builder",
+    noindex = false,
 } = Astro.props;
 ---
 
@@ -49,7 +51,7 @@ const {
 <meta property="twitter:image" content={new URL(image, Astro.url)} />
 
 <!-- Robots -->
-<meta name="robots" content="index, follow" />
+<meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow"} />
 
 <!-- Structured Data (Schema.org) -->
 <script

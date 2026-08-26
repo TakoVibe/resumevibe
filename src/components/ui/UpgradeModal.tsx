@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Zap, Check, Lock, ExternalLink } from 'lucide-react';
+import { useToken } from '../../context/TokenContext';
 
 interface UpgradeModalProps {
     isOpen: boolean;
@@ -8,6 +9,7 @@ interface UpgradeModalProps {
 
 export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
     const [loading, setLoading] = React.useState(false);
+    const { tokenBalance, isLoading: isTokenLoading } = useToken();
 
     if (!isOpen) return null;
 
@@ -36,15 +38,18 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                     </div>
                     <p className="rv-kicker">Token balance</p>
                     <h2 className="mb-2 mt-1 font-serif-ed text-3xl text-[var(--text-main)]">More tokens required</h2>
-                    <p className="text-[var(--text-muted)] text-sm mb-6">
+                    <p className="text-[var(--text-muted)] text-sm mb-2">
                         You need more tokens to continue using advanced AI features like Pilot Mode and Deep Audit.
+                    </p>
+                    <p className="text-[var(--text-main)] text-xs font-semibold mb-6">
+                        {isTokenLoading ? 'Checking your balance…' : `Your current balance: ${tokenBalance} tokens`}
                     </p>
 
                     <div className="rv-panel mb-6 bg-[var(--bg-input)] p-5 text-left !shadow-none">
                         <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--border-color)]">
                             <div>
                                 <h3 className="text-sm font-semibold text-[var(--text-main)]">Starter pack</h3>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">100 VibeTokens</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">200 VibeTokens</p>
                             </div>
                             <div className="text-right">
                                 <span className="font-serif-ed text-3xl text-[var(--text-main)]">$1</span>
@@ -74,13 +79,13 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                     >
                         {loading ? 'Processing...' : (
                             <>
-                                Buy 100 Tokens <ExternalLink size={16} />
+                                Buy 200 Tokens <ExternalLink size={16} />
                             </>
                         )}
                     </button>
                     
                     <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-[10px] text-[var(--text-muted)]">
-                        <Lock size={12} /> Secure Checkout using Stripe
+                        <Lock size={12} /> Secure checkout using Razorpay
                     </p>
                 </div>
             </div>

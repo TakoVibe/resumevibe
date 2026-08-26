@@ -23,10 +23,12 @@ import {
 } from 'lucide-react';
 
 const PACKS = [
-    { tokens: 100,  price: '₹85',   usd: '~$1',   savings: null,      popular: false },
-    { tokens: 500,  price: '₹399',  usd: '~$4.75', savings: '~5% off', popular: true  },
-    { tokens: 1000, price: '₹699',  usd: '~$8.32', savings: '~17% off', popular: false },
+    { tokens: 200,  price: '₹85',   usd: '~$1',   savings: null,      popular: false },
+    { tokens: 1000, price: '₹399',  usd: '~$4.75', savings: '~5% off', popular: true  },
+    { tokens: 2000, price: '₹699',  usd: '~$8.32', savings: '~17% off', popular: false },
 ];
+
+const TOKEN_FORMATTER = new Intl.NumberFormat('en-US');
 
 export function BuyTokensContent() {
     return (
@@ -222,7 +224,9 @@ function BuyTokensInner() {
                             <div className="relative flex items-start justify-between gap-4">
                                 <div>
                                     <p className="rv-kicker">Your wallet</p>
-                                    <p className="mt-5 font-serif-ed text-6xl leading-none text-[var(--text-main)]">{tokenBalance}</p>
+                                    <p className="mt-5 font-sans-ed text-5xl font-semibold leading-none tracking-tight text-[var(--text-main)] tabular-nums">
+                                        {TOKEN_FORMATTER.format(tokenBalance)}
+                                    </p>
                                     <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">tokens available</p>
                                 </div>
                                 <span className="rv-icon-tile"><Zap size={18} /></span>
@@ -261,7 +265,9 @@ function BuyTokensInner() {
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-color)] pb-5">
                                 <div>
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Pack {PACKS.indexOf(pack) + 1}</p>
-                                    <h3 className="mt-2 font-serif-ed text-3xl text-[var(--text-main)]">{pack.tokens} tokens</h3>
+                                    <h3 className="mt-2 font-sans-ed text-3xl font-semibold tracking-tight text-[var(--text-main)] tabular-nums">
+                                        {TOKEN_FORMATTER.format(pack.tokens)} tokens
+                                    </h3>
                                 </div>
                                 {pack.savings && (
                                     <span className="rounded-full bg-[var(--accent-subtle)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--accent)]">
@@ -288,19 +294,25 @@ function BuyTokensInner() {
                                     <Check size={15} className="shrink-0 text-[var(--accent)]" />
                                     <span>UPI, cards &amp; netbanking</span>
                                 </li>
+                                <li className="flex items-center gap-3">
+                                    <Check size={15} className="shrink-0 text-[var(--accent)]" />
+                                    <span>Use tokens to read premium System Design &amp; AI articles <span className="whitespace-nowrap">(coming soon)</span></span>
+                                </li>
                             </ul>
 
-                            <button
-                                onClick={() => handlePurchase(pack.tokens)}
-                                disabled={loadingPack !== null}
-                                className="rv-button-primary mt-auto w-full"
-                            >
-                                {loadingPack === pack.tokens ? (
-                                    <><Loader2 size={14} className="animate-spin" /> Processing</>
-                                ) : (
-                                    <>Buy pack <ArrowRight size={14} /></>
-                                )}
-                            </button>
+                            <div className="mt-auto pt-8">
+                                <button
+                                    onClick={() => handlePurchase(pack.tokens)}
+                                    disabled={loadingPack !== null}
+                                    className="rv-button-primary w-full"
+                                >
+                                    {loadingPack === pack.tokens ? (
+                                        <><Loader2 size={14} className="animate-spin" /> Processing</>
+                                    ) : (
+                                        <>Buy pack <ArrowRight size={14} /></>
+                                    )}
+                                </button>
+                            </div>
                         </article>
                     ))}
                         </div>

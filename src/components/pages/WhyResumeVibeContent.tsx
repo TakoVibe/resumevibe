@@ -276,10 +276,10 @@ export function WhyResumeVibeContent() {
                         <div className="p-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
                             <h3 className="text-lg font-black mb-2 text-[var(--text-main)]">Free Tier</h3>
                             <div className="text-3xl font-black text-[var(--accent)] mb-6">
-                                50 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
+                                100 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
                             </div>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed mb-6">
-                                Every new user gets 50 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
+                                Every new user gets 100 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
@@ -288,7 +288,7 @@ export function WhyResumeVibeContent() {
                                 </li>
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
                                     <Sparkles size={16} className="text-[var(--accent)] shrink-0" />
-                                    <span>50 tokens for AI Actions</span>
+                                    <span>100 tokens for AI Actions</span>
                                 </li>
                             </ul>
                         </div>
@@ -299,7 +299,7 @@ export function WhyResumeVibeContent() {
                             </div>
                             <h3 className="text-lg font-black mb-2 pr-28 text-[var(--text-main)]">Starter Pack</h3>
                             <div className="text-3xl font-black text-[var(--text-main)] mb-6">
-                                $1 <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">/ 100 Tokens</span>
+                                $1 <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">/ 200 Tokens</span>
                             </div>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed mb-6">
                                 Run out of tokens? No monthly subscriptions. Refill only when you need ResumeVibe to review, tailor, or improve your resume.
