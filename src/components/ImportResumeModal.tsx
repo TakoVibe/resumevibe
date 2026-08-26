@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
-    const { useTokens } = useToken();
+    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
     const [activeTab, setActiveTab] = useState<'text' | 'pdf'>('text');
     const [textInput, setTextInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -32,8 +32,7 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
             return;
         }
 
-        const hasTokens = await useTokens('import_resume_text', 50);
-        if (!hasTokens) return;
+        if (!canAffordTokens(50)) return;
 
         setIsProcessing(true);
         setError('');
@@ -48,6 +47,8 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
             if (!response.ok) throw new Error('Failed to parse resume');
 
             const parsedData = await response.json();
+            const charged = await chargeTokensAfterSuccess('import_resume_text', 50);
+            if (!charged) return;
             setIsSuccess(true);
             setTimeout(() => {
                 onImport(parsedData);
@@ -70,8 +71,7 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
             return;
         }
 
-        const hasTokens = await useTokens('import_resume_pdf', 50);
-        if (!hasTokens) {
+        if (!canAffordTokens(50)) {
             e.target.value = '';
             return;
         }
@@ -91,6 +91,8 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
             if (!response.ok) throw new Error('Failed to parse PDF');
 
             const parsedData = await response.json();
+            const charged = await chargeTokensAfterSuccess('import_resume_pdf', 50);
+            if (!charged) return;
             setIsSuccess(true);
             setTimeout(() => {
                 onImport(parsedData);

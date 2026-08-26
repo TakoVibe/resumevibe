@@ -97,7 +97,7 @@ export function JobFitLandingContent() {
 function JobFitLanding() {
     const { data: savedResume, updateResume, isLoaded } = useResume();
     const { user, isAuthenticated } = useAuth();
-    const { useTokens, showUpgradeModal, setShowUpgradeModal } = useToken();
+    const { canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, showUpgradeModal, setShowUpgradeModal } = useToken();
     const [resumeSource, setResumeSource] = useState<ResumeSource>('pdf');
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [resumeText, setResumeText] = useState('');
@@ -185,19 +185,16 @@ function JobFitLanding() {
 
         try {
             let resumeToAnalyze: ResumeSchema;
+            let isRedeemingFreeFitCheck = false;
             if (resumeSource === 'sample') {
                 resumeToAnalyze = initialResume;
             } else if (resumeSource === 'saved') {
                 resumeToAnalyze = savedResume;
             } else {
-                const tokensAccepted = await useTokens(`campaign_import_${resumeSource}`, 50);
-                if (!tokensAccepted) {
-                    setIsProcessing(false);
-                    return;
-                }
+                isRedeemingFreeFitCheck = freeJobFitAvailable;
+                if (!isRedeemingFreeFitCheck && !canAffordTokens(50)) return;
                 resumeToAnalyze = await parseResume();
-                updateResume({ ...resumeToAnalyze, targetJD: jobDescription.trim() });
-                trackCampaignEvent('resume_parsed', { source: resumeSource });
+                trackCampaignEvent('resume_parsed', { source: resumeSource, free_first_check: isRedeemingFreeFitCheck });
             }
 
             const nextReport = analyzeJobFit(resumeToAnalyze, jobDescription.trim());
@@ -205,13 +202,26 @@ function JobFitLanding() {
                 throw new Error('We could not identify enough concrete requirements. Include the qualifications section and try again.');
             }
 
+            if (resumeSource === 'pdf' || resumeSource === 'text') {
+                const charged = await chargeTokensAfterSuccess(`job_fit_import_${resumeSource}`, 50);
+                if (!charged) return;
+            }
+
+            if (resumeSource === 'pdf' || resumeSource === 'text') {
+                updateResume({ ...resumeToAnalyze, targetJD: jobDescription.trim() });
+            }
+
             setReportResume(resumeToAnalyze);
             setReport(nextReport);
+            if (isRedeemingFreeFitCheck) {
+                trackCampaignEvent('free_fit_check_redeemed', { resume_source: resumeSource });
+            }
             trackCampaignEvent('fit_report_completed', {
                 resume_source: resumeSource,
                 decision: nextReport.decision,
                 coverage: nextReport.coverage,
                 requirement_count: nextReport.requirements.length,
+                free_first_check: isRedeemingFreeFitCheck,
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (analysisError) {
@@ -220,7 +230,7 @@ function JobFitLanding() {
         } finally {
             setIsProcessing(false);
         }
-    }, [jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, updateResume, useTokens]);
+    }, [canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, updateResume]);
 
     const handleAnalyze = () => {
         if (jobDescription.trim().length < 350 || !selectedResumeReady) {
@@ -494,7 +504,11 @@ function JobFitLanding() {
 
                                     <div className="mt-4 flex items-start gap-2 text-[10px] leading-5 text-[var(--text-muted)]">
                                         <LockKeyhole size={12} className="mt-1 shrink-0 text-[var(--accent)]" />
-                                        <p>{resumeSource === 'pdf' || resumeSource === 'text' ? 'Resume import uses the 50 welcome tokens included with your account. The evidence comparison is free.' : 'The evidence comparison runs in this browser. This is guidance, not a prediction of an interview.'}</p>
+                                        <p>{resumeSource === 'pdf' || resumeSource === 'text'
+                                            ? !freeJobFitAvailable
+                                                ? 'Your free fit check is complete. Future new resume imports use 50 VibeTokens; the evidence comparison stays free.'
+                                                : 'Your first resume import and evidence comparison are free. No VibeTokens are required.'
+                                            : 'The evidence comparison runs in this browser. This is guidance, not a prediction of an interview.'}</p>
                                     </div>
                                 </div>
                             </section>

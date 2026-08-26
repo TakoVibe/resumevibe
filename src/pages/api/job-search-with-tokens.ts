@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 const BACKEND_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+const JOB_SEARCH_TOKEN_COST = 10;
 
 export const POST: APIRoute = async ({ request }) => {
     try {
@@ -29,43 +30,6 @@ export const POST: APIRoute = async ({ request }) => {
 
         const finalKeyword = company ? `${company} ${searchKeyword}` : searchKeyword;
 
-        // Consume 5 vibetokens for job search
-        const useTokenResponse = await fetch(`${BACKEND_URL}/api/users/tokens/use/`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action_type: 'job_search',
-                product: 'resumevibe',
-                request_id: `job_search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-            })
-        });
-
-        if (!useTokenResponse.ok) {
-            const errorData = await useTokenResponse.json();
-            if (errorData.error === 'Insufficient tokens') {
-                return new Response(
-                    JSON.stringify({ 
-                        error: 'Insufficient tokens',
-                        requires_tokens: true,
-                        tokens_required: 5,
-                        token_balance: errorData.token_balance || 0,
-                        message: 'You need 5 VibeTokens to view job listings. Purchase tokens to continue.'
-                    }),
-                    { status: 402, headers: { 'Content-Type': 'application/json' } }
-                );
-            }
-            return new Response(
-                JSON.stringify({ error: errorData.error || 'Failed to use tokens' }),
-                { status: 400, headers: { 'Content-Type': 'application/json' } }
-            );
-        }
-
-        const tokenData = await useTokenResponse.json();
-
-        // Fetch jobs from Adzuna
         const appId = import.meta.env.ADZUNA_APP_ID;
         const appKey = import.meta.env.ADZUNA_API_KEY;
 
@@ -74,6 +38,27 @@ export const POST: APIRoute = async ({ request }) => {
                 JSON.stringify({ error: 'Adzuna credentials not configured' }),
                 { status: 500, headers: { 'Content-Type': 'application/json' } }
             );
+        }
+
+        const tokenStatusResponse = await fetch(`${BACKEND_URL}/api/users/tokens/`, {
+            headers: { 'Authorization': `Token ${token}` }
+        });
+        if (!tokenStatusResponse.ok) {
+            return new Response(
+                JSON.stringify({ error: 'Your session could not be verified. Please sign in again.' }),
+                { status: 401, headers: { 'Content-Type': 'application/json' } }
+            );
+        }
+        const tokenStatus = await tokenStatusResponse.json();
+        const tokenBalance = Number(tokenStatus.token_balance || 0);
+        if (tokenBalance < JOB_SEARCH_TOKEN_COST) {
+            return new Response(JSON.stringify({
+                error: 'Insufficient tokens',
+                requires_tokens: true,
+                tokens_required: JOB_SEARCH_TOKEN_COST,
+                token_balance: tokenBalance,
+                message: `You need ${JOB_SEARCH_TOKEN_COST} VibeTokens to view job listings. Purchase tokens to continue.`
+            }), { status: 402, headers: { 'Content-Type': 'application/json' } });
         }
 
         let adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=50&what=${encodeURIComponent(finalKeyword)}`;
@@ -107,6 +92,29 @@ export const POST: APIRoute = async ({ request }) => {
                 job.company.toLowerCase().includes(companyLower)
             );
         }
+
+        const useTokenResponse = await fetch(`${BACKEND_URL}/api/users/tokens/use/`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action_type: 'job_search',
+                product: 'resumevibe',
+                request_id: `job_search_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+                operation_succeeded: true
+            })
+        });
+        if (!useTokenResponse.ok) {
+            const errorData = await useTokenResponse.json().catch(() => ({}));
+            return new Response(JSON.stringify({
+                error: errorData.error || 'Tokens could not be charged for this job search.',
+                requires_tokens: useTokenResponse.status === 402,
+                tokens_required: JOB_SEARCH_TOKEN_COST
+            }), { status: useTokenResponse.status === 402 ? 402 : 400, headers: { 'Content-Type': 'application/json' } });
+        }
+        const tokenData = await useTokenResponse.json();
 
         return new Response(
             JSON.stringify({

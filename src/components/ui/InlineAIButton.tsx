@@ -27,20 +27,15 @@ export function InlineAIButton({
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [optimizedText, setOptimizedText] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const { useTokens } = useToken();
+    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
 
     const handleOptimize = async () => {
         if (!text.trim()) return;
 
+        if (!canAffordTokens(5)) return;
+
         setIsOptimizing(true);
         setError(null);
-
-        const hasTokens = await useTokens('inline_edit', 5, 'resumevibe');
-        if (!hasTokens) {
-            setIsOptimizing(false);
-            return;
-        }
-
         try {
             const response = await fetch('/api/optimize-text', {
                 method: 'POST',
@@ -61,6 +56,8 @@ export function InlineAIButton({
             }
 
             if (data.success && data.optimized) {
+                const charged = await chargeTokensAfterSuccess('inline_edit', 5, 'resumevibe');
+                if (!charged) return;
                 setOptimizedText(data.optimized);
             } else {
                 throw new Error('Invalid response from server');

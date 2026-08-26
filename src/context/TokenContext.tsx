@@ -15,9 +15,11 @@ interface TokenContextType {
     tokenBalance: number;
     totalConsumed: number;
     history: TokenLedgerEntry[];
+    freeJobFitAvailable: boolean;
     isLoading: boolean;
     fetchTokenData: () => Promise<void>;
-    useTokens: (actionType: string, tokensRequired: number, product?: string) => Promise<boolean>;
+    canAffordTokens: (tokensRequired: number) => boolean;
+    chargeTokensAfterSuccess: (actionType: string, tokensRequired: number, product?: string) => Promise<boolean>;
     showUpgradeModal: boolean;
     setShowUpgradeModal: (show: boolean) => void;
 }
@@ -29,6 +31,7 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
     const [tokenBalance, setTokenBalance] = useState<number>(0);
     const [totalConsumed, setTotalConsumed] = useState<number>(0);
     const [history, setHistory] = useState<TokenLedgerEntry[]>([]);
+    const [freeJobFitAvailable, setFreeJobFitAvailable] = useState(true);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
 
@@ -42,6 +45,7 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
                 setTokenBalance(data.token_balance);
                 setTotalConsumed(data.total_consumed);
                 setHistory(data.history || []);
+                setFreeJobFitAvailable(data.free_job_fit_available !== false);
             }
         } catch (error) {
             console.error('Failed to fetch token data:', error);
@@ -58,11 +62,12 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
             setTokenBalance(50);
             setTotalConsumed(0);
             setHistory([]);
+            setFreeJobFitAvailable(true);
             setIsLoading(false);
         }
     }, [isAuthenticated]);
 
-    const useTokens = async (actionType: string, tokensRequired: number, product = 'resumevibe') => {
+    const canAffordTokens = (tokensRequired: number) => {
         if (!isAuthenticated) {
             window.dispatchEvent(new CustomEvent('show-login-modal'));
             return false;
@@ -73,6 +78,10 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
             return false;
         }
 
+        return true;
+    };
+
+    const chargeTokensAfterSuccess = async (actionType: string, tokensRequired: number, product = 'resumevibe') => {
         try {
             const requestId = `${actionType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             const response = await api.post('/api/users/tokens/use/', {
@@ -80,11 +89,15 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
                 tokens: tokensRequired,
                 product,
                 request_id: requestId,
+                operation_succeeded: true,
             });
 
             if (response.ok) {
                 const data = await response.json();
                 setTokenBalance(data.token_balance);
+                if (typeof data.free_job_fit_available === 'boolean') {
+                    setFreeJobFitAvailable(data.free_job_fit_available);
+                }
                 fetchTokenData();
                 return true;
             } else if (response.status === 402) {
@@ -103,9 +116,11 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
             tokenBalance,
             totalConsumed,
             history,
+            freeJobFitAvailable,
             isLoading,
             fetchTokenData,
-            useTokens,
+            canAffordTokens,
+            chargeTokensAfterSuccess,
             showUpgradeModal,
             setShowUpgradeModal
         }}>

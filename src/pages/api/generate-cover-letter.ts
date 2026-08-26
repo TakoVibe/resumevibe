@@ -126,6 +126,7 @@ Write the cover letter now.`;
                 product: 'resumevibe',
                 request_id: requestId,
                 description: 'AI-generated cover letter',
+                operation_succeeded: true,
             }),
         });
         if (!useTokenResponse.ok) {

@@ -335,13 +335,14 @@ export const POST: APIRoute = async ({ request }) => {
                 product: 'resumevibe',
                 request_id: requestId,
                 description: 'Tailored resume and cover letter package',
+                operation_succeeded: true,
             }),
         });
         if (!useTokenResponse.ok) {
             const tokenError = await useTokenResponse.json().catch(() => ({}));
             return new Response(
                 JSON.stringify({
-                    error: tokenError.error || 'Tokens could not be reserved for this application package.',
+                    error: tokenError.error || 'Tokens could not be charged for this completed application package.',
                     requires_tokens: useTokenResponse.status === 402,
                     tokens_required: APPLICATION_PACKAGE_TOKEN_COST,
                 }),

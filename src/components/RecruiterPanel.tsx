@@ -29,7 +29,7 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
     // Explicitly track if we are in "General Mode" (no JD)
     const [isGeneralMode, setIsGeneralMode] = useState(false);
     const [isStartingAutopilot, setIsStartingAutopilot] = useState(false);
-    const { useTokens } = useToken();
+    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const itemText = (item: any) => {
@@ -39,23 +39,16 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
     };
     const itemListText = (items: any[] = []) => items.map(itemText).filter(Boolean).join(' ');
 
-    const handleDeepAudit = async (skipTokens = false) => {
+    const handleDeepAudit = async (actionType: 'deep_audit' | 'pilot_mode' = 'deep_audit') => {
         if (!isAuthenticated) {
             onRequireAuth?.();
-            return;
+            return false;
         }
         
-        if (isAuditing) return;
+        if (isAuditing || !canAffordTokens(30)) return false;
         setIsAuditing(true);
         setAuditError(null);
 
-        if (!skipTokens) {
-            const hasTokens = await useTokens('deep_audit', 30, 'resumevibe');
-            if (!hasTokens) {
-                setIsAuditing(false);
-                return;
-            }
-        }
         try {
             const response = await fetch('/api/deep-audit', {
                 method: 'POST',
@@ -67,13 +60,18 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
             });
             const result = await response.json();
             if (response.ok && result.success) {
+                const charged = await chargeTokensAfterSuccess(actionType, 30, 'resumevibe');
+                if (!charged) return false;
                 setAuditResult(result.audit);
                 onAuditResult?.(result.audit);
+                return true;
             } else {
                 setAuditError(result.details || result.error || 'Audit failed');
+                return false;
             }
         } catch (err) {
             setAuditError('Connection error: Check your API configuration.');
+            return false;
         } finally {
             setIsAuditing(false);
         }
@@ -89,11 +87,8 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
         
         setIsStartingAutopilot(true);
         try {
-            const hasTokens = await useTokens('pilot_mode', 30, 'resumevibe');
-            if (!hasTokens) return;
-
-            onOpenOptimizer?.();
-            await handleDeepAudit(true); // skip deep_audit token deduction to prevent double-deduction
+            const completed = await handleDeepAudit('pilot_mode');
+            if (completed) onOpenOptimizer?.();
         } finally {
             setIsStartingAutopilot(false);
         }
@@ -576,7 +571,7 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
                                 {activeTab === 'analysis' && (
                                     <div className="space-y-6 animate-in fade-in duration-300">
                                         <button
-                                            onClick={() => handleDeepAudit(false)}
+                                            onClick={() => void handleDeepAudit()}
                                             disabled={isAuditing}
                                             className={`w-full py-3.5 border flex items-center justify-center gap-3 transition-all group ${
                                                 isAuditing
