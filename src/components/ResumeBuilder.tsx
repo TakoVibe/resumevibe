@@ -616,6 +616,24 @@ function ResumeBuilderContent() {
                             <span className="hidden sm:inline">{isGenerating ? 'Exporting…' : 'Export PDF'}</span>
                         </button>
 
+                        <button
+                            onClick={() => setShowCoverLetterGenerator(true)}
+                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                            title="Generate cover letter (30 tokens)"
+                        >
+                            <Mail size={14} className="text-[var(--accent)]" />
+                            <span className="hidden sm:inline">Cover letter</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowShareModal(true)}
+                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                            title="Share resume"
+                        >
+                            <Globe size={14} className="text-[var(--accent)]" />
+                            <span className="hidden sm:inline">Share</span>
+                        </button>
+
                         <div className="relative">
                         <button
                             onClick={() => setShowMoreActions(!showMoreActions)}
@@ -656,25 +674,6 @@ function ResumeBuilderContent() {
                                             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
                                         >
                                             <Sparkles size={15} className="text-[var(--accent)]" /> Tailor application
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowMoreActions(false);
-                                                setShowCoverLetterGenerator(true);
-                                            }}
-                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
-                                        >
-                                            <Mail size={15} className="text-[var(--accent)]" /> Generate cover letter
-                                            <span className="ml-auto rounded-md bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[8px] text-[var(--accent)]">30 tokens</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowMoreActions(false);
-                                                setShowShareModal(true);
-                                            }}
-                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
-                                        >
-                                            <Globe size={15} className="text-[var(--accent)]" /> Share resume
                                         </button>
                                         <button
                                             onClick={() => {
