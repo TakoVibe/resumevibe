@@ -16,7 +16,7 @@ export function SectionTitle({ title, isEditable, onChange, showSeparator = true
     return (
         <div className="resume-section-title-box group/title">
             <div className="resume-flex resume-items-center resume-justify-between">
-                <div className="flex-1">
+                <div className="resume-flex-1">
                     <EditableField
                         tagName="h2"
                         value={title}

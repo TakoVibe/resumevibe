@@ -7,6 +7,7 @@ import { Plus, List, ListMinus } from 'lucide-react';
 import { DatePicker } from '../ui/DatePicker';
 import { ATSWarning } from '../ui/ATSWarning';
 import { useCallback } from 'react';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 type ProjectItem = ResumeSchema['projects'][0];
 // ... rest of file until the error spot
@@ -78,6 +79,20 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
         const newProj = projects.map(p => {
             if (p.id !== projId) return p;
             return { ...p, metrics: [...(p.metrics || []), 'New feature...'] };
+        });
+        onUpdate(newProj);
+    };
+
+    const updateMetric = (projId: string, metricIndex: number, value: string) => {
+        if (!onUpdate) return;
+        const newProj = projects.map(p => {
+            if (p.id !== projId) return p;
+            const newMetrics = [...(p.metrics || [])];
+            const current = newMetrics[metricIndex];
+            newMetrics[metricIndex] = typeof current === 'object' && current !== null
+                ? { ...current, text: value }
+                : value;
+            return { ...p, metrics: newMetrics };
         });
         onUpdate(newProj);
     };
@@ -300,21 +315,7 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
                                                             tagName="span"
                                                             mode="html"
                                                             value={metricText}
-                                                            onSave={(val) => {
-                                                                if (!onUpdate) return;
-                                                                const newProj = projects.map(p => {
-                                                                    if (p.id !== project.id) return p;
-                                                                    const nm = [...(p.metrics || [])];
-                                                                    const current = nm[idx];
-                                                                    if (typeof current === 'object' && current !== null) {
-                                                                        nm[idx] = { ...current, text: val };
-                                                                    } else {
-                                                                        nm[idx] = val;
-                                                                    }
-                                                                    return { ...p, metrics: nm };
-                                                                });
-                                                                onUpdate(newProj);
-                                                            }}
+                                                            onSave={(val) => updateMetric(project.id, idx, val)}
                                                             isEditable={isEditable}
                                                             controlsLayout="parent"
                                                             bulletIndex={idx}
@@ -363,8 +364,12 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
                                                                 </>
                                                             }
                                                         />
-                                                        {isEditable && metricText.includes('<') && (
-                                                            <ATSWarning type="formatting" className="mt-2" />
+                                                        {isEditable && hasUnsafeResumeFormatting(metricText) && (
+                                                            <ATSWarning
+                                                                type="formatting"
+                                                                className="mt-2"
+                                                                onFix={() => updateMetric(project.id, idx, sanitizeInlineHtml(metricText))}
+                                                            />
                                                         )}
                                                     </div>
                                                 </DraggableBullet>

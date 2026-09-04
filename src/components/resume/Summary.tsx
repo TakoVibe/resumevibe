@@ -3,6 +3,7 @@ import { SectionTitle } from './SectionTitle';
 import { EditableField } from '../ui/EditableField';
 import { InlineAIButton } from '../ui/InlineAIButton';
 import { ATSWarning } from '../ui/ATSWarning';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 interface Props {
     summary: string;
@@ -46,8 +47,12 @@ export function Summary({ summary, isEditable = false, onUpdate, title = "Summar
                     }
                 }}
             />
-            {isEditable && summary.includes('<') && (
-                <ATSWarning type="formatting" className="mt-2" />
+            {isEditable && hasUnsafeResumeFormatting(summary) && (
+                <ATSWarning
+                    type="formatting"
+                    className="mt-2"
+                    onFix={() => onUpdate?.(sanitizeInlineHtml(summary))}
+                />
             )}
         </section>
     );

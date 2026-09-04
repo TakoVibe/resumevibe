@@ -8,6 +8,7 @@ import { InlineAIButton } from '../ui/InlineAIButton';
 import { DatePicker } from '../ui/DatePicker';
 import { ATSWarning } from '../ui/ATSWarning';
 import { useCallback } from 'react';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 type ExperienceItem = ResumeSchema['experience'][0];
 
@@ -236,7 +237,7 @@ export function Experience({ experience, isEditable = false, onUpdate, title = "
                                     </div>
                                 )}
                                 {job.location && (
-                                    <div className={!isMobile ? "resume-text-right shrink-0 ml-2" : ""}>
+                                    <div className={!isMobile ? "resume-text-right resume-shrink-0 resume-ml-2" : ""}>
                                         <EditableField
                                             value={job.location || ''}
                                             onSave={(val) => updateJob(job.id, 'location', val)}
@@ -369,8 +370,12 @@ export function Experience({ experience, isEditable = false, onUpdate, title = "
                                                             </>
                                                         }
                                                     />
-                                                    {isEditable && metricText.includes('<') && (
-                                                        <ATSWarning type="formatting" className="mt-2" />
+                                                    {isEditable && hasUnsafeResumeFormatting(metricText) && (
+                                                        <ATSWarning
+                                                            type="formatting"
+                                                            className="mt-2"
+                                                            onFix={() => updateMetric(job.id, idx, sanitizeInlineHtml(metricText))}
+                                                        />
                                                     )}
                                                 </div>
                                             </DraggableBullet>

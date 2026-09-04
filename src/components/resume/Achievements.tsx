@@ -6,6 +6,7 @@ import { DraggableBullet } from '../ui/DraggableBullet';
 import { Plus, List, ListMinus } from 'lucide-react';
 import { ATSWarning } from '../ui/ATSWarning';
 import { useCallback } from 'react';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 type BulletItem = ResumeSchema['achievements'][0];
 
@@ -189,8 +190,12 @@ export function Achievements({ achievements, isEditable = false, onUpdate, title
                                             </>
                                         }
                                     />
-                                    {isEditable && achievementText.includes('<') && (
-                                        <ATSWarning type="formatting" className="mt-2" />
+                                    {isEditable && hasUnsafeResumeFormatting(achievementText) && (
+                                        <ATSWarning
+                                            type="formatting"
+                                            className="mt-2"
+                                            onFix={() => updateAchievement(idx, sanitizeInlineHtml(achievementText))}
+                                        />
                                     )}
                                 </div>
                             </DraggableBullet>

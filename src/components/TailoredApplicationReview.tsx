@@ -17,12 +17,14 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useToken } from '../context/TokenContext';
 import { useResume } from '../hooks/useResume';
+import type { ResumeMetadata } from '../context/ResumeContext';
 import type { ResumeSchema } from '../types/resume';
 
 type ReviewView = 'input' | 'generating' | 'review';
 type ReviewTab = 'resume' | 'coverLetter';
 type ReviewSection = 'summary' | 'skills' | 'experience' | 'coverLetter';
 type Decision = 'pending' | 'accept' | 'reject';
+type ChargeStatus = 'not-charged' | 'unknown';
 
 interface ChangeReview {
     section: Exclude<ReviewSection, 'coverLetter'>;
@@ -48,14 +50,45 @@ interface TailoredApplicationReviewProps {
 
 export interface AppliedApplicationPackage {
     approvedResume: ResumeSchema;
+    savedResume: ResumeMetadata;
     coverLetter: string;
     acceptedCount: number;
+    acceptedResumeChangeCount: number;
     jobDescription: string;
 }
 
 const VERSION_STORAGE_KEY = 'resume-versions-v1';
 const COVER_LETTER_STORAGE_KEY = 'tailored-cover-letters-v1';
 const APPLICATION_CACHE_KEY = 'tailored-application-cache-v1';
+
+const APPLICATION_GENERATION_STAGES = [
+    {
+        label: 'Match evidence',
+        description: 'Compare the job requirements with verified resume content.',
+    },
+    {
+        label: 'Draft changes',
+        description: 'Prepare coordinated resume and cover-letter proposals.',
+    },
+    {
+        label: 'Check risks',
+        description: 'Flag gaps and remove claims that are not supported.',
+    },
+    {
+        label: 'Prepare review',
+        description: 'Organize every proposed change for your approval.',
+    },
+] as const;
+
+class ApplicationGenerationError extends Error {
+    chargeStatus: ChargeStatus;
+
+    constructor(message: string, chargeStatus: ChargeStatus) {
+        super(message);
+        this.name = 'ApplicationGenerationError';
+        this.chargeStatus = chargeStatus;
+    }
+}
 
 interface TailoredApplicationResult {
     optimizedResume: ResumeSchema;
@@ -127,7 +160,7 @@ function cacheApplication(id: string, result: TailoredApplicationResult) {
 }
 
 export function TailoredApplicationReview({ isOpen, onClose, initialJobDescription, onApplied }: TailoredApplicationReviewProps) {
-    const { data: resume, updateResume } = useResume();
+    const { data: resume, updateResume, saveToBackend } = useResume();
     const { isAuthenticated } = useAuth();
     const { fetchTokenData, setShowUpgradeModal } = useToken();
     const [view, setView] = useState<ReviewView>('input');
@@ -144,8 +177,10 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         experience: 'pending',
         coverLetter: 'pending',
     });
-    const [generationStep, setGenerationStep] = useState('Reading the job description');
+    const [generationStage, setGenerationStage] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [failureChargeStatus, setFailureChargeStatus] = useState<ChargeStatus | null>(null);
+    const [isApplying, setIsApplying] = useState(false);
 
     useEffect(() => {
         if (isOpen && view === 'input') setJobDescription(initialJobDescription || resume.targetJD || '');
@@ -153,18 +188,12 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
 
     useEffect(() => {
         if (view !== 'generating') return;
-        const steps = [
-            'Mapping job requirements to verified evidence',
-            'Tailoring your resume and cover letter together',
-            'Checking proposed claims and risk flags',
-            'Preparing your approval review',
-        ];
-        let currentStep = 0;
-        setGenerationStep(steps[currentStep]);
+        let currentStage = 0;
+        setGenerationStage(currentStage);
         const interval = window.setInterval(() => {
-            currentStep = Math.min(currentStep + 1, steps.length - 1);
-            setGenerationStep(steps[currentStep]);
-        }, 3200);
+            currentStage = Math.min(currentStage + 1, APPLICATION_GENERATION_STAGES.length - 1);
+            setGenerationStage(currentStage);
+        }, 2800);
         return () => window.clearInterval(interval);
     }, [view]);
 
@@ -196,6 +225,8 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         setRequirements([]);
         setActiveTab('resume');
         setError(null);
+        setFailureChargeStatus(null);
+        setIsApplying(false);
         setDecisions({ summary: 'pending', skills: 'pending', experience: 'pending', coverLetter: 'pending' });
         onClose();
     };
@@ -203,16 +234,19 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     const generateApplication = async () => {
         if (jobDescription.trim().length < 100) {
             setError('Paste a complete job description so the agent has enough evidence to tailor against.');
+            setFailureChargeStatus('not-charged');
             return;
         }
 
         if (!isAuthenticated) {
             window.dispatchEvent(new CustomEvent('show-login-modal'));
             setError('Sign in to create and save an application package.');
+            setFailureChargeStatus('not-charged');
             return;
         }
 
         setError(null);
+        setFailureChargeStatus(null);
         setView('generating');
 
         try {
@@ -221,24 +255,39 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             const cachedResult = getCachedApplication(cacheId);
             const applicationData = cachedResult || await (async () => {
                 const authToken = localStorage.getItem('auth_token');
-                const response = await fetch('/api/tailor-application', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
-                        'X-Request-ID': `application-package-${cacheId}`,
-                    },
-                    body: JSON.stringify({ resume, jobDescription: trimmedJobDescription }),
-                });
-                const data = await response.json();
+                let response: Response;
+                try {
+                    response = await fetch('/api/tailor-application', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+                            'X-Request-ID': `application-package-${cacheId}`,
+                        },
+                        body: JSON.stringify({ resume, jobDescription: trimmedJobDescription }),
+                    });
+                } catch {
+                    throw new ApplicationGenerationError(
+                        'We could not reach the application service. Check your connection and try again.',
+                        'unknown',
+                    );
+                }
+
+                const data = await response.json().catch(() => null);
                 if (response.status === 401) {
                     window.dispatchEvent(new CustomEvent('show-login-modal'));
                 }
                 if (response.status === 402) {
                     setShowUpgradeModal(true);
                 }
-                if (!response.ok || !data.success || !data.optimizedResume || !data.coverLetter) {
-                    throw new Error(data.error || data.details || 'Could not create the application package.');
+                if (!response.ok || !data?.success || !data?.optimizedResume || !data?.coverLetter) {
+                    const fallbackMessage = response.status >= 500
+                        ? 'The application service could not finish this review. Please try again.'
+                        : 'Could not create the application package.';
+                    throw new ApplicationGenerationError(
+                        typeof data?.error === 'string' ? data.error : fallbackMessage,
+                        data?.tokens_charged === false ? 'not-charged' : 'unknown',
+                    );
                 }
 
                 const result: TailoredApplicationResult = {
@@ -266,7 +315,10 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             setActiveTab('resume');
             setView('review');
         } catch (generationError) {
-            setError(generationError instanceof Error ? generationError.message : 'Application generation failed.');
+            const knownError = generationError instanceof ApplicationGenerationError ? generationError : null;
+            setError(knownError?.message || 'The application package could not be completed. Please try again.');
+            setFailureChargeStatus(knownError?.chargeStatus || 'unknown');
+            if (!knownError || knownError.chargeStatus === 'unknown') void fetchTokenData();
             setView('input');
         }
     };
@@ -289,7 +341,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         });
     };
 
-    const applyApproved = () => {
+    const applyApproved = async () => {
         if (!optimizedResume) return;
         if (decidedCount !== reviewSections.length) {
             toast.error('Review every proposal before applying the package.');
@@ -302,6 +354,18 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                 (approvedResume as any)[section] = optimizedResume[section];
             }
         });
+
+        const acceptedResumeChangeCount = changedSections.filter((section) => decisions[section] === 'accept').length;
+        setIsApplying(true);
+        setError(null);
+
+        const savedResume = await saveToBackend(approvedResume);
+        if (!savedResume) {
+            setIsApplying(false);
+            setError('We could not save the improved resume. Your review is still here—check your connection and try again.');
+            toast.error('The improved resume was not saved. Please try again.');
+            return;
+        }
 
         const timestamp = Date.now();
         try {
@@ -331,11 +395,16 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         updateResume(approvedResume);
         onApplied?.({
             approvedResume,
+            savedResume,
             coverLetter: decisions.coverLetter === 'accept' ? coverLetter : '',
             acceptedCount,
+            acceptedResumeChangeCount,
             jobDescription: jobDescription.trim(),
         });
-        toast.success(`Applied ${acceptedCount} approved item${acceptedCount === 1 ? '' : 's'} and saved a new version.`);
+        toast.success(acceptedResumeChangeCount > 0
+            ? `Saved ${acceptedResumeChangeCount} approved resume update${acceptedResumeChangeCount === 1 ? '' : 's'}.`
+            : 'Application kit saved. No resume sections were changed.');
+        setIsApplying(false);
         resetAndClose();
     };
 
@@ -414,25 +483,80 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                             <span>Include responsibilities and requirements for better evidence matching.</span>
                             <span>{jobDescription.trim().length} characters</span>
                         </div>
-                        {error && <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500"><AlertTriangle size={15} className="shrink-0" />{error}</div>}
+                        {error && (
+                            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3.5" role="alert">
+                                <div className="flex items-start gap-2.5">
+                                    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                                    <div>
+                                        <p className="text-xs font-semibold text-red-600 dark:text-red-400">Application was not completed</p>
+                                        <p className="mt-1 text-xs leading-relaxed text-red-600/90 dark:text-red-400/90">{error}</p>
+                                    </div>
+                                </div>
+                                {failureChargeStatus && (
+                                    <div className="mt-3 border-t border-red-500/15 pt-2.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                                        {failureChargeStatus === 'not-charged'
+                                            ? 'No tokens were charged for this attempt.'
+                                            : 'We could not confirm the charge status, so your token balance is being refreshed.'}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <button onClick={generateApplication} className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--text-main)] text-sm font-semibold text-[var(--bg-main)] transition hover:-translate-y-px hover:shadow-lg">
-                            Create application package <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">30 tokens</span> <ArrowRight size={16} />
+                            Create application package <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px]">30 tokens · after success</span> <ArrowRight size={16} />
                         </button>
                     </div>
                 )}
 
                 {view === 'generating' && (
-                    <div className="flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
+                    <div className="flex min-h-[470px] flex-col items-center justify-center p-6 text-center sm:p-8">
                         <span className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--accent-subtle)] text-[var(--accent)]">
                             <Loader2 size={34} className="animate-spin" />
                             <span className="absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-[var(--accent)]" />
                         </span>
                         <h3 className="mt-6 font-serif-ed text-3xl text-[var(--text-main)]">Building your application</h3>
-                        <p className="mt-2 text-sm text-[var(--text-muted)]">{generationStep}</p>
-                        <div className="mt-8 grid w-full max-w-md grid-cols-3 gap-2 text-[10px] font-semibold text-[var(--text-muted)]">
-                            <span className="rounded-lg bg-[var(--bg-input)] px-2 py-2">Match evidence</span>
-                            <span className="rounded-lg bg-[var(--bg-input)] px-2 py-2">Draft changes</span>
-                            <span className="rounded-lg bg-[var(--bg-input)] px-2 py-2">Check risks</span>
+                        <p className="mt-2 text-sm font-medium text-[var(--text-main)]" aria-live="polite">
+                            {APPLICATION_GENERATION_STAGES[generationStage].label}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            {APPLICATION_GENERATION_STAGES[generationStage].description}
+                        </p>
+
+                        <div className="mt-7 w-full max-w-md overflow-hidden rounded-full bg-[var(--bg-input)]" aria-hidden="true">
+                            <div
+                                className="h-1.5 rounded-full bg-[var(--accent)] transition-[width] duration-700 ease-out"
+                                style={{ width: `${Math.min(92, (generationStage + 1) * 24)}%` }}
+                            />
+                        </div>
+                        <div className="mt-5 w-full max-w-md space-y-2 text-left">
+                            {APPLICATION_GENERATION_STAGES.map((stage, index) => {
+                                const isComplete = index < generationStage;
+                                const isActive = index === generationStage;
+                                return (
+                                    <div
+                                        key={stage.label}
+                                        className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-500 ${isActive
+                                            ? 'border-[var(--accent)]/35 bg-[var(--accent-subtle)] shadow-sm'
+                                            : 'border-transparent bg-[var(--bg-input)]/70'}`}
+                                    >
+                                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${isComplete
+                                            ? 'bg-green-500 text-white'
+                                            : isActive
+                                                ? 'bg-[var(--accent)] text-white'
+                                                : 'bg-[var(--bg-card)] text-[var(--text-muted)]'}`}
+                                        >
+                                            {isComplete ? <Check size={13} strokeWidth={3} /> : isActive ? <Loader2 size={13} className="animate-spin" /> : index + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className={`text-xs font-semibold ${isActive || isComplete ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>{stage.label}</p>
+                                            {isActive && <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">In progress</p>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-5 flex items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-input)] px-3 py-1.5 text-[10px] font-medium text-[var(--text-muted)]">
+                            <CheckCircle2 size={13} className="text-green-500" />
+                            30 tokens are charged only after a valid review is ready
                         </div>
                     </div>
                 )}
@@ -472,6 +596,11 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                         </div>
 
                         <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--bg-main)] p-4 sm:p-6">
+                            {error && (
+                                <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500">
+                                    <AlertTriangle size={15} className="mt-0.5 shrink-0" />{error}
+                                </div>
+                            )}
                             {activeTab === 'resume' && requirements.length > 0 && (
                                 <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -550,7 +679,10 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 <button onClick={() => setActiveTab(activeTab === 'resume' ? 'coverLetter' : 'resume')} className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-main)] hover:border-[var(--accent)]/40">
                                     {activeTab === 'resume' ? <><Mail size={14} /> Review cover letter</> : <><FileText size={14} /> Review resume</>}
                                 </button>
-                                <button onClick={applyApproved} disabled={decidedCount !== reviewSections.length} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"><Check size={15} /> Apply approved & save version</button>
+                                <button onClick={() => void applyApproved()} disabled={decidedCount !== reviewSections.length || isApplying} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                                    {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                    {isApplying ? 'Saving improved resume…' : 'Apply approved & open resume'}
+                                </button>
                             </div>
                         </footer>
                     </>

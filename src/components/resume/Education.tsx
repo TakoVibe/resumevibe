@@ -7,6 +7,7 @@ import { Plus, List, ListMinus } from 'lucide-react';
 import { DatePicker } from '../ui/DatePicker';
 import { ATSWarning } from '../ui/ATSWarning';
 import { useCallback } from 'react';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 type EducationItem = ResumeSchema['education'][0];
 
@@ -209,7 +210,7 @@ export function Education({ education, isEditable = false, onUpdate, title = "Ed
                                         className="resume-company"
                                     />
                                 </div>
-                                <div className={!isMobile ? "resume-text-right shrink-0 ml-2" : ""}>
+                                <div className={!isMobile ? "resume-text-right resume-shrink-0 resume-ml-2" : ""}>
                                     <EditableField
                                         value={edu.location || ''}
                                         onSave={(val) => updateEdu(edu.id, 'location', val)}
@@ -273,8 +274,12 @@ export function Education({ education, isEditable = false, onUpdate, title = "Ed
                                                                 </>
                                                             }
                                                         />
-                                                        {isEditable && detailText.includes('<') && (
-                                                            <ATSWarning type="formatting" className="mt-2" />
+                                                        {isEditable && hasUnsafeResumeFormatting(detailText) && (
+                                                            <ATSWarning
+                                                                type="formatting"
+                                                                className="mt-2"
+                                                                onFix={() => updateDetail(edu.id, idx, sanitizeInlineHtml(detailText))}
+                                                            />
                                                         )}
                                                     </div>
                                                 </DraggableBullet>

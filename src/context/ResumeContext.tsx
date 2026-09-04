@@ -4,8 +4,42 @@ import { initialResume } from '../data/sample-resume';
 import { api } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
+import { normalizeResumeData } from '../lib/normalizeResume';
 
 const STORAGE_KEY = 'resume-data-v3';
+const METADATA_STORAGE_KEY = 'resume-metadata-v1';
+
+function readStorage(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch (error) {
+        console.warn(`Unable to read browser storage key "${key}"`, error);
+        return null;
+    }
+}
+
+function writeStorage(key: string, value: unknown) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.warn(`Unable to persist browser storage key "${key}"`, error);
+    }
+}
+
+function removeStorage(key: string) {
+    try {
+        localStorage.removeItem(key);
+    } catch (error) {
+        console.warn(`Unable to remove browser storage key "${key}"`, error);
+    }
+}
+
+export interface ResumeMetadata {
+    id?: string;
+    slug: string;
+    name: string;
+    isPublic: boolean;
+}
 
 interface ResumeContextType {
     data: ResumeSchema;
@@ -15,14 +49,14 @@ interface ResumeContextType {
     isLoaded: boolean;
     undo: () => void;
     redo: () => void;
-    saveToBackend: () => Promise<void>;
-    saveVersionToBackend: () => Promise<void>;
+    saveToBackend: (dataOverride?: ResumeSchema) => Promise<ResumeMetadata | null>;
+    saveVersionToBackend: (slugOverride?: string) => Promise<boolean>;
     canUndo: boolean;
     canRedo: boolean;
     isSaving: boolean;
     lastSaved: Date | null;
-    resumeMetadata: { id?: string, slug: string, name: string, isPublic: boolean } | null;
-    setResumeMetadata: (meta: { id?: string, slug: string, name: string, isPublic: boolean } | null) => void;
+    resumeMetadata: ResumeMetadata | null;
+    setResumeMetadata: (meta: ResumeMetadata | null) => void;
 }
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
@@ -42,33 +76,57 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    const [resumeMetadata, setResumeMetadata] = useState<{ id?: string, slug: string, name: string, isPublic: boolean } | null>(null);
+    const [resumeMetadata, setResumeMetadataState] = useState<ResumeMetadata | null>(null);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const resumeMetadataRef = useRef<ResumeMetadata | null>(null);
+    const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+    const setResumeMetadata = useCallback((meta: ResumeMetadata | null) => {
+        resumeMetadataRef.current = meta;
+        setResumeMetadataState(meta);
+        if (meta) {
+            writeStorage(METADATA_STORAGE_KEY, meta);
+        } else {
+            removeStorage(METADATA_STORAGE_KEY);
+        }
+    }, []);
 
     useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = readStorage(STORAGE_KEY);
         if (stored) {
             try {
-                const parsed = JSON.parse(stored);
+                const parsed = normalizeResumeData(JSON.parse(stored));
                 setHistory(prev => ({
                     ...prev,
                     present: parsed
                 }));
+                writeStorage(STORAGE_KEY, parsed);
             } catch (e) {
                 console.error("Failed to parse resume data", e);
             }
         }
+        const storedMetadata = readStorage(METADATA_STORAGE_KEY);
+        if (storedMetadata) {
+            try {
+                const parsed = JSON.parse(storedMetadata);
+                if (parsed?.slug) setResumeMetadata(parsed);
+            } catch (e) {
+                console.error('Failed to parse resume metadata', e);
+                removeStorage(METADATA_STORAGE_KEY);
+            }
+        }
         setIsLoaded(true);
-    }, []);
+    }, [setResumeMetadata]);
 
     const updateResume = useCallback((newData: ResumeSchema) => {
+        const normalizedData = normalizeResumeData(newData);
         setHistory(curr => {
             const newHistory = {
                 past: [...curr.past, curr.present],
-                present: newData,
+                present: normalizedData,
                 future: []
             };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+            writeStorage(STORAGE_KEY, normalizedData);
             return newHistory;
         });
     }, []);
@@ -86,7 +144,7 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
                 future: [curr.present, ...curr.future]
             };
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(previous));
+            writeStorage(STORAGE_KEY, previous);
             return newHistory;
         });
     }, []);
@@ -104,7 +162,7 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
                 future: newFuture
             };
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            writeStorage(STORAGE_KEY, next);
             return newHistory;
         });
     }, []);
@@ -112,66 +170,80 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     const lastSavedDataRef = useRef<string | null>(null);
 
 
-    const saveToBackend = useCallback(async () => {
-        const isTestingResume = history.present.personalInfo?.email === 'johnathan.doe@example.com';
-        if (!isAuthenticated || !history.present || isSaving || isTestingResume) return;
+    const saveToBackend = useCallback((dataOverride?: ResumeSchema): Promise<ResumeMetadata | null> => {
+        const dataToSave = dataOverride || history.present;
+        const isTestingResume = dataToSave.personalInfo?.email === 'johnathan.doe@example.com';
+        if (!isAuthenticated || !dataToSave || isTestingResume) return Promise.resolve(null);
 
-        const currentDataString = JSON.stringify(history.present);
-        if (currentDataString === lastSavedDataRef.current) {
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-
-            const method = resumeMetadata?.id ? 'put' : 'post';
-            // Use the slug for the endpoint in PUT requests to find the record
-            const endpoint = resumeMetadata?.id ? `/api/resumes/${resumeMetadata.slug}/` : '/api/resumes/';
-
-            const response = await api[method](endpoint, {
-                resume_data: history.present,
-                is_public: resumeMetadata?.isPublic || false
-            });
-
-            if (response.ok) {
-                const responseData = await response.json();
-                lastSavedDataRef.current = currentDataString;
-                setResumeMetadata({
-                    id: responseData.id,
-                    slug: responseData.slug,
-                    name: responseData.resume_name,
-                    isPublic: responseData.is_public
-                });
-                setLastSaved(new Date());
+        const saveOperation = async (): Promise<ResumeMetadata | null> => {
+            const currentDataString = JSON.stringify(dataToSave);
+            const currentMetadata = resumeMetadataRef.current;
+            if (currentDataString === lastSavedDataRef.current && currentMetadata) {
+                return currentMetadata;
             }
-        } catch (error) {
-            console.error("Auto-save failed:", error);
-        } finally {
-            setIsSaving(false);
-        }
-    }, [isAuthenticated, history.present, resumeMetadata]);
 
-    const saveVersionToBackend = useCallback(async () => {
-        if (!isAuthenticated || !resumeMetadata?.slug) {
+            setIsSaving(true);
+            try {
+                const method = currentMetadata?.id ? 'put' : 'post';
+                const endpoint = currentMetadata?.id ? `/api/resumes/${currentMetadata.slug}/` : '/api/resumes/';
+                const response = await api[method](endpoint, {
+                    resume_data: dataToSave,
+                    is_public: currentMetadata?.isPublic || false
+                });
+
+                if (!response.ok) return null;
+
+                const responseData = await response.json();
+                const savedSlug = responseData.slug || currentMetadata?.slug;
+                if (!savedSlug) return null;
+                const savedMetadata: ResumeMetadata = {
+                    id: responseData.id ?? currentMetadata?.id,
+                    slug: savedSlug,
+                    name: responseData.resume_name || currentMetadata?.name || dataToSave.personalInfo.fullName || 'Untitled resume',
+                    isPublic: typeof responseData.is_public === 'boolean' ? responseData.is_public : Boolean(currentMetadata?.isPublic)
+                };
+                lastSavedDataRef.current = currentDataString;
+                setResumeMetadata(savedMetadata);
+                setLastSaved(new Date());
+                return savedMetadata;
+            } catch (error) {
+                console.error('Resume save failed:', error);
+                return null;
+            } finally {
+                setIsSaving(false);
+            }
+        };
+
+        const queuedSave = saveQueueRef.current.then(saveOperation, saveOperation);
+        saveQueueRef.current = queuedSave.then(() => undefined, () => undefined);
+        return queuedSave;
+    }, [history.present, isAuthenticated, setResumeMetadata]);
+
+    const saveVersionToBackend = useCallback(async (slugOverride?: string) => {
+        const targetSlug = slugOverride || resumeMetadataRef.current?.slug;
+        if (!isAuthenticated || !targetSlug) {
             toast.error("Please save the resume first before creating a version.");
-            return;
+            return false;
         }
 
         setIsSaving(true);
         try {
-            const response = await api.post(`/api/resumes/${resumeMetadata.slug}/create_version/`, {});
+            const response = await api.post(`/api/resumes/${targetSlug}/create_version/`, {});
             if (response.ok) {
                 toast.success("Version saved successfully!");
+                return true;
             } else {
                 toast.error("Failed to save version.");
+                return false;
             }
         } catch (error) {
             console.error("Error creating version:", error);
             toast.error("Error creating version.");
+            return false;
         } finally {
             setIsSaving(false);
         }
-    }, [isAuthenticated, resumeMetadata]);
+    }, [isAuthenticated]);
 
     // Auto-save effect with dirty check
     useEffect(() => {

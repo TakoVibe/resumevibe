@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { InlineAIButton } from './InlineAIButton';
 import { PromptDialog } from './PromptDialog';
 import { Unlink, ExternalLink } from 'lucide-react';
+import { sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 interface Props {
     value: string;
@@ -41,7 +42,6 @@ export function EditableField({
     className = '',
     isEditable = true,
     placeholder = 'Click to edit...',
-    mode = 'text',
     aiProps,
     actions,
     controlsLayout = 'local',
@@ -64,16 +64,18 @@ export function EditableField({
         onSaveRef.current = onSave;
     }, [onSave]);
 
+    const safeValue = React.useMemo(() => sanitizeInlineHtml(value), [value]);
     const hasAI = isEditable && aiProps;
     const hasActions = isEditable && actions;
     // Always show toolbar if editable to allow linking
     const showToolbar = isEditable;
 
     const containerClasses = [
+        'resume-editable-field',
         className,
         isEditable ? 'rounded-sm transition-[opacity,outline,background-color] duration-200 cursor-text' : '',
         isFocused ? 'outline outline-2 outline-[var(--accent)]/30 z-10 relative' : '',
-        !value && isEditable ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400' : '',
+        !safeValue && isEditable ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400' : '',
         '[&_a]:!underline [&_a]:underline-offset-2 [&_a]:text-[var(--accent)] [&_a]:cursor-pointer [&_a]:relative'
     ].join(' ');
 
@@ -82,13 +84,12 @@ export function EditableField({
         if (showLinkPromptRef.current) return;
 
         setIsFocused(false);
-        const hasTags = /<[a-z][\s\S]*>/i.test(e.currentTarget.innerHTML);
-        const newValue = (mode === 'html' || hasTags) ? e.currentTarget.innerHTML : e.currentTarget.innerText;
+        const newValue = sanitizeInlineHtml(e.currentTarget.innerHTML);
 
-        if (newValue !== value) {
+        if (newValue !== safeValue) {
             onSaveRef.current(newValue);
         }
-    }, [mode, value]);
+    }, [safeValue]);
 
     // Keep refs for callbacks to keep handleKeyDown stable
     const onEnterKeyRef = useRef(onEnterKey);
@@ -103,9 +104,8 @@ export function EditableField({
                 // If onEnterKey is provided and Shift is NOT held, create a new bullet
                 if (onEnterKeyRef.current && !e.shiftKey) {
                     // Save current content first
-                    const hasTags = /<[a-z][\s\S]*>/i.test(e.currentTarget.innerHTML);
-                    const currentValue = (hasTags) ? e.currentTarget.innerHTML : e.currentTarget.innerText;
-                    if (currentValue !== value) {
+                    const currentValue = sanitizeInlineHtml(e.currentTarget.innerHTML);
+                    if (currentValue !== safeValue) {
                         onSaveRef.current(currentValue);
                     }
                     onEnterKeyRef.current();
@@ -133,7 +133,7 @@ export function EditableField({
                 showLinkPromptRef.current = true;
             }
         }
-    }, [Tag, value]);
+    }, [Tag, safeValue]);
 
     const handleLinkConfirm = React.useCallback((url: string) => {
         setShowLinkPrompt(false);
@@ -153,14 +153,14 @@ export function EditableField({
             if (url) {
                 document.execCommand('createLink', false, url);
                 if (contentRef.current) {
-                    onSaveRef.current(contentRef.current.innerHTML);
+                    onSaveRef.current(sanitizeInlineHtml(contentRef.current.innerHTML));
                 }
             }
         }
         selectionRef.current = null;
     }, []);
 
-    const isEmpty = !value || value.trim().length === 0;
+    const isEmpty = safeValue.length === 0;
 
     // If not editable and empty, hide completely
     if (isEmpty && !isEditable) {
@@ -192,7 +192,7 @@ export function EditableField({
 
             // Trigger save
             if (contentRef.current) {
-                onSaveRef.current(contentRef.current.innerHTML);
+                onSaveRef.current(sanitizeInlineHtml(contentRef.current.innerHTML));
             }
             setHoveredLink(null);
         }
@@ -206,7 +206,7 @@ export function EditableField({
     }, [isEmpty, isEditable, placeholder]);
 
     // Bullet length warning
-    const plainText = value?.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') || '';
+    const plainText = safeValue.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
     const isOverLength = maxRecommendedLength && plainText.length > maxRecommendedLength;
 
     // Memoize props to prevent unnecessary updates to element
@@ -235,10 +235,10 @@ export function EditableField({
         ) : (
             React.createElement(Tag as string, {
                 ...commonProps,
-                dangerouslySetInnerHTML: { __html: value }
+                dangerouslySetInnerHTML: { __html: safeValue }
             })
         )
-    ), [isEmpty, isEditable, Tag, commonProps, value]);
+    ), [isEmpty, isEditable, Tag, commonProps, safeValue]);
 
     const prompt = (
         <PromptDialog

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import OpenAI from 'openai';
+import { normalizeResumeData } from '../../lib/normalizeResume';
 
 const openai = new OpenAI({
   apiKey: import.meta.env.OPENAI_API_KEY,
@@ -162,7 +163,7 @@ ${text}`;
       }
     };
 
-    return new Response(JSON.stringify(completeResume), {
+    return new Response(JSON.stringify(normalizeResumeData(completeResume)), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });

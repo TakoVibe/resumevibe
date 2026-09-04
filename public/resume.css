@@ -69,6 +69,18 @@
     text-align: right;
 }
 
+.resume-shrink-0 {
+    flex-shrink: 0;
+}
+
+.resume-ml-2 {
+    margin-left: 8px;
+}
+
+.resume-nowrap {
+    white-space: nowrap;
+}
+
 .resume-text-justify {
     text-align: justify;
 }
@@ -335,6 +347,14 @@ li {
 
 .resume-link:hover {
     text-decoration: underline;
+}
+
+.resume-editable-field a {
+    color: var(--resume-primary);
+    cursor: pointer;
+    position: relative;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 /* Skills */

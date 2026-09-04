@@ -113,7 +113,7 @@ export function Certifications({ certifications, isEditable = false, onUpdate, t
                             <span className="resume-bullet">•</span>
                             <div className="resume-flex-1 resume-break-avoid resume-certification-content">
                                 <div className={`resume-flex resume-certification-row ${isMobile ? 'resume-flex-col resume-gap-0.5' : 'resume-justify-between resume-items-baseline'}`}>
-                                    <div className={`resume-flex resume-gap-1 resume-certification-identity group/cert-row relative items-baseline ${isMobile ? 'resume-font-bold resume-text-dark resume-flex-col resume-items-start resume-gap-0' : ''}`}>
+                                    <div className={`resume-flex resume-gap-1 resume-certification-identity group/cert-row resume-relative resume-items-baseline ${isMobile ? 'resume-font-bold resume-text-dark resume-flex-col resume-items-start resume-gap-0' : ''}`}>
                                         {isMobile ? (
                                             <>
                                                 <EditableField

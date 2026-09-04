@@ -8,14 +8,10 @@ import {
     CheckCircle2,
     ChevronDown,
     CircleDot,
-    Clipboard,
     FileCheck2,
-    FileText,
     Gauge,
     Lightbulb,
     LockKeyhole,
-    MessageSquareText,
-    RotateCcw,
     ShieldCheck,
     Sparkles,
     Target,
@@ -33,14 +29,16 @@ import { TailoredApplicationReview, type AppliedApplicationPackage } from '../Ta
 import { useToken } from '../../context/TokenContext';
 import { useResume } from '../../hooks/useResume';
 import { trackCampaignEvent } from '../../lib/campaign';
+import { resumeEditorUrl } from '../../lib/resumeNavigation';
 import { analyzeJobFit, createInterviewQuestions, createRecruiterMessage } from '../../lib/jobFit';
 import type { EvidenceReport, FitDecision, FitStatus, JobApplicationRecord } from '../../types/application';
 
 const DRAFT_STORAGE_KEY = 'application-copilot-draft-v1';
 const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
 const HANDOFF_STORAGE_KEY = 'application-copilot-handoff-v1';
+const WORKSPACE_STORAGE_KEY = 'application-copilot-workspace-v1';
 
-type WorkspaceStep = 'input' | 'report' | 'ready';
+type WorkspaceStep = 'input' | 'report';
 
 const decisionCopy: Record<FitDecision, { label: string; headline: string; description: string; tone: string }> = {
     apply: {
@@ -84,8 +82,14 @@ export function ApplicationCopilotContent() {
 }
 
 function ApplicationCopilotWorkspace() {
+<<<<<<< HEAD
     const { data: resume } = useResume();
     const { tokenBalance, isLoading: isTokenLoading, canAffordTokens, showUpgradeModal, setShowUpgradeModal } = useToken();
+=======
+    const { data: resume, setResumeMetadata } = useResume();
+    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+    const { tokenBalance, isLoading: isTokenLoading, showUpgradeModal, setShowUpgradeModal } = useToken();
+>>>>>>> fa95392 (fixed layout issues)
     const [step, setStep] = useState<WorkspaceStep>('input');
     const [company, setCompany] = useState('');
     const [role, setRole] = useState('');
@@ -94,8 +98,8 @@ function ApplicationCopilotWorkspace() {
     const [error, setError] = useState('');
     const [showPackageReview, setShowPackageReview] = useState(false);
     const [applications, setApplications] = useState<JobApplicationRecord[]>([]);
-    const [readyApplication, setReadyApplication] = useState<JobApplicationRecord | null>(null);
     const [expandedRequirement, setExpandedRequirement] = useState<string | null>(null);
+    const [shouldOpenHandoffReview, setShouldOpenHandoffReview] = useState(false);
 
     const isSampleResume = resume.personalInfo?.email === 'johnathan.doe@example.com';
     const resumeEvidenceCount = useMemo(() => (
@@ -113,24 +117,58 @@ function ApplicationCopilotWorkspace() {
                 setJobDescription(handoff.jobDescription);
                 setReport(handoff.report as EvidenceReport);
                 setStep('report');
+                setShouldOpenHandoffReview(true);
+                if (handoff.resumeMetadata?.slug) setResumeMetadata(handoff.resumeMetadata);
                 localStorage.removeItem(HANDOFF_STORAGE_KEY);
             }
             const draft = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || '{}');
             if (!handoff?.report) {
-                setCompany(typeof draft.company === 'string' ? draft.company : '');
-                setRole(typeof draft.role === 'string' ? draft.role : '');
-                setJobDescription(typeof draft.jobDescription === 'string' ? draft.jobDescription : resume.targetJD || '');
+                const workspace = JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY) || 'null');
+                if (workspace?.report && typeof workspace.jobDescription === 'string') {
+                    setCompany(typeof workspace.company === 'string' ? workspace.company : '');
+                    setRole(typeof workspace.role === 'string' ? workspace.role : '');
+                    setJobDescription(workspace.jobDescription);
+                    setReport(workspace.report as EvidenceReport);
+                    setStep(workspace.step === 'input' ? 'input' : 'report');
+                } else {
+                    setCompany(typeof draft.company === 'string' ? draft.company : '');
+                    setRole(typeof draft.role === 'string' ? draft.role : '');
+                    setJobDescription(typeof draft.jobDescription === 'string' ? draft.jobDescription : resume.targetJD || '');
+                }
             }
             const stored = JSON.parse(localStorage.getItem(APPLICATIONS_STORAGE_KEY) || '[]');
             setApplications(Array.isArray(stored) ? stored : []);
         } catch {
             setJobDescription(resume.targetJD || '');
         }
-    }, [resume.targetJD]);
+    }, [resume.targetJD, setResumeMetadata]);
+
+    useEffect(() => {
+        if (!shouldOpenHandoffReview || isAuthLoading || isTokenLoading) return;
+        if (!isAuthenticated) {
+            window.dispatchEvent(new CustomEvent('show-login-modal'));
+            return;
+        }
+        if (tokenBalance < 30) {
+            setShowUpgradeModal(true);
+            setShouldOpenHandoffReview(false);
+            return;
+        }
+
+        trackCampaignEvent('tailoring_review_opened', { source: 'job_fit_handoff' });
+        setShowPackageReview(true);
+        setShouldOpenHandoffReview(false);
+    }, [isAuthLoading, isAuthenticated, isTokenLoading, setShowUpgradeModal, shouldOpenHandoffReview, tokenBalance]);
 
     useEffect(() => {
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ company, role, jobDescription }));
     }, [company, role, jobDescription]);
+
+    useEffect(() => {
+        if (report) {
+            localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify({ step, company, role, jobDescription, report }));
+        }
+    }, [company, jobDescription, report, role, step]);
 
     const persistApplications = (records: JobApplicationRecord[]) => {
         setApplications(records);
@@ -173,6 +211,8 @@ function ApplicationCopilotWorkspace() {
             status: 'ready',
             evidenceReport: report,
             resumeSnapshot: applicationPackage.approvedResume,
+            resumeSlug: applicationPackage.savedResume.slug,
+            acceptedResumeChangeCount: applicationPackage.acceptedResumeChangeCount,
             coverLetter: applicationPackage.coverLetter || undefined,
             recruiterMessage: createRecruiterMessage(applicationPackage.approvedResume, role.trim(), company.trim(), report),
             interviewQuestions: createInterviewQuestions(report),
@@ -181,11 +221,22 @@ function ApplicationCopilotWorkspace() {
         };
         const nextRecords = [record, ...applications.filter((item) => item.id !== record.id)];
         persistApplications(nextRecords);
-        setReadyApplication(record);
-        setStep('ready');
         setShowPackageReview(false);
-        trackCampaignEvent('resume_updates_applied', { accepted_count: applicationPackage.acceptedCount });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+        trackCampaignEvent('resume_updates_applied', {
+            accepted_count: applicationPackage.acceptedCount,
+            resume_change_count: applicationPackage.acceptedResumeChangeCount,
+        });
+        trackCampaignEvent('resume_save_confirmed', {
+            application_id: record.id,
+            accepted_count: applicationPackage.acceptedCount,
+            resume_change_count: applicationPackage.acceptedResumeChangeCount,
+        });
+        window.location.replace(resumeEditorUrl(applicationPackage.savedResume.slug, {
+            from: 'job-fit',
+            application: record.id,
+        }));
     };
 
     const markApplied = (record: JobApplicationRecord) => {
@@ -196,20 +247,7 @@ function ApplicationCopilotWorkspace() {
             updatedAt: new Date().toISOString(),
         };
         persistApplications(applications.map((item) => item.id === record.id ? updated : item));
-        if (readyApplication?.id === record.id) setReadyApplication(updated);
         toast.success('Application marked as applied.');
-    };
-
-    const startAnother = () => {
-        setStep('input');
-        setCompany('');
-        setRole('');
-        setJobDescription('');
-        setReport(null);
-        setReadyApplication(null);
-        setError('');
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
@@ -217,10 +255,10 @@ function ApplicationCopilotWorkspace() {
             <Navbar>
                 <div className="flex min-w-0 flex-1 items-center justify-center">
                     <div className="hidden items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-1 sm:flex">
-                        {(['input', 'report', 'ready'] as const).map((item, index) => (
+                        {(['input', 'report'] as const).map((item, index) => (
                             <div key={item} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-semibold ${step === item ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)]'}`}>
                                 <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[8px]">{index + 1}</span>
-                                {item === 'input' ? 'Job' : item === 'report' ? 'Fit' : 'Ready'}
+                                {item === 'input' ? 'Job' : 'Fit & tailor'}
                             </div>
                         ))}
                     </div>
@@ -267,15 +305,7 @@ function ApplicationCopilotWorkspace() {
                         />
                     )}
 
-                    {step === 'ready' && readyApplication && (
-                        <ReadyStep
-                            application={readyApplication}
-                            onMarkApplied={() => markApplied(readyApplication)}
-                            onStartAnother={startAnother}
-                        />
-                    )}
-
-                    {applications.length > 0 && step !== 'ready' && (
+                    {applications.length > 0 && (
                         <ApplicationHistory applications={applications} onMarkApplied={markApplied} />
                     )}
                 </div>
@@ -533,55 +563,6 @@ function ReportStep({
 
 function MetricCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: typeof CheckCircle2; tone: string }) {
     return <div className="rv-panel flex items-center gap-3 p-4 !shadow-none"><span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bg-input)] ${tone}`}><Icon size={16} /></span><div><p className="font-serif-ed text-3xl leading-none">{value}</p><p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">{label}</p></div></div>;
-}
-
-function ReadyStep({ application, onMarkApplied, onStartAnother }: { application: JobApplicationRecord; onMarkApplied: () => void; onStartAnother: () => void }) {
-    const copy = async (value: string, label: string) => {
-        try {
-            await navigator.clipboard.writeText(value);
-            toast.success(`${label} copied.`);
-        } catch {
-            toast.error(`Could not copy ${label.toLowerCase()}.`);
-        }
-    };
-
-    return (
-        <div>
-            <header className="mx-auto max-w-3xl text-center">
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-green-500/10 text-green-600"><FileCheck2 size={28} /></span>
-                <p className="rv-kicker mt-6">Application ready</p>
-                <h1 className="mt-3 font-serif-ed text-5xl sm:text-6xl">{application.role || 'Target role'}{application.company ? <span className="italic text-[var(--accent)]"> · {application.company}</span> : null}</h1>
-                <p className="mt-4 text-sm text-[var(--text-muted)]">ResumeVibe applied your approved changes automatically and saved a restorable resume version.</p>
-            </header>
-
-            <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2">
-                <ReadyAsset icon={FileText} title="Tailored resume" description="Approved changes are now in your ResumeVibe editor.">
-                    <a href="/" className="rv-button-primary w-full">Open resume & export <ArrowRight size={14} /></a>
-                </ReadyAsset>
-                <ReadyAsset icon={MessageSquareText} title="Recruiter message" description="A concise introduction grounded in your strongest evidence.">
-                    <button onClick={() => copy(application.recruiterMessage || '', 'Recruiter message')} className="rv-button-secondary w-full" disabled={!application.recruiterMessage}><Clipboard size={14} /> Copy message</button>
-                </ReadyAsset>
-                <ReadyAsset icon={BriefcaseBusiness} title="Cover letter" description="The letter you reviewed as part of the package.">
-                    <button onClick={() => copy(application.coverLetter || '', 'Cover letter')} className="rv-button-secondary w-full" disabled={!application.coverLetter}><Clipboard size={14} /> Copy cover letter</button>
-                </ReadyAsset>
-                <ReadyAsset icon={Target} title="Interview preparation" description="Questions focused on your strongest evidence and weakest gaps.">
-                    <div className="space-y-2 text-left text-xs leading-5 text-[var(--text-muted)]">{(application.interviewQuestions || []).map((question, index) => <p key={question}><strong className="text-[var(--text-main)]">{index + 1}.</strong> {question}</p>)}</div>
-                </ReadyAsset>
-            </div>
-
-            <div className="mx-auto mt-6 flex max-w-5xl flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div><p className="text-sm font-semibold">Application status: <span className="capitalize text-[var(--accent)]">{application.status}</span></p><p className="mt-1 text-[10px] text-[var(--text-muted)]">Keep the job, resume version and outcome connected.</p></div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                    {application.status !== 'applied' && <button onClick={onMarkApplied} className="rv-button-primary"><Check size={14} /> Mark as applied</button>}
-                    <button onClick={onStartAnother} className="rv-button-secondary"><RotateCcw size={14} /> Analyze another job</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function ReadyAsset({ icon: Icon, title, description, children }: { icon: typeof FileText; title: string; description: string; children: React.ReactNode }) {
-    return <section className="rv-panel flex min-h-56 flex-col p-5 sm:p-6"><span className="rv-icon-tile"><Icon size={17} /></span><h2 className="mt-4 font-serif-ed text-3xl">{title}</h2><p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{description}</p><div className="mt-auto pt-5">{children}</div></section>;
 }
 
 function ApplicationHistory({ applications, onMarkApplied }: { applications: JobApplicationRecord[]; onMarkApplied: (record: JobApplicationRecord) => void }) {

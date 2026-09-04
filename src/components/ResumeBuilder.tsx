@@ -1,9 +1,9 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, BarChart3, CircleHelp } from 'lucide-react';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2 } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
 import { TextPreview } from './parser/TextPreview';
 import { EditorToolbar } from './ui/EditorToolbar';
@@ -30,9 +30,16 @@ import { useToken } from '../context/TokenContext';
 import { UpgradeModal } from './ui/UpgradeModal';
 import { TailoredApplicationReview } from './TailoredApplicationReview';
 import { StandaloneCoverLetterModal } from './StandaloneCoverLetterModal';
-import { RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
 import { fetchLatestResume, resumeEditorUrl } from '../lib/resumeNavigation';
 import { ProductTour, replayProductTour, type ProductTourStep } from './ui/ProductTour';
+import { trackCampaignEvent } from '../lib/campaign';
+import type { JobApplicationRecord } from '../types/application';
+import { buildResumePdfPayload } from '../lib/pdfExport';
+import { ResumeErrorBoundary } from './ui/ResumeErrorBoundary';
+import { normalizeResumeData } from '../lib/normalizeResume';
+
+const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
+const JOB_MATCH_HELPER_DISMISSED_KEY = 'resume-job-match-helper-dismissed-v1';
 
 const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
     {
@@ -124,10 +131,47 @@ function ResumeBuilderContent() {
     const [guidanceAuditResult, setGuidanceAuditResult] = useState<any>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+    const [pdfPreviewError, setPdfPreviewError] = useState('');
     const [lastDownloadedFile, setLastDownloadedFile] = useState('');
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [isPublicView, setIsPublicView] = useState(false);
     const [isResolvingInitialResume, setIsResolvingInitialResume] = useState(true);
+    const [completedApplication, setCompletedApplication] = useState<JobApplicationRecord | null>(null);
+    const [showCompletionBanner, setShowCompletionBanner] = useState(false);
+    const [showApplicationKit, setShowApplicationKit] = useState(false);
+    const trackedCompletionRef = useRef<string | null>(null);
+    const pdfPreviewUrlRef = useRef<string | null>(null);
+    const pdfPreviewRequestRef = useRef(0);
+    const pdfPreviewAbortRef = useRef<AbortController | null>(null);
+
+    const openJobMatchHelper = useCallback(() => {
+        setShowRecruiterAI(true);
+        try {
+            localStorage.removeItem(JOB_MATCH_HELPER_DISMISSED_KEY);
+        } catch (error) {
+            console.warn('Could not save the Job Match Helper visibility.', error);
+        }
+    }, []);
+
+    const hideJobMatchHelper = useCallback(() => {
+        setShowRecruiterAI(false);
+        try {
+            localStorage.setItem(JOB_MATCH_HELPER_DISMISSED_KEY, 'true');
+        } catch (error) {
+            console.warn('Could not save the Job Match Helper visibility.', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            const wasExplicitlyDismissed = localStorage.getItem(JOB_MATCH_HELPER_DISMISSED_KEY) === 'true';
+            const hasDesktopWorkspace = window.matchMedia('(min-width: 1280px)').matches;
+            setShowRecruiterAI(hasDesktopWorkspace && !wasExplicitlyDismissed);
+        } catch (error) {
+            console.warn('Could not restore the Job Match Helper visibility.', error);
+            setShowRecruiterAI(window.matchMedia('(min-width: 1280px)').matches);
+        }
+    }, []);
 
     // Close login modal when authenticated
     useEffect(() => {
@@ -207,6 +251,37 @@ function ResumeBuilderContent() {
         return () => { cancelled = true; };
     }, [isAuthLoading, isAuthenticated, isLoaded, setResumeMetadata, updateResume]);
 
+    // A completed Job Fit flow deep-links the exact saved resume and keeps the
+    // associated application assets available from the editor.
+    useEffect(() => {
+        if (!isLoaded || isAuthLoading || isResolvingInitialResume || isPublicView) return;
+        const params = new URLSearchParams(window.location.search);
+        const applicationId = params.get('application');
+        if (params.get('from') !== 'job-fit' || !applicationId) return;
+
+        try {
+            const stored = JSON.parse(localStorage.getItem(APPLICATIONS_STORAGE_KEY) || '[]');
+            const application = Array.isArray(stored)
+                ? stored.find((item) => item?.id === applicationId)
+                : null;
+            if (!application) return;
+
+            setCompletedApplication(application);
+            setShowCompletionBanner(true);
+            setActiveTab('editor');
+            if (trackedCompletionRef.current !== applicationId) {
+                trackedCompletionRef.current = applicationId;
+                trackCampaignEvent('improved_resume_opened', {
+                    application_id: applicationId,
+                    resume_slug: application.resumeSlug,
+                    resume_change_count: application.acceptedResumeChangeCount || 0,
+                });
+            }
+        } catch (error) {
+            console.error('Could not restore the completed application handoff:', error);
+        }
+    }, [isAuthLoading, isLoaded, isPublicView, isResolvingInitialResume]);
+
     // Deep links from the AI tools page open the requested workflow after the
     // correct resume has been resolved.
     useEffect(() => {
@@ -215,7 +290,7 @@ function ResumeBuilderContent() {
         if (!requestedAITool) return;
 
         if (requestedAITool === 'audit') {
-            setShowRecruiterAI(true);
+            openJobMatchHelper();
             return;
         }
         if (requestedAITool === 'cover-letter') {
@@ -232,14 +307,26 @@ function ResumeBuilderContent() {
                 document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 350);
         }
-    }, [isAuthLoading, isLoaded, isPublicView, isResolvingInitialResume]);
+    }, [isAuthLoading, isLoaded, isPublicView, isResolvingInitialResume, openJobMatchHelper]);
 
-    // Auto-generate PDF preview when switching to 'preview' tab
+    // Generate the same canonical PDF used by Export, while cancelling stale work.
     useEffect(() => {
-        if (activeTab === 'preview') {
-            generatePdfPreview();
+        if (activeTab !== 'preview') {
+            pdfPreviewAbortRef.current?.abort();
+            return;
         }
+
+        const timer = window.setTimeout(() => void generatePdfPreview(), 150);
+        return () => {
+            window.clearTimeout(timer);
+            pdfPreviewAbortRef.current?.abort();
+        };
     }, [activeTab, data]); // Re-generate if data changes while in preview
+
+    useEffect(() => () => {
+        pdfPreviewAbortRef.current?.abort();
+        if (pdfPreviewUrlRef.current) window.URL.revokeObjectURL(pdfPreviewUrlRef.current);
+    }, []);
 
     // Handle Undo/Redo keyboard shortcuts
     useEffect(() => {
@@ -264,7 +351,6 @@ function ResumeBuilderContent() {
 
     const prepareProductTourStep = useCallback((nextIndex: number) => {
         setShowMoreActions(false);
-        setShowRecruiterAI(false);
         setShowOptimizeModal(false);
         setShowImportModal(false);
         setShowShareModal(false);
@@ -284,7 +370,6 @@ function ResumeBuilderContent() {
     const handleProductTourEnd = useCallback((reason: 'completed' | 'skipped') => {
         setShowInfoModal(false);
         setShowSectionTypeModal(false);
-        setShowRecruiterAI(false);
         if (reason === 'skipped') setActiveTab('editor');
     }, []);
 
@@ -333,52 +418,7 @@ function ResumeBuilderContent() {
     const generatePdfPayload = async () => {
         const element = document.getElementById('resume-preview-for-generation');
         if (!element) return null;
-
-        // Explicitly fetch the print/export CSS used by Puppeteer.
-        let resumeCss = '';
-        try {
-            const cssRes = await fetch('/resume.css');
-            if (cssRes.ok) {
-                resumeCss = await cssRes.text();
-            } else {
-                console.error('Failed to fetch resume.css');
-            }
-            const singlePageCssRes = await fetch('/single-page-resume.css');
-            if (singlePageCssRes.ok) {
-                resumeCss += `\n${await singlePageCssRes.text()}`;
-            }
-        } catch (e) {
-            console.error('Error fetching resume.css:', e);
-        }
-
-        const html = element.outerHTML;
-
-        const isSinglePageMode = data.config?.documentMode === 'singlePage';
-        const marginKey = resolveResumeMarginKey(data.config?.margins, isSinglePageMode);
-        const standardPageMargin = RESUME_MARGIN_PADDING[marginKey];
-        const continuationTopPadding = SINGLE_PAGE_PADDING[marginKey].continuationTop;
-        const firstPageBottomPadding = SINGLE_PAGE_PADDING[marginKey].firstPageBottom;
-        const pageRules = isSinglePageMode
-            ? `
-                @page { margin: ${continuationTopPadding} 0 0 0 !important; size: A4; }
-                @page :first { margin: 0 0 ${firstPageBottomPadding} 0 !important; }
-            `
-            : `@page { margin: ${standardPageMargin} !important; size: A4; }`;
-
-        const dynamicStyles = `
-            <style>
-                ${pageRules}
-                body { background: white !important; }
-                #resume-preview-content, #resume-preview-for-generation { 
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    width: 100% !important;
-                    box-shadow: none !important;
-                }
-            </style>
-        `.replace(/\s+/g, ' ').trim();
-
-        return { html: dynamicStyles + html, css: resumeCss };
+        return buildResumePdfPayload(element, data);
     };
 
     const handleDownload = async () => {
@@ -404,12 +444,19 @@ function ResumeBuilderContent() {
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 1_000);
 
             setLastDownloadedFile(filename);
             setShowSuccessModal(true);
+            if (completedApplication) {
+                trackCampaignEvent('tailored_resume_exported', {
+                    application_id: completedApplication.id,
+                    resume_slug: completedApplication.resumeSlug,
+                });
+            }
         } catch (error) {
             console.error('Error downloading PDF:', error);
+            toast.error('PDF export failed. Please try again.');
         } finally {
             setIsGenerating(false);
         }
@@ -432,10 +479,13 @@ function ResumeBuilderContent() {
     };
 
     const generatePdfPreview = async () => {
-        try {
-            // Small delay to allow render
-            await new Promise(resolve => setTimeout(resolve, 100));
+        const requestId = ++pdfPreviewRequestRef.current;
+        pdfPreviewAbortRef.current?.abort();
+        const controller = new AbortController();
+        pdfPreviewAbortRef.current = controller;
+        setPdfPreviewError('');
 
+        try {
             const payload = await generatePdfPayload();
             if (!payload) return;
 
@@ -443,16 +493,43 @@ function ResumeBuilderContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
+                signal: controller.signal,
             });
 
             if (!response.ok) throw new Error('Failed to generate preview');
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
+            if (controller.signal.aborted || requestId !== pdfPreviewRequestRef.current) {
+                window.URL.revokeObjectURL(url);
+                return;
+            }
+
+            if (pdfPreviewUrlRef.current) window.URL.revokeObjectURL(pdfPreviewUrlRef.current);
+            pdfPreviewUrlRef.current = url;
             setPdfPreviewUrl(url);
         } catch (error) {
+            if (controller.signal.aborted) return;
             console.error('Error generating preview:', error);
+            if (requestId === pdfPreviewRequestRef.current) {
+                setPdfPreviewError('The PDF preview could not be generated. Your resume is still safe.');
+            }
         }
+    };
+
+    const handleFixFormatting = () => {
+        const repairedData = normalizeResumeData(data);
+        const formattingChanged = JSON.stringify(repairedData) !== JSON.stringify(data);
+
+        setShowMoreActions(false);
+        if (formattingChanged) {
+            updateResume(repairedData);
+            toast.success('Formatting fixed. Your wording and valid inline styles were preserved.');
+            return;
+        }
+
+        if (activeTab === 'preview') void generatePdfPreview();
+        toast.success('No formatting problems found. The document is already clean.');
     };
 
     const handleAddSectionType = (type: string, label?: string) => {
@@ -649,6 +726,12 @@ function ResumeBuilderContent() {
                                     <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2 shadow-2xl">
                                         <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Document actions</p>
                                         <button
+                                            onClick={handleFixFormatting}
+                                            className="flex w-full items-center gap-3 rounded-xl bg-[var(--accent-subtle)] px-3 py-2.5 text-left text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                                        >
+                                            <Sparkles size={15} /> Fix formatting
+                                        </button>
+                                        <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
                                                 setShowImportModal(true);
@@ -666,6 +749,17 @@ function ResumeBuilderContent() {
                                         >
                                             <History size={15} className="text-[var(--accent)]" /> Save new version
                                         </button>
+                                        {completedApplication && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowMoreActions(false);
+                                                    setShowApplicationKit(true);
+                                                }}
+                                                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"
+                                            >
+                                                <BriefcaseBusiness size={15} className="text-[var(--accent)]" /> Open application kit
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 setShowMoreActions(false);
@@ -706,9 +800,40 @@ function ResumeBuilderContent() {
                 </div>
             </Navbar>
 
+            {completedApplication && showCompletionBanner && (
+                <section className="relative z-[58] border-b border-green-500/25 bg-green-500/10 px-3 py-3 sm:px-5" aria-label="Tailored resume saved">
+                    <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-500/15 text-green-700 dark:text-green-400">
+                            <CheckCircle2 size={18} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-[var(--text-main)]">
+                                {completedApplication.acceptedResumeChangeCount
+                                    ? `Resume tailored${completedApplication.role ? ` for ${completedApplication.role}` : ''}`
+                                    : 'Application kit saved—your resume sections were left unchanged'}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+                                {completedApplication.acceptedResumeChangeCount
+                                    ? `${completedApplication.acceptedResumeChangeCount} approved resume update${completedApplication.acceptedResumeChangeCount === 1 ? '' : 's'} saved to this exact document.`
+                                    : 'Your recruiter message, interview preparation, and any approved cover letter are available in the application kit.'}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button type="button" onClick={() => setActiveTab('editor')} className="rv-button-secondary px-3 py-2 text-[10px]"><Edit size={13} /> Review resume</button>
+                            <button type="button" onClick={() => setShowApplicationKit(true)} className="rv-button-secondary px-3 py-2 text-[10px]"><BriefcaseBusiness size={13} /> Application kit</button>
+                            <button type="button" onClick={() => void handleDownload()} disabled={isGenerating} className="rv-button-primary px-3 py-2 text-[10px]"><Download size={13} /> Export PDF</button>
+                            <button type="button" onClick={() => setShowCompletionBanner(false)} className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-card)]" aria-label="Dismiss tailored resume notice"><X size={14} /></button>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             <main className="relative flex flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
                 {activeTab === 'editor' && (
-                    <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] lg:flex xl:w-64">
+                    <aside
+                        data-layout="workspace-sidebar"
+                        className={`w-60 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] xl:w-64 ${showRecruiterAI ? 'hidden' : 'hidden lg:flex'}`}
+                    >
                         <div className="border-b border-[var(--border-color)] px-5 py-5">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Your workspace</p>
                             <h2 className="mt-1.5 truncate font-serif-ed text-2xl leading-tight text-[var(--text-main)]">{documentTitle}</h2>
@@ -759,9 +884,9 @@ function ResumeBuilderContent() {
                                     className="rv-ai-home-glow mt-2 w-full rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)]/50 hover:shadow-md"
                                 >
                                     <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm"><Zap size={17} /></span>
-                                    <span className="mt-3 block text-sm font-semibold text-[var(--text-main)]">Tailor for a job</span>
-                                    <span className="mt-1 block text-[11px] leading-relaxed text-[var(--text-muted)]">Compare against a job description and apply focused edits.</span>
-                                    <span className="mt-3 block text-[10px] font-semibold text-[var(--accent)]">Create application package →</span>
+                                    <span className="mt-3 block text-sm font-semibold text-[var(--text-main)]">Your application, handled.</span>
+                                    <span className="mt-1 block text-[11px] leading-relaxed text-[var(--text-muted)]">Paste the job. We’ll prepare the resume edits and cover letter—you just approve.</span>
+                                    <span className="mt-3 block text-[10px] font-semibold text-[var(--accent)]">Build my application →</span>
                                 </button>
                                 <button onClick={() => setShowCoverLetterGenerator(true)} className="mt-2 flex w-full items-center gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
                                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Mail size={15} /></span>
@@ -770,18 +895,6 @@ function ResumeBuilderContent() {
                                         <span className="block text-[10px] leading-4 text-[var(--text-muted)]">30 tokens · charged only on success</span>
                                     </span>
                                 </button>
-                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                    <button onClick={() => setShowRecruiterAI(true)} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
-                                        <BarChart3 size={15} className="text-[var(--accent)]" />
-                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--text-main)]">AI audit</span>
-                                        <span className="mt-1 block text-[9px] text-[var(--text-muted)]">30 tokens</span>
-                                    </button>
-                                    <button onClick={() => setShowImportModal(true)} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
-                                        <Sparkles size={15} className="text-[var(--accent)]" />
-                                        <span className="mt-2 block text-[10px] font-semibold text-[var(--text-main)]">AI import</span>
-                                        <span className="mt-1 block text-[9px] text-[var(--text-muted)]">From PDF</span>
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -791,16 +904,33 @@ function ResumeBuilderContent() {
                     </aside>
                 )}
 
+                {!showRecruiterAI && (
+                    <button
+                        type="button"
+                        data-action="open-recruiter-panel"
+                        onClick={openJobMatchHelper}
+                        className={`absolute right-3 z-[59] inline-flex items-center gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--bg-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-main)] shadow-lg transition hover:-translate-y-0.5 hover:border-[var(--accent)]/55 hover:bg-[var(--accent-subtle)] ${activeTab === 'editor' ? 'top-24' : 'top-4'}`}
+                        aria-label="Open Job Match Helper"
+                    >
+                        <Target size={14} className="text-[var(--accent)]" />
+                        Job Match
+                    </button>
+                )}
+
                 <div
                     id={activeTab === 'preview' ? 'preview-view-panel' : 'editor-view-panel'}
                     role="tabpanel"
                     aria-labelledby={activeTab === 'preview' ? 'preview-view-tab' : 'editor-view-tab'}
                     tabIndex={0}
-                    className="flex-1 flex flex-col relative overflow-hidden"
+                    data-layout="resume-editor"
+                    className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
                 >
                     {activeTab === 'editor' && (
                         <div className="absolute inset-x-0 top-0 z-[55] hidden h-20 items-center justify-center border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-4 backdrop-blur-xl md:flex">
-                            <EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} />
+                            <EditorToolbar
+                                onAddSection={() => setShowSectionTypeModal(true)}
+                                onFixFormatting={handleFixFormatting}
+                            />
                         </div>
                     )}
 
@@ -815,7 +945,11 @@ function ResumeBuilderContent() {
                     {/* Mobile Top Toolbar (Unified for editing context) */}
                     {activeTab === 'editor' && (
                         <div className="sticky left-0 right-0 top-0 z-[55] border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-2 py-2 backdrop-blur-xl md:hidden">
-                            <EditorToolbar onAddSection={() => setShowSectionTypeModal(true)} isMobile={true} />
+                            <EditorToolbar
+                                onAddSection={() => setShowSectionTypeModal(true)}
+                                onFixFormatting={handleFixFormatting}
+                                isMobile={true}
+                            />
                         </div>
                     )}
                     {activeTab === 'editor' && (
@@ -936,7 +1070,18 @@ function ResumeBuilderContent() {
                     {activeTab === 'preview' && (
                         <div className="workspace-canvas flex h-full w-full justify-center overflow-y-auto p-3 md:p-8">
                             <div className="flex h-full w-full max-w-[210mm] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] shadow-2xl">
-                                {pdfPreviewUrl ? (
+                                {pdfPreviewError ? (
+                                    <div className="flex flex-1 items-center justify-center p-6 text-[var(--text-main)]">
+                                        <div className="max-w-sm text-center">
+                                            <CircleHelp size={42} className="mx-auto text-amber-500" />
+                                            <p className="mt-4 text-sm font-semibold">Preview unavailable</p>
+                                            <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">{pdfPreviewError}</p>
+                                            <button type="button" onClick={() => void generatePdfPreview()} className="rv-button-secondary mt-5">
+                                                Try preview again
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : pdfPreviewUrl ? (
                                     <iframe
                                         src={pdfPreviewUrl}
                                         className="w-full flex-1 bg-white"
@@ -964,62 +1109,36 @@ function ResumeBuilderContent() {
                     )}
                 </div>
 
-                {/* Right Sidebar - ATS Expert (Responsive) */}
-                {/* On XL screens: Always visible as sidebar */}
-                {activeTab === 'editor' && showRecruiterAI && (
-                    <div className="hidden xl:block h-full border-l border-[var(--border-color)]">
-                        <RecruiterPanel
-                            data={data}
-                            onUpdateJD={(jd) => updateResume({ ...data, targetJD: jd })}
-                            onOpenGuidance={(insights, auditResult) => {
-                                setGuidanceInsights(insights);
-                                setGuidanceAuditResult(auditResult);
-                                setShowGuidanceModal(true);
-                            }}
-                            onOpenOptimizer={() => {
-                                setShowAutoOptimize(true);
-                                setShowOptimizeModal(true);
-                            }}
-                            onAuditResult={(result) => setGuidanceAuditResult(result)}
-                            isAuthenticated={isAuthenticated}
-                            onRequireAuth={() => setShowLoginModal(true)}
-                            onClose={() => setShowRecruiterAI(false)}
+                {/* One responsive helper instance: docked on desktop, drawer on smaller screens. */}
+                {showRecruiterAI && (
+                    <div
+                        data-layout="recruiter-panel"
+                        className="fixed inset-0 z-[70] xl:static xl:z-auto xl:h-full xl:w-[400px] xl:shrink-0 2xl:w-[420px]"
+                    >
+                        <button
+                            type="button"
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300 xl:hidden"
+                            onClick={hideJobMatchHelper}
+                            aria-label="Hide Job Match Helper"
                         />
-                    </div>
-                )}
-
-                {/* On Mobile/Tablet: Slide-over Drawer */}
-                {activeTab === 'editor' && showRecruiterAI && (
-                    <div className="fixed inset-0 z-[70] xl:hidden">
-                        {/* Backdrop */}
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
-                            onClick={() => setShowRecruiterAI(false)}
-                        />
-                        {/* Drawer Panel */}
-                        <div className="absolute right-0 top-0 bottom-0 w-[90%] max-w-sm bg-[var(--bg-card)] shadow-2xl animate-in slide-in-from-right duration-300 border-l border-[var(--border-color)]">
-                            <div className="h-full flex flex-col">
-                                <div className="flex-1 overflow-hidden relative">
-                                    <RecruiterPanel
-                                        data={data}
-                                        onUpdateJD={(jd) => updateResume({ ...data, targetJD: jd })}
-                                        onClose={() => setShowRecruiterAI(false)}
-                                        onOpenGuidance={(insights, auditResult) => {
-                                            setGuidanceInsights(insights);
-                                            setGuidanceAuditResult(auditResult);
-                                            setShowGuidanceModal(true);
-                                        }}
-                                        onOpenOptimizer={() => {
-                                            setShowAutoOptimize(true);
-                                            setShowOptimizeModal(true);
-                                            setShowRecruiterAI(false);
-                                        }}
-                                        onAuditResult={(result) => setGuidanceAuditResult(result)}
-                                        isAuthenticated={isAuthenticated}
-                                        onRequireAuth={() => window.dispatchEvent(new CustomEvent('show-login-modal'))}
-                                    />
-                                </div>
-                            </div>
+                        <div className="absolute inset-y-0 right-0 w-[90%] max-w-sm border-l border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl xl:relative xl:inset-auto xl:h-full xl:w-full xl:max-w-none">
+                            <RecruiterPanel
+                                data={data}
+                                onUpdateJD={(jd) => updateResume({ ...data, targetJD: jd })}
+                                onClose={hideJobMatchHelper}
+                                onOpenGuidance={(insights, auditResult) => {
+                                    setGuidanceInsights(insights);
+                                    setGuidanceAuditResult(auditResult);
+                                    setShowGuidanceModal(true);
+                                }}
+                                onOpenOptimizer={() => {
+                                    setShowAutoOptimize(true);
+                                    setShowOptimizeModal(true);
+                                }}
+                                onAuditResult={(result) => setGuidanceAuditResult(result)}
+                                isAuthenticated={isAuthenticated}
+                                onRequireAuth={() => setShowLoginModal(true)}
+                            />
                         </div>
                     </div>
                 )}
@@ -1031,6 +1150,13 @@ function ResumeBuilderContent() {
                 onStepChange={prepareProductTourStep}
                 onEnd={handleProductTourEnd}
             />
+
+            {completedApplication && showApplicationKit && (
+                <ApplicationKitDialog
+                    application={completedApplication}
+                    onClose={() => setShowApplicationKit(false)}
+                />
+            )}
 
             <TailoredApplicationReview
                 isOpen={showTailoredApplication}
@@ -1046,13 +1172,77 @@ function ResumeBuilderContent() {
     );
 }
 
+function ApplicationKitDialog({ application, onClose }: { application: JobApplicationRecord; onClose: () => void }) {
+    const copy = async (value: string, label: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            toast.success(`${label} copied.`);
+        } catch {
+            toast.error(`Could not copy ${label.toLowerCase()}.`);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+            <section className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="application-kit-title">
+                <header className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] p-5 sm:p-7">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <span className="rv-icon-tile h-11 w-11 shrink-0"><BriefcaseBusiness size={18} /></span>
+                        <div className="min-w-0">
+                            <p className="rv-kicker">Saved application kit</p>
+                            <h2 id="application-kit-title" className="mt-1 truncate font-serif-ed text-3xl text-[var(--text-main)] sm:text-4xl">
+                                {application.role || 'Target role'}{application.company ? ` · ${application.company}` : ''}
+                            </h2>
+                            <p className="mt-1 text-xs text-[var(--text-muted)]">Everything here is connected to the resume currently open in the editor.</p>
+                        </div>
+                    </div>
+                    <button type="button" onClick={onClose} className="rounded-xl p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)]" aria-label="Close application kit"><X size={18} /></button>
+                </header>
+
+                <div className="grid gap-4 overflow-y-auto bg-[var(--bg-main)] p-5 sm:p-7 md:grid-cols-2">
+                    <ApplicationKitAsset icon={Mail} title="Cover letter">
+                        {application.coverLetter ? (
+                            <>
+                                <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-xs leading-6 text-[var(--text-muted)]">{application.coverLetter}</p>
+                                <button type="button" onClick={() => void copy(application.coverLetter || '', 'Cover letter')} className="rv-button-secondary mt-4 w-full"><Clipboard size={14} /> Copy cover letter</button>
+                            </>
+                        ) : <p className="text-xs text-[var(--text-muted)]">The cover letter proposal was not approved.</p>}
+                    </ApplicationKitAsset>
+
+                    <ApplicationKitAsset icon={BriefcaseBusiness} title="Recruiter message">
+                        <p className="text-xs leading-6 text-[var(--text-muted)]">{application.recruiterMessage || 'No recruiter message is available.'}</p>
+                        {application.recruiterMessage && <button type="button" onClick={() => void copy(application.recruiterMessage || '', 'Recruiter message')} className="rv-button-secondary mt-4 w-full"><Clipboard size={14} /> Copy message</button>}
+                    </ApplicationKitAsset>
+
+                    <ApplicationKitAsset icon={Target} title="Interview preparation" wide>
+                        <div className="space-y-3 text-xs leading-5 text-[var(--text-muted)]">
+                            {(application.interviewQuestions || []).map((question, index) => <p key={`${index}-${question}`}><strong className="text-[var(--text-main)]">{index + 1}.</strong> {question}</p>)}
+                        </div>
+                    </ApplicationKitAsset>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function ApplicationKitAsset({ icon: Icon, title, wide = false, children }: { icon: typeof Mail; title: string; wide?: boolean; children: React.ReactNode }) {
+    return (
+        <article className={`rv-panel p-5 !shadow-none sm:p-6 ${wide ? 'md:col-span-2' : ''}`}>
+            <div className="flex items-center gap-3"><span className="rv-icon-tile h-9 w-9"><Icon size={15} /></span><h3 className="font-serif-ed text-2xl text-[var(--text-main)]">{title}</h3></div>
+            <div className="mt-4">{children}</div>
+        </article>
+    );
+}
+
 export function ResumeBuilder() {
     return (
         <ThemeProvider>
             <AuthProvider>
                 <TokenProvider>
                     <ResumeProvider>
-                        <ResumeBuilderContent />
+                        <ResumeErrorBoundary>
+                            <ResumeBuilderContent />
+                        </ResumeErrorBoundary>
                         <Toaster position="bottom-center" toastOptions={{
                             style: {
                                 background: 'var(--bg-card)',

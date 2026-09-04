@@ -1,17 +1,22 @@
 import type { APIRoute } from 'astro';
-import puppeteer from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 import { PDFDocument } from 'pdf-lib';
 
 export const POST: APIRoute = async ({ request }) => {
+    let browser: Browser | null = null;
+
     try {
         const { html, css } = await request.json();
 
-        if (!html) {
+        if (typeof html !== 'string' || !html.trim()) {
             return new Response('Missing HTML content', { status: 400 });
+        }
+        if (css !== undefined && typeof css !== 'string') {
+            return new Response('Invalid CSS content', { status: 400 });
         }
 
         console.log('Launching browser...');
-        const browser = await puppeteer.launch({
+        browser = await puppeteer.launch({
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
             headless: true
         });
@@ -58,8 +63,6 @@ export const POST: APIRoute = async ({ request }) => {
             omitBackground: false
         });
 
-        await browser.close();
-
         // Aggressive compression with pdf-lib
         const pdfDoc = await PDFDocument.load(pdfBuffer);
 
@@ -89,5 +92,11 @@ export const POST: APIRoute = async ({ request }) => {
     } catch (error) {
         console.error('PDF Generation Error:', error);
         return new Response('Error generating PDF', { status: 500 });
+    } finally {
+        if (browser) {
+            await browser.close().catch((closeError) => {
+                console.error('Failed to close PDF browser:', closeError);
+            });
+        }
     }
 };

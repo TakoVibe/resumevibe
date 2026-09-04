@@ -1,17 +1,18 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Sparkles } from 'lucide-react';
 
 interface ATSWarningProps {
     type: 'formatting' | 'label' | 'score' | 'date';
     text?: string;
     className?: string;
+    onFix?: () => void;
 }
 
-export function ATSWarning({ type, text, className = '' }: ATSWarningProps) {
+export function ATSWarning({ type, text, className = '', onFix }: ATSWarningProps) {
     const warnings = {
         formatting: {
-            title: "Formatting Detection",
-            desc: "Complex HTML tags (bold, italics, links) detected. Legacy ATS parsers may fail to extract this text or merge it incorrectly.",
+            title: "Unsafe Formatting Detected",
+            desc: "Structural formatting could change the text order in the exported PDF. Repair it automatically before exporting.",
             color: "text-orange-500",
             bg: "bg-orange-500/10",
             border: "border-orange-500/20"
@@ -40,19 +41,37 @@ export function ATSWarning({ type, text, className = '' }: ATSWarningProps) {
     };
 
     const config = warnings[type];
+    const isActionableFormattingWarning = type === 'formatting' && Boolean(onFix);
 
     return (
-        <div className={`ats-warning flex gap-3 p-3 rounded-xl border ${config.bg} ${config.border} ${className} animate-in fade-in slide-in-from-top-1 duration-300`}>
-            <div className={`${config.color} shrink-0 mt-0.5`}>
-                <AlertTriangle size={14} />
+        <div
+            role="alert"
+            aria-live="polite"
+            className={`ats-warning flex gap-3 rounded-xl border p-3 animate-in fade-in slide-in-from-top-1 duration-300 ${
+                isActionableFormattingWarning
+                    ? 'fixed left-1/2 top-4 z-[80] w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 border-[var(--resume-border)] bg-[var(--resume-bg)] text-[var(--resume-text)] shadow-2xl sm:left-auto sm:right-4 sm:translate-x-0'
+                    : `${config.bg} ${config.border}`
+            } ${className}`}
+        >
+            <div className={`${config.color} ${config.bg} mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg`}>
+                <AlertTriangle size={15} />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
                 <h4 className={`text-[10px] font-black uppercase tracking-wider ${config.color} mb-1`}>
                     {config.title}
                 </h4>
-                <p className="text-[11px] font-medium text-[var(--text-muted)] leading-relaxed">
+                <p className={`text-[11px] font-medium leading-relaxed ${isActionableFormattingWarning ? 'text-[var(--resume-gray)]' : 'text-[var(--text-muted)]'}`}>
                     {text || config.desc}
                 </p>
+                {onFix && (
+                    <button
+                        type="button"
+                        onClick={onFix}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--resume-accent)] px-3 py-1.5 text-[10px] font-bold text-white shadow-sm transition hover:brightness-95"
+                    >
+                        <Sparkles size={12} /> Fix now
+                    </button>
+                )}
             </div>
         </div>
     );

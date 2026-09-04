@@ -36,6 +36,8 @@ export interface JobApplicationRecord {
     status: ApplicationStatus;
     evidenceReport: EvidenceReport;
     resumeSnapshot: ResumeSchema;
+    resumeSlug?: string;
+    acceptedResumeChangeCount?: number;
     coverLetter?: string;
     recruiterMessage?: string;
     interviewQuestions?: string[];

@@ -129,7 +129,7 @@ export function DatePicker({ value, onSave, className = '', isEditable = true, m
 
     if (!isEditable) {
         if (!value) return null;
-        return <span className={`${className} whitespace-nowrap`}>{value}</span>;
+        return <span className={`${className} resume-nowrap`}>{value}</span>;
     }
 
     const popover = (

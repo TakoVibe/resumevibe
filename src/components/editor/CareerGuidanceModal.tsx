@@ -144,7 +144,7 @@ export function CareerGuidanceModal({ isOpen, onClose, data, insights, auditResu
                             }}
                             className="rv-button-primary"
                         >
-                            <Briefcase size={14} /> Tailor for a job <ArrowRight size={14} />
+                            <Briefcase size={14} /> Build my application <ArrowRight size={14} />
                         </button>
                     )}
                 </footer>

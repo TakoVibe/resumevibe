@@ -5,6 +5,7 @@ import { ItemControls } from '../ui/ItemControls';
 import { Plus } from 'lucide-react';
 import { ATSWarning } from '../ui/ATSWarning';
 import { DatePicker } from '../ui/DatePicker';
+import { hasUnsafeResumeFormatting, sanitizeInlineHtml } from '../../lib/resumeSanitizer';
 
 type CustomSectionData = NonNullable<ResumeSchema['customSections']>[0];
 type CustomItem = CustomSectionData['items'][0];
@@ -151,8 +152,12 @@ export function CustomSection({ sectionData, isEditable = false, onUpdate, showS
                                         </div>
                                     }
                                 />
-                                {isEditable && item.content.includes('<') && (
-                                    <ATSWarning type="formatting" className="mt-2" />
+                                {isEditable && hasUnsafeResumeFormatting(item.content) && (
+                                    <ATSWarning
+                                        type="formatting"
+                                        className="mt-2"
+                                        onFix={() => updateItem(idx, 'content', sanitizeInlineHtml(item.content))}
+                                    />
                                 )}
                             </div>
                         </div>

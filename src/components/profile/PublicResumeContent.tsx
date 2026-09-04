@@ -4,6 +4,8 @@ import { Providers } from '../../components/Providers';
 import { Footer } from '../ui/Footer';
 import { Logo } from '../ui/Logo';
 import { Download, Loader2, ArrowRight } from 'lucide-react';
+import { normalizeResumeData } from '../../lib/normalizeResume';
+import { buildResumePdfPayload } from '../../lib/pdfExport';
 
 interface PublicResumeContentProps {
     resumeData: any;
@@ -12,6 +14,7 @@ interface PublicResumeContentProps {
 export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+    const safeResumeData = React.useMemo(() => normalizeResumeData(resumeData), [resumeData]);
 
     React.useEffect(() => {
         const checkMobile = () => {
@@ -25,44 +28,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
     const generatePdfPayload = async () => {
         const element = document.getElementById('resume-preview-for-generation');
         if (!element) return null;
-
-        let resumeCss = '';
-        try {
-            const cssRes = await fetch('/resume.css');
-            if (cssRes.ok) resumeCss = await cssRes.text();
-            const singlePageCssRes = await fetch('/single-page-resume.css');
-            if (singlePageCssRes.ok) {
-                resumeCss += `\n${await singlePageCssRes.text()}`;
-            }
-        } catch (error) {
-            console.error('Error fetching resume.css:', error);
-        }
-
-        const html = element.outerHTML;
-        const marginMap = {
-            compact: '30pt',
-            narrow: '40pt',
-            standard: '50pt',
-            wide: '60pt',
-            relaxed: '72pt'
-        };
-        const isSinglePageMode = resumeData.config?.documentMode === 'singlePage';
-        const marginKey = (resumeData.config?.margins || 'standard') as keyof typeof marginMap;
-        const currentMargin = isSinglePageMode ? '0' : (marginMap[marginKey] || '50pt');
-        const dynamicStyles = `
-            <style>
-                @page { margin: ${currentMargin} !important; size: A4; }
-                body { background: white !important; }
-                #resume-preview-for-generation {
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    width: 100% !important;
-                    box-shadow: none !important;
-                }
-            </style>
-        `.replace(/\s+/g, ' ').trim();
-
-        return { html: dynamicStyles + html, css: resumeCss };
+        return buildResumePdfPayload(element, safeResumeData);
     };
 
     const handleDownload = async () => {
@@ -81,7 +47,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const filename = `Resume_${resumeData.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
+            const filename = `Resume_${safeResumeData.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
@@ -101,7 +67,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
         <Providers>
             {/* Hidden instance for PDF generation scraping */}
             <div className="fixed left-[-9999px] top-0 pointer-events-none opacity-0">
-                <ResumePreview data={resumeData} id="resume-preview-for-generation" />
+                <ResumePreview data={safeResumeData} id="resume-preview-for-generation" />
             </div>
 
             <div className="w-full max-w-5xl mx-auto py-4 md:py-8 px-0 md:px-4 animate-in fade-in duration-700">
@@ -121,7 +87,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
                 {/* Professional Resume Paper Presentation */}
                 <div className="bg-white shadow-[0_10px_60px_rgba(0,0,0,0.08)] rounded-sm overflow-hidden border border-[var(--border-color)]/20 transition-all duration-700">
                     <ResumePreview
-                        data={resumeData}
+                        data={safeResumeData}
                         id="public-resume-view"
                         isEditable={false}
                         viewMode={viewMode}

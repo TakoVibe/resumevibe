@@ -1,9 +1,17 @@
-import { Bold, Italic, List, Type, LayoutTemplate, MessageSquarePlus, Keyboard, Files } from 'lucide-react';
+import { Bold, Italic, List, Type, LayoutTemplate, MessageSquarePlus, Keyboard, Files, Sparkles } from 'lucide-react';
 import { useResume } from '../../hooks/useResume';
 import { useTheme } from '../../context/ThemeContext';
 import { CustomSelect } from './CustomSelect';
 
-export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection: () => void; isMobile?: boolean }) {
+export function EditorToolbar({
+    onAddSection,
+    onFixFormatting,
+    isMobile = false,
+}: {
+    onAddSection: () => void;
+    onFixFormatting: () => void;
+    isMobile?: boolean;
+}) {
     const { data, updateResume } = useResume();
     const { isDarkMode } = useTheme();
     const config = data.config || {};
@@ -95,6 +103,17 @@ export function EditorToolbar({ onAddSection, isMobile = false }: { onAddSection
                     <List size={15} />
                 </button>
             </div>
+
+            <button
+                type="button"
+                onClick={onFixFormatting}
+                className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-3 text-[11px] font-semibold text-[var(--accent)] transition hover:border-[var(--accent)]/50 hover:bg-[var(--accent)] hover:text-white"
+                title="Repair malformed text, bullets, spacing, and missing resume fields"
+                aria-label="Fix resume formatting"
+            >
+                <Sparkles size={14} />
+                <span className={isMobile ? 'sr-only' : 'hidden xl:inline'}>Fix formatting</span>
+            </button>
 
             {/* Add Section */}
             <div className="flex shrink-0 items-center">

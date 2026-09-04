@@ -271,7 +271,7 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
     const currentStep = !showContent ? 1 : (!auditResult ? 2 : 3);
 
     return (
-        <div className="w-full xl:w-[420px] h-full bg-[var(--bg-card)] text-[var(--text-main)] border-l border-[var(--border-color)] flex flex-col overflow-hidden animate-in slide-in-from-right duration-500 relative font-sans-ed selection:bg-[#8B7355]/30"
+        <div className="relative flex h-full w-full flex-col overflow-hidden border-l border-[var(--border-color)] bg-[var(--bg-card)] font-sans-ed text-[var(--text-main)] selection:bg-[#8B7355]/30 animate-in slide-in-from-right duration-500"
              style={{ boxShadow: '-10px 0 30px rgba(0,0,0,0.18)' }}>
              
             {/* Soft panel texture */}

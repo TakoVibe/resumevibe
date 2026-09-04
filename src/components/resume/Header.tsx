@@ -77,7 +77,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                 {contactFields.length > 0 && (
                     <div className={`${isMobile ? 'flex flex-col gap-0.5 items-start' : 'resume-contact-row resume-text-dark'}`}>
                         {contactFields.map((field, idx) => (
-                            <div key={field.id} className="flex items-center">
+                            <div key={field.id} className="resume-flex resume-items-center">
                                 {!isMobile && idx > 0 && <span className="resume-header-bullet">•</span>}
                                 {field.id === 'email' ? (
                                     <a href={`mailto:${field.value}`} className="resume-link hover:underline">
@@ -105,7 +105,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                 {personalInfo.profiles && personalInfo.profiles.length > 0 && (
                     <div className={`${isMobile ? 'flex flex-wrap gap-2 mt-2' : 'resume-social-row resume-text-dark'}`}>
                         {personalInfo.profiles.filter(p => p.url?.trim()).map((profile, idx) => (
-                            <div key={idx} className="flex items-center">
+                            <div key={idx} className="resume-flex resume-items-center">
                                 {!isMobile && idx > 0 && <span className="resume-header-bullet">•</span>}
                                 <a href={profile.url} target="_blank" rel="noreferrer" className="resume-link hover:underline">
                                     <span>{formatUrl(profile.url)}</span>
