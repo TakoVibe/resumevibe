@@ -234,7 +234,7 @@ function JobFitLanding() {
         } finally {
             setIsProcessing(false);
         }
-    }, [jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, setResumeMetadata, updateResume, useTokens]);
+    }, [canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, setResumeMetadata, updateResume]);
 
     const handleAnalyze = () => {
         if (jobDescription.trim().length < 350 || !selectedResumeReady) {

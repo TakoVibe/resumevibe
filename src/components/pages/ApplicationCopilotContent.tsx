@@ -26,6 +26,7 @@ import { LoginModal } from '../ui/LoginModal';
 import { Navbar } from '../ui/Navbar';
 import { UpgradeModal } from '../ui/UpgradeModal';
 import { TailoredApplicationReview, type AppliedApplicationPackage } from '../TailoredApplicationReview';
+import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
 import { useResume } from '../../hooks/useResume';
 import { trackCampaignEvent } from '../../lib/campaign';
@@ -82,14 +83,9 @@ export function ApplicationCopilotContent() {
 }
 
 function ApplicationCopilotWorkspace() {
-<<<<<<< HEAD
-    const { data: resume } = useResume();
-    const { tokenBalance, isLoading: isTokenLoading, canAffordTokens, showUpgradeModal, setShowUpgradeModal } = useToken();
-=======
     const { data: resume, setResumeMetadata } = useResume();
     const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-    const { tokenBalance, isLoading: isTokenLoading, showUpgradeModal, setShowUpgradeModal } = useToken();
->>>>>>> fa95392 (fixed layout issues)
+    const { tokenBalance, isLoading: isTokenLoading, canAffordTokens, showUpgradeModal, setShowUpgradeModal } = useToken();
     const [step, setStep] = useState<WorkspaceStep>('input');
     const [company, setCompany] = useState('');
     const [role, setRole] = useState('');
