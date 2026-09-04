@@ -194,15 +194,11 @@ function JobFitLanding() {
                 isRedeemingFreeFitCheck = freeJobFitAvailable;
                 if (!isRedeemingFreeFitCheck && !canAffordTokens(50)) return;
                 resumeToAnalyze = await parseResume();
-<<<<<<< HEAD
-                trackCampaignEvent('resume_parsed', { source: resumeSource, free_first_check: isRedeemingFreeFitCheck });
-=======
                 // An imported document is a new resume until the backend assigns it
                 // an identity. Do not accidentally overwrite the previously-opened one.
                 setResumeMetadata(null);
                 updateResume({ ...resumeToAnalyze, targetJD: jobDescription.trim() });
                 trackCampaignEvent('resume_parsed', { source: resumeSource });
->>>>>>> fa95392 (fixed layout issues)
             }
 
             const nextReport = analyzeJobFit(resumeToAnalyze, jobDescription.trim());
@@ -238,11 +234,7 @@ function JobFitLanding() {
         } finally {
             setIsProcessing(false);
         }
-<<<<<<< HEAD
-    }, [canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, updateResume]);
-=======
     }, [jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, setResumeMetadata, updateResume, useTokens]);
->>>>>>> fa95392 (fixed layout issues)
 
     const handleAnalyze = () => {
         if (jobDescription.trim().length < 350 || !selectedResumeReady) {
