@@ -2,16 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
     ArrowRight,
+    ArrowUpDown,
     Check,
     CheckCircle2,
     FileText,
+    Layers,
+    Lightbulb,
     Loader2,
     Mail,
     ShieldAlert,
     Sparkles,
     Target,
     X,
-    XCircle,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -19,27 +21,21 @@ import { useToken } from '../context/TokenContext';
 import { useResume } from '../hooks/useResume';
 import type { ResumeMetadata } from '../context/ResumeContext';
 import type { ResumeSchema } from '../types/resume';
+import {
+    SECTION_LABELS,
+    TAILORABLE_SECTIONS,
+    applyProposals,
+    type ChangeReview,
+    type MissingSkill,
+    type Proposal,
+    type RequirementReview,
+    type SectionFeedback,
+    type TailorableSection,
+} from '../lib/resumeTailoring';
 
 type ReviewView = 'input' | 'generating' | 'review';
-type ReviewTab = 'resume' | 'coverLetter';
-type ReviewSection = 'summary' | 'skills' | 'experience' | 'coverLetter';
-type Decision = 'pending' | 'accept' | 'reject';
+type ReviewTab = 'resume' | 'feedback' | 'coverLetter';
 type ChargeStatus = 'not-charged' | 'unknown';
-
-interface ChangeReview {
-    section: Exclude<ReviewSection, 'coverLetter'>;
-    whatChanged: string;
-    why: string;
-    jobRequirement: string;
-    riskLevel: 'none' | 'low' | 'high';
-    risk: string;
-}
-
-interface RequirementReview {
-    requirement: string;
-    status: 'matched' | 'partial' | 'gap';
-    evidence: string;
-}
 
 interface TailoredApplicationReviewProps {
     isOpen: boolean;
@@ -60,6 +56,8 @@ export interface AppliedApplicationPackage {
 const VERSION_STORAGE_KEY = 'resume-versions-v1';
 const COVER_LETTER_STORAGE_KEY = 'tailored-cover-letters-v1';
 const APPLICATION_CACHE_KEY = 'tailored-application-cache-v1';
+/** Bumped whenever the package shape changes so stale entries are ignored. */
+const APPLICATION_CACHE_VERSION = 4;
 
 const APPLICATION_GENERATION_STAGES = [
     {
@@ -67,16 +65,16 @@ const APPLICATION_GENERATION_STAGES = [
         description: 'Compare the job requirements with verified resume content.',
     },
     {
-        label: 'Draft changes',
-        description: 'Prepare coordinated resume and cover-letter proposals.',
+        label: 'Rewrite every section',
+        description: 'Tighten each written section against standard screening criteria.',
     },
     {
-        label: 'Check risks',
-        description: 'Flag gaps and remove claims that are not supported.',
+        label: 'Check facts',
+        description: 'Hold every number, employer and date to what your resume already says.',
     },
     {
-        label: 'Prepare review',
-        description: 'Organize every proposed change for your approval.',
+        label: 'Split into suggestions',
+        description: 'Break the rewrite into individual changes you can pick from.',
     },
 ] as const;
 
@@ -91,41 +89,67 @@ class ApplicationGenerationError extends Error {
 }
 
 interface TailoredApplicationResult {
-    optimizedResume: ResumeSchema;
     coverLetter: string;
+    proposals: Proposal[];
     changeReviews: ChangeReview[];
     issues: string[];
     requirements: RequirementReview[];
+    missingSkills: MissingSkill[];
+    sectionFeedback: SectionFeedback[];
 }
 
-const sectionLabels: Record<ReviewSection, string> = {
-    summary: 'Professional summary',
-    skills: 'Skills',
-    experience: 'Experience',
-    coverLetter: 'Cover letter',
-};
-
-function hasSectionChanged(original: ResumeSchema, optimized: ResumeSchema, section: Exclude<ReviewSection, 'coverLetter'>) {
-    return JSON.stringify(original[section]) !== JSON.stringify(optimized[section]);
+interface EntryGroup {
+    key: string;
+    heading: string;
+    proposals: Proposal[];
 }
 
-function fallbackReview(section: Exclude<ReviewSection, 'coverLetter'>): ChangeReview {
-    return {
-        section,
-        whatChanged: `${sectionLabels[section]} was reordered and rewritten for the target role.`,
-        why: 'Makes the most relevant evidence easier for a recruiter and ATS to find.',
-        jobRequirement: 'Core responsibilities and keywords in the job description',
-        riskLevel: 'low',
-        risk: 'Confirm that every emphasized skill and outcome reflects your actual experience.',
-    };
+interface SectionGroup {
+    section: TailorableSection;
+    entries: EntryGroup[];
+    proposalIds: string[];
+}
+
+/** Groups proposals by section, then by the entry they belong to, in resume order. */
+function groupProposals(proposals: Proposal[]): SectionGroup[] {
+    return TAILORABLE_SECTIONS.flatMap((section) => {
+        const inSection = proposals.filter((proposal) => proposal.section === section);
+        if (inSection.length === 0) return [];
+
+        const entries: EntryGroup[] = [];
+        inSection.forEach((proposal) => {
+            const key = proposal.entryId ?? '_';
+            const existing = entries.find((entry) => entry.key === key);
+            if (existing) existing.proposals.push(proposal);
+            else entries.push({ key, heading: proposal.entryHeading, proposals: [proposal] });
+        });
+
+        return [{ section, entries, proposalIds: inSection.map((proposal) => proposal.id) }];
+    });
+}
+
+/**
+ * Everything starts selected - the user asked for a tailored resume - except
+ * changes in a section the model itself flagged high risk. Those start off so
+ * an overstatement is never applied by inertia.
+ */
+function defaultSelection(proposals: Proposal[], changeReviews: ChangeReview[]): Set<string> {
+    const highRiskSections = new Set(
+        changeReviews.filter((review) => review.riskLevel === 'high').map((review) => review.section),
+    );
+    return new Set(
+        proposals
+            .filter((proposal) => !highRiskSections.has(proposal.section))
+            .map((proposal) => proposal.id),
+    );
 }
 
 function applicationCacheId(resume: ResumeSchema, jobDescription: string) {
+    // Every written section is now tailored, so the whole document is the key.
     const input = JSON.stringify({
-        summary: resume.summary,
-        skills: resume.skills,
-        experience: resume.experience,
-        personalInfo: resume.personalInfo,
+        resume: TAILORABLE_SECTIONS.map((section) => resume[section] ?? null),
+        certifications: resume.certifications,
+        title: resume.personalInfo?.title,
         jobDescription,
     });
     let hash = 2166136261;
@@ -139,7 +163,9 @@ function applicationCacheId(resume: ResumeSchema, jobDescription: string) {
 function getCachedApplication(id: string): TailoredApplicationResult | null {
     try {
         const entries = JSON.parse(sessionStorage.getItem(APPLICATION_CACHE_KEY) || '[]');
-        const match = Array.isArray(entries) ? entries.find((entry) => entry?.id === id && entry?.version === 2) : null;
+        const match = Array.isArray(entries)
+            ? entries.find((entry) => entry?.id === id && entry?.version === APPLICATION_CACHE_VERSION)
+            : null;
         return match?.result || null;
     } catch {
         return null;
@@ -151,7 +177,7 @@ function cacheApplication(id: string, result: TailoredApplicationResult) {
         const stored = JSON.parse(sessionStorage.getItem(APPLICATION_CACHE_KEY) || '[]');
         const entries = Array.isArray(stored) ? stored.filter((entry) => entry?.id !== id) : [];
         sessionStorage.setItem(APPLICATION_CACHE_KEY, JSON.stringify([
-            { id, version: 2, result, createdAt: Date.now() },
+            { id, version: APPLICATION_CACHE_VERSION, result, createdAt: Date.now() },
             ...entries,
         ].slice(0, 3)));
     } catch (storageError) {
@@ -165,18 +191,16 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     const { fetchTokenData, setShowUpgradeModal } = useToken();
     const [view, setView] = useState<ReviewView>('input');
     const [jobDescription, setJobDescription] = useState(resume.targetJD || '');
-    const [optimizedResume, setOptimizedResume] = useState<ResumeSchema | null>(null);
+    const [proposals, setProposals] = useState<Proposal[]>([]);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
     const [coverLetter, setCoverLetter] = useState('');
+    const [saveCoverLetter, setSaveCoverLetter] = useState(true);
     const [changeReviews, setChangeReviews] = useState<ChangeReview[]>([]);
     const [issues, setIssues] = useState<string[]>([]);
     const [requirements, setRequirements] = useState<RequirementReview[]>([]);
+    const [missingSkills, setMissingSkills] = useState<MissingSkill[]>([]);
+    const [sectionFeedback, setSectionFeedback] = useState<SectionFeedback[]>([]);
     const [activeTab, setActiveTab] = useState<ReviewTab>('resume');
-    const [decisions, setDecisions] = useState<Record<ReviewSection, Decision>>({
-        summary: 'pending',
-        skills: 'pending',
-        experience: 'pending',
-        coverLetter: 'pending',
-    });
     const [generationStage, setGenerationStage] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [failureChargeStatus, setFailureChargeStatus] = useState<ChargeStatus | null>(null);
@@ -193,41 +217,38 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         const interval = window.setInterval(() => {
             currentStage = Math.min(currentStage + 1, APPLICATION_GENERATION_STAGES.length - 1);
             setGenerationStage(currentStage);
-        }, 2800);
+        }, 3200);
         return () => window.clearInterval(interval);
     }, [view]);
 
-    const changedSections = useMemo(() => {
-        if (!optimizedResume) return [] as Array<Exclude<ReviewSection, 'coverLetter'>>;
-        return (['summary', 'skills', 'experience'] as const).filter((section) =>
-            hasSectionChanged(resume, optimizedResume, section)
-        );
-    }, [optimizedResume, resume]);
-
-    const reviewSections = useMemo<ReviewSection[]>(
-        () => [...changedSections, 'coverLetter'],
-        [changedSections]
+    const sectionGroups = useMemo(() => groupProposals(proposals), [proposals]);
+    const highRiskSections = useMemo(
+        () => new Set(changeReviews.filter((review) => review.riskLevel === 'high').map((review) => review.section)),
+        [changeReviews],
     );
-
-    const decidedCount = reviewSections.filter((section) => decisions[section] !== 'pending').length;
-    const acceptedCount = reviewSections.filter((section) => decisions[section] === 'accept').length;
+    const selectedCount = selected.size;
     const requirementGapCount = requirements.filter((requirement) => requirement.status === 'gap').length;
-    const highRiskCount = changeReviews.filter((review) => review.riskLevel === 'high').length + Math.max(issues.length, requirementGapCount);
+    const riskFlagCount = changeReviews.filter((review) => review.riskLevel === 'high').length
+        + Math.max(issues.length, requirementGapCount);
+    const feedbackCount = missingSkills.length + sectionFeedback.filter((entry) => entry.verdict !== 'strong').length;
 
     if (!isOpen) return null;
 
     const resetAndClose = () => {
         setView('input');
-        setOptimizedResume(null);
+        setProposals([]);
+        setSelected(new Set());
         setCoverLetter('');
+        setSaveCoverLetter(true);
         setChangeReviews([]);
         setIssues([]);
         setRequirements([]);
+        setMissingSkills([]);
+        setSectionFeedback([]);
         setActiveTab('resume');
         setError(null);
         setFailureChargeStatus(null);
         setIsApplying(false);
-        setDecisions({ summary: 'pending', skills: 'pending', experience: 'pending', coverLetter: 'pending' });
         onClose();
     };
 
@@ -280,7 +301,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                 if (response.status === 402) {
                     setShowUpgradeModal(true);
                 }
-                if (!response.ok || !data?.success || !data?.optimizedResume || !data?.coverLetter) {
+                if (!response.ok || !data?.success || !Array.isArray(data?.proposals) || !data?.coverLetter) {
                     const fallbackMessage = response.status >= 500
                         ? 'The application service could not finish this review. Please try again.'
                         : 'Could not create the application package.';
@@ -291,27 +312,28 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                 }
 
                 const result: TailoredApplicationResult = {
-                    optimizedResume: data.optimizedResume,
                     coverLetter: data.coverLetter,
+                    proposals: data.proposals,
                     changeReviews: Array.isArray(data.changeReviews) ? data.changeReviews : [],
                     issues: Array.isArray(data.issues) ? data.issues : [],
                     requirements: Array.isArray(data.requirements) ? data.requirements : [],
+                    missingSkills: Array.isArray(data.missingSkills) ? data.missingSkills : [],
+                    sectionFeedback: Array.isArray(data.sectionFeedback) ? data.sectionFeedback : [],
                 };
                 cacheApplication(cacheId, result);
                 await fetchTokenData();
                 return result;
             })();
 
-            const tailoredResume: ResumeSchema = {
-                ...applicationData.optimizedResume,
-                targetJD: trimmedJobDescription,
-            };
-            setOptimizedResume(tailoredResume);
+            setProposals(applicationData.proposals);
+            setSelected(defaultSelection(applicationData.proposals, applicationData.changeReviews));
             setChangeReviews(applicationData.changeReviews);
             setIssues(applicationData.issues);
             setRequirements(applicationData.requirements || []);
+            setMissingSkills(applicationData.missingSkills || []);
+            setSectionFeedback(applicationData.sectionFeedback || []);
             setCoverLetter(applicationData.coverLetter);
-            setDecisions({ summary: 'pending', skills: 'pending', experience: 'pending', coverLetter: 'pending' });
+            setSaveCoverLetter(true);
             setActiveTab('resume');
             setView('review');
         } catch (generationError) {
@@ -324,38 +346,37 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     };
 
     /*
-     * Resume optimization and cover-letter generation intentionally share one request.
-     * Besides removing a model round trip, this keeps both artifacts grounded in the
-     * same evidence snapshot and prevents the letter from drifting from the proposal.
+     * The full-resume rewrite, the requirement scoring, the coaching feedback and
+     * the cover letter intentionally share one request. Besides removing model
+     * round trips, it keeps every artifact grounded in the same evidence snapshot
+     * so the letter cannot drift from the resume proposal beside it.
      */
 
-    const setDecision = (section: ReviewSection, decision: Decision) => {
-        setDecisions((current) => ({ ...current, [section]: decision }));
-    };
-
-    const approveAll = () => {
-        setDecisions((current) => {
-            const next = { ...current };
-            reviewSections.forEach((section) => { next[section] = 'accept'; });
+    const toggleOne = (id: string) => {
+        setSelected((current) => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
             return next;
         });
     };
 
-    const applyApproved = async () => {
-        if (!optimizedResume) return;
-        if (decidedCount !== reviewSections.length) {
-            toast.error('Review every proposal before applying the package.');
-            return;
-        }
-
-        const approvedResume: ResumeSchema = { ...resume, targetJD: jobDescription.trim() };
-        changedSections.forEach((section) => {
-            if (decisions[section] === 'accept') {
-                (approvedResume as any)[section] = optimizedResume[section];
-            }
+    const setMany = (ids: string[], on: boolean) => {
+        setSelected((current) => {
+            const next = new Set(current);
+            ids.forEach((id) => { if (on) next.add(id); else next.delete(id); });
+            return next;
         });
+    };
 
-        const acceptedResumeChangeCount = changedSections.filter((section) => decisions[section] === 'accept').length;
+    const allSelectedIn = (ids: string[]) => ids.length > 0 && ids.every((id) => selected.has(id));
+
+    const applySelected = async () => {
+        const approvedResume: ResumeSchema = {
+            ...applyProposals(resume, proposals, selected),
+            targetJD: jobDescription.trim(),
+        };
+
         setIsApplying(true);
         setError(null);
 
@@ -379,7 +400,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             };
             localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify([newVersion, ...versions].slice(0, 20)));
 
-            if (decisions.coverLetter === 'accept') {
+            if (saveCoverLetter) {
                 const letters = JSON.parse(localStorage.getItem(COVER_LETTER_STORAGE_KEY) || '[]');
                 localStorage.setItem(COVER_LETTER_STORAGE_KEY, JSON.stringify([{
                     id: timestamp.toString(),
@@ -396,54 +417,16 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
         onApplied?.({
             approvedResume,
             savedResume,
-            coverLetter: decisions.coverLetter === 'accept' ? coverLetter : '',
-            acceptedCount,
-            acceptedResumeChangeCount,
+            coverLetter: saveCoverLetter ? coverLetter : '',
+            acceptedCount: selectedCount + (saveCoverLetter ? 1 : 0),
+            acceptedResumeChangeCount: selectedCount,
             jobDescription: jobDescription.trim(),
         });
-        toast.success(acceptedResumeChangeCount > 0
-            ? `Saved ${acceptedResumeChangeCount} approved resume update${acceptedResumeChangeCount === 1 ? '' : 's'}.`
-            : 'Application kit saved. No resume sections were changed.');
+        toast.success(selectedCount > 0
+            ? `Applied ${selectedCount} suggestion${selectedCount === 1 ? '' : 's'} to your resume.`
+            : 'Application kit saved. No resume changes were applied.');
         setIsApplying(false);
         resetAndClose();
-    };
-
-    const getReview = (section: Exclude<ReviewSection, 'coverLetter'>) =>
-        changeReviews.find((review) => review.section === section) || fallbackReview(section);
-
-    const renderBeforeAfter = (section: Exclude<ReviewSection, 'coverLetter'>) => {
-        if (!optimizedResume) return null;
-
-        if (section === 'summary') {
-            return (
-                <div className="grid gap-3 lg:grid-cols-2">
-                    <PreviewBlock label="Before" tone="muted"><p>{resume.summary}</p></PreviewBlock>
-                    <PreviewBlock label="Proposed" tone="positive"><p dangerouslySetInnerHTML={{ __html: optimizedResume.summary }} /></PreviewBlock>
-                </div>
-            );
-        }
-
-        if (section === 'skills') {
-            return (
-                <div className="grid gap-3 lg:grid-cols-2">
-                    <PreviewBlock label="Before" tone="muted">
-                        {resume.skills.map((group) => <p key={group.id}><strong>{group.name}:</strong> {group.items.join(', ')}</p>)}
-                    </PreviewBlock>
-                    <PreviewBlock label="Proposed" tone="positive">
-                        {optimizedResume.skills.map((group) => <p key={group.id}><strong>{group.name}:</strong> {group.items.join(', ')}</p>)}
-                    </PreviewBlock>
-                </div>
-            );
-        }
-
-        const changedRoles = optimizedResume.experience.filter((item, index) =>
-            JSON.stringify(item) !== JSON.stringify(resume.experience[index])
-        );
-        return (
-            <PreviewBlock label="Proposed experience edits" tone="positive">
-                <p>{changedRoles.length} role{changedRoles.length === 1 ? '' : 's'} rewritten: {changedRoles.map((item) => `${item.role} at ${item.company}`).join(', ') || 'content reordered for relevance'}.</p>
-            </PreviewBlock>
-        );
     };
 
     return (
@@ -455,7 +438,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                         <div className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Agent workflow</p>
                             <h2 id="tailored-application-review-title" className="truncate font-serif-ed text-2xl text-[var(--text-main)] sm:text-3xl">Tailored Application Review</h2>
-                            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Approve the suggestions you want; we apply them automatically.</p>
+                            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Pick the changes you want, line by line. Nothing is applied until you say so.</p>
                         </div>
                     </div>
                     <button onClick={resetAndClose} disabled={view === 'generating'} className="rounded-xl p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-30" aria-label="Close"><X size={18} /></button>
@@ -467,8 +450,8 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                             <div className="flex items-start gap-3">
                                 <Target className="mt-0.5 shrink-0 text-[var(--accent)]" size={18} />
                                 <div>
-                                    <p className="text-sm font-semibold text-[var(--text-main)]">One job description, one complete application package</p>
-                                    <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">The agent will tailor your resume, draft a cover letter, and explain every proposal. After approval, the changes are applied directly—no manual copy-and-paste.</p>
+                                    <p className="text-sm font-semibold text-[var(--text-main)]">One job description, your whole resume reviewed</p>
+                                    <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">In a single pass the agent rewrites every section you have written—summary, skills, experience, projects, achievements, education and more—drafts a cover letter, and explains each proposal. You then approve or skip each suggestion individually. Your facts stay yours: employers, dates and numbers are never changed, and a skill you have not evidenced is reported to you rather than added.</p>
                                 </div>
                             </div>
                         </div>
@@ -561,38 +544,26 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                     </div>
                 )}
 
-                {view === 'review' && optimizedResume && (
+                {view === 'review' && (
                     <>
                         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-input)] px-5 py-3 sm:px-7">
                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold">
-                                <span className="rounded-full bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-main)]">{reviewSections.length} proposals</span>
-                                <span className="rounded-full bg-green-500/10 px-3 py-1.5 text-green-600">{acceptedCount} approved</span>
-                                {highRiskCount > 0 && <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-amber-600">{highRiskCount} risk flag{highRiskCount === 1 ? '' : 's'}</span>}
+                                <span className="rounded-full bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-main)]">{selectedCount} of {proposals.length} suggestions selected</span>
+                                {riskFlagCount > 0 && <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-amber-600">{riskFlagCount} risk flag{riskFlagCount === 1 ? '' : 's'}</span>}
+                                {missingSkills.length > 0 && <span className="rounded-full bg-sky-500/10 px-3 py-1.5 text-sky-600">{missingSkills.length} skill gap{missingSkills.length === 1 ? '' : 's'} reported</span>}
                             </div>
-                            <button onClick={approveAll} className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-[11px] font-semibold text-[var(--text-main)] hover:border-[var(--accent)]/40"><CheckCircle2 size={14} /> Approve all</button>
+                            {proposals.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setMany(proposals.map((proposal) => proposal.id), true)} className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-[11px] font-semibold text-[var(--text-main)] hover:border-[var(--accent)]/40"><CheckCircle2 size={14} /> Select all</button>
+                                    <button onClick={() => setSelected(new Set())} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)]">Clear</button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex gap-1 border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 pt-3 sm:px-7" role="tablist" aria-label="Application package review">
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeTab === 'resume'}
-                                onClick={() => setActiveTab('resume')}
-                                className={`flex items-center gap-2 rounded-t-xl border-b-2 px-4 py-3 text-xs font-semibold transition ${activeTab === 'resume' ? 'border-[var(--accent)] text-[var(--text-main)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-                            >
-                                <FileText size={15} /> Resume changes
-                                <span className="rounded-full bg-[var(--bg-input)] px-2 py-0.5 text-[9px]">{changedSections.length}</span>
-                            </button>
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={activeTab === 'coverLetter'}
-                                onClick={() => setActiveTab('coverLetter')}
-                                className={`flex items-center gap-2 rounded-t-xl border-b-2 px-4 py-3 text-xs font-semibold transition ${activeTab === 'coverLetter' ? 'border-[var(--accent)] text-[var(--text-main)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-                            >
-                                <Mail size={15} /> Cover letter
-                                <span className={`h-2 w-2 rounded-full ${decisions.coverLetter === 'accept' ? 'bg-green-500' : decisions.coverLetter === 'reject' ? 'bg-red-500' : 'bg-amber-500'}`} aria-label={`${decisions.coverLetter} decision`} />
-                            </button>
+                        <div className="flex gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 pt-3 sm:px-7" role="tablist" aria-label="Application package review">
+                            <TabButton icon={<FileText size={15} />} label="Resume changes" badge={String(proposals.length)} active={activeTab === 'resume'} onClick={() => setActiveTab('resume')} />
+                            <TabButton icon={<Lightbulb size={15} />} label="Feedback" badge={String(feedbackCount)} active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
+                            <TabButton icon={<Mail size={15} />} label="Cover letter" badge={saveCoverLetter ? 'on' : 'off'} active={activeTab === 'coverLetter'} onClick={() => setActiveTab('coverLetter')} />
                         </div>
 
                         <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--bg-main)] p-4 sm:p-6">
@@ -601,6 +572,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                     <AlertTriangle size={15} className="mt-0.5 shrink-0" />{error}
                                 </div>
                             )}
+
                             {activeTab === 'resume' && requirements.length > 0 && (
                                 <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5">
                                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -639,49 +611,175 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 </div>
                             )}
 
-                            {activeTab === 'resume' && changedSections.map((section) => {
-                                const review = getReview(section);
+                            {activeTab === 'resume' && proposals.length === 0 && (
+                                <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 text-center">
+                                    <p className="text-sm font-semibold text-[var(--text-main)]">No resume rewrite was needed</p>
+                                    <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[var(--text-muted)]">Your sections already read well against this job description. Check the Feedback tab for what a recruiter will still notice, and review the cover letter.</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'resume' && sectionGroups.map((group) => {
+                                const review = changeReviews.find((item) => item.section === group.section);
+                                const isHighRisk = highRiskSections.has(group.section);
+                                const allOn = allSelectedIn(group.proposalIds);
+                                const selectedHere = group.proposalIds.filter((id) => selected.has(id)).length;
+
                                 return (
-                                    <ReviewCard key={section} title={sectionLabels[section]} decision={decisions[section]} onDecision={(decision) => setDecision(section, decision)}>
-                                        <div className="grid gap-3 md:grid-cols-3">
-                                            <Evidence label="What changed" value={review.whatChanged} />
-                                            <Evidence label="Why it helps" value={review.why} />
-                                            <Evidence label="Job requirement" value={review.jobRequirement} />
+                                    <section key={group.section} className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] px-4 py-3 sm:px-5">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <Layers size={15} className="shrink-0 text-[var(--accent)]" />
+                                                <h3 className="text-sm font-semibold text-[var(--text-main)]">{SECTION_LABELS[group.section]}</h3>
+                                                <span className="rounded-full bg-[var(--bg-input)] px-2 py-0.5 text-[9px] font-semibold text-[var(--text-muted)]">{selectedHere}/{group.proposalIds.length}</span>
+                                                {isHighRisk && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-red-500">off by default · high risk</span>}
+                                            </div>
+                                            <button
+                                                onClick={() => setMany(group.proposalIds, !allOn)}
+                                                className="shrink-0 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--text-main)] hover:border-[var(--accent)]/40"
+                                            >
+                                                {allOn ? 'Deselect section' : 'Select section'}
+                                            </button>
                                         </div>
-                                        <div className={`mt-3 flex items-start gap-2 rounded-xl border p-3 text-xs ${review.riskLevel === 'high' ? 'border-red-500/25 bg-red-500/10 text-red-600' : review.riskLevel === 'low' ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'border-green-500/25 bg-green-500/10 text-green-700 dark:text-green-400'}`}>
-                                            <ShieldAlert size={14} className="mt-0.5 shrink-0" /><span><strong className="capitalize">{review.riskLevel} risk:</strong> {review.risk}</span>
+
+                                        {review && (
+                                            <div className="border-b border-[var(--border-color)] bg-[var(--bg-main)]/40 p-4 sm:p-5">
+                                                <div className="grid gap-3 md:grid-cols-3">
+                                                    <Evidence label="What changed" value={review.whatChanged} />
+                                                    <Evidence label="Why it helps" value={review.why} />
+                                                    <Evidence label="Job requirement" value={review.jobRequirement} />
+                                                </div>
+                                                <div className={`mt-3 flex items-start gap-2 rounded-xl border p-3 text-xs ${review.riskLevel === 'high' ? 'border-red-500/25 bg-red-500/10 text-red-600' : review.riskLevel === 'low' ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'border-green-500/25 bg-green-500/10 text-green-700 dark:text-green-400'}`}>
+                                                    <ShieldAlert size={14} className="mt-0.5 shrink-0" /><span><strong className="capitalize">{review.riskLevel} risk:</strong> {review.risk}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="divide-y divide-[var(--border-color)]">
+                                            {group.entries.map((entry) => {
+                                                const entryIds = entry.proposals.map((proposal) => proposal.id);
+                                                const entryAllOn = allSelectedIn(entryIds);
+                                                return (
+                                                    <div key={entry.key} className="p-4 sm:p-5">
+                                                        {entry.heading && (
+                                                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                                <p className="text-[11px] font-semibold text-[var(--text-main)]">{entry.heading}</p>
+                                                                {entryIds.length > 1 && (
+                                                                    <button
+                                                                        onClick={() => setMany(entryIds, !entryAllOn)}
+                                                                        className="text-[10px] font-semibold text-[var(--accent)] hover:underline"
+                                                                    >
+                                                                        {entryAllOn ? 'Deselect all here' : 'Select all here'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        <div className="space-y-2.5">
+                                                            {entry.proposals.map((proposal) => (
+                                                                <ProposalRow
+                                                                    key={proposal.id}
+                                                                    proposal={proposal}
+                                                                    checked={selected.has(proposal.id)}
+                                                                    onToggle={() => toggleOne(proposal.id)}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                        <div className="mt-4">{renderBeforeAfter(section)}</div>
-                                    </ReviewCard>
+                                    </section>
                                 );
                             })}
 
+                            {activeTab === 'feedback' && (
+                                <>
+                                    <section className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 sm:p-5">
+                                        <div className="flex items-start gap-3">
+                                            <Lightbulb className="mt-0.5 shrink-0 text-sky-600" size={18} />
+                                            <div>
+                                                <p className="text-sm font-semibold text-[var(--text-main)]">Skills this job wants that your resume does not evidence</p>
+                                                <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                                                    These were <strong>not</strong> added to your resume and there is nothing to approve here. Claiming a skill you cannot discuss in an interview costs more than the keyword gains, so the call is yours.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {missingSkills.length === 0 ? (
+                                            <p className="mt-4 rounded-xl bg-[var(--bg-input)] p-3 text-xs text-[var(--text-muted)]">Nothing missing—your resume already evidences the skills this job names.</p>
+                                        ) : (
+                                            <ul className="mt-4 space-y-2">
+                                                {missingSkills.map((item) => (
+                                                    <li key={item.skill} className="rounded-xl bg-[var(--bg-card)] p-3">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="text-xs font-semibold text-[var(--text-main)]">{item.skill}</span>
+                                                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] ${item.priority === 'must-have' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-600'}`}>{item.priority}</span>
+                                                        </div>
+                                                        <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]"><span className="font-semibold">Job asks:</span> {item.jobEvidence}</p>
+                                                        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-main)]"><span className="font-semibold">Your options:</span> {item.advice}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </section>
+
+                                    <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5">
+                                        <p className="text-sm font-semibold text-[var(--text-main)]">Section-by-section review</p>
+                                        <p className="mt-1 text-xs text-[var(--text-muted)]">Every section scored against standard resume screening criteria, including the ones left unchanged.</p>
+                                        {sectionFeedback.length === 0 ? (
+                                            <p className="mt-4 rounded-xl bg-[var(--bg-input)] p-3 text-xs text-[var(--text-muted)]">No section notes came back for this run.</p>
+                                        ) : (
+                                            <div className="mt-4 space-y-2">
+                                                {sectionFeedback.map((entry) => (
+                                                    <div key={entry.section} className="rounded-xl bg-[var(--bg-input)] p-3">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className={`h-2 w-2 shrink-0 rounded-full ${entry.verdict === 'strong' ? 'bg-green-500' : entry.verdict === 'needs-work' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                                                            <span className="text-xs font-semibold text-[var(--text-main)]">{SECTION_LABELS[entry.section] || entry.section}</span>
+                                                            <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{entry.verdict.replace('-', ' ')}</span>
+                                                        </div>
+                                                        <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">{entry.observation}</p>
+                                                        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-main)]"><span className="font-semibold">Next:</span> {entry.action}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>
+                                </>
+                            )}
+
                             {activeTab === 'coverLetter' && (
-                                <ReviewCard title="Cover letter" decision={decisions.coverLetter} onDecision={(decision) => setDecision('coverLetter', decision)}>
-                                    <div className="grid gap-3 md:grid-cols-3">
-                                        <Evidence label="What was created" value="A concise letter drafted from the same evidence used for your resume proposals." />
-                                        <Evidence label="Why it helps" value="Connects your strongest verified evidence directly to this employer's needs." />
-                                        <Evidence label="Review before approval" value="Confirm the role, company context, achievements, and tone all feel accurate." />
+                                <section className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                                    <label className="flex cursor-pointer items-center justify-between gap-3 border-b border-[var(--border-color)] px-4 py-3 sm:px-5">
+                                        <div className="flex items-center gap-2">
+                                            <Mail size={15} className="text-[var(--accent)]" />
+                                            <h3 className="text-sm font-semibold text-[var(--text-main)]">Cover letter</h3>
+                                        </div>
+                                        <span className="flex items-center gap-2 text-[11px] font-semibold text-[var(--text-main)]">
+                                            Save with this application
+                                            <input type="checkbox" checked={saveCoverLetter} onChange={() => setSaveCoverLetter((current) => !current)} className="h-4 w-4 accent-[var(--accent)]" />
+                                        </span>
+                                    </label>
+                                    <div className="p-4 sm:p-5">
+                                        <div className="grid gap-3 md:grid-cols-3">
+                                            <Evidence label="What was created" value="A concise letter drafted from the same evidence used for your resume suggestions." />
+                                            <Evidence label="Why it helps" value="Connects your strongest verified evidence directly to this employer's needs." />
+                                            <Evidence label="Review before saving" value="Confirm the role, company context, achievements, and tone all feel accurate." />
+                                        </div>
+                                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"><ShieldAlert size={14} className="mt-0.5 shrink-0" />If you skip some resume suggestions, confirm the letter still matches the resume you are applying with.</div>
+                                        <div className="mt-4 whitespace-pre-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] p-5 text-sm leading-7 text-[var(--text-main)]">{coverLetter}</div>
                                     </div>
-                                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"><ShieldAlert size={14} className="mt-0.5 shrink-0" />If you reject any resume proposal, confirm the letter still matches the resume version you approve.</div>
-                                    <div className="mt-4 whitespace-pre-wrap rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 text-sm leading-7 text-[var(--text-main)]">{coverLetter}</div>
-                                </ReviewCard>
+                                </section>
                             )}
                         </div>
 
                         <footer className="flex flex-col gap-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
                             <div>
-                                <p className="text-xs font-semibold text-[var(--text-main)]">{decidedCount} of {reviewSections.length} proposals reviewed</p>
-                                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Approved changes are applied automatically and saved as a new version. Rejected content is discarded.</p>
+                                <p className="text-xs font-semibold text-[var(--text-main)]">{selectedCount} of {proposals.length} suggestions selected{saveCoverLetter ? ' · cover letter on' : ''}</p>
+                                <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Only the suggestions you tick are written to your resume, and it is saved as a new version. Everything you skip is discarded; feedback notes change nothing.</p>
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => setView('input')} className="rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)]">Start over</button>
-                                <button onClick={() => setActiveTab(activeTab === 'resume' ? 'coverLetter' : 'resume')} className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-main)] hover:border-[var(--accent)]/40">
-                                    {activeTab === 'resume' ? <><Mail size={14} /> Review cover letter</> : <><FileText size={14} /> Review resume</>}
-                                </button>
-                                <button onClick={() => void applyApproved()} disabled={decidedCount !== reviewSections.length || isApplying} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                                <button onClick={() => void applySelected()} disabled={isApplying} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
                                     {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                                    {isApplying ? 'Saving improved resume…' : 'Apply approved & open resume'}
+                                    {isApplying ? 'Saving resume…' : selectedCount > 0 ? `Apply ${selectedCount} selected` : 'Save without resume changes'}
                                 </button>
                             </div>
                         </footer>
@@ -692,23 +790,97 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     );
 }
 
-function ReviewCard({ title, decision, onDecision, children }: {
-    title: string;
-    decision: Decision;
-    onDecision: (decision: Decision) => void;
-    children: React.ReactNode;
+function TabButton({ icon, label, badge, active, onClick }: {
+    icon: React.ReactNode;
+    label: string;
+    badge: string;
+    active: boolean;
+    onClick: () => void;
 }) {
     return (
-        <section className={`overflow-hidden rounded-2xl border bg-[var(--bg-card)] transition ${decision === 'accept' ? 'border-green-500/45' : decision === 'reject' ? 'border-red-500/40 opacity-70' : 'border-[var(--border-color)]'}`}>
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] px-4 py-3 sm:px-5">
-                <div className="flex items-center gap-2"><FileText size={15} className="text-[var(--accent)]" /><h3 className="text-sm font-semibold text-[var(--text-main)]">{title}</h3></div>
-                <div className="flex items-center gap-1.5">
-                    <button onClick={() => onDecision('reject')} className={`flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px] font-semibold ${decision === 'reject' ? 'bg-red-500 text-white' : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'}`}><XCircle size={13} /> Reject</button>
-                    <button onClick={() => onDecision('accept')} className={`flex h-8 items-center gap-1 rounded-lg px-2.5 text-[10px] font-semibold ${decision === 'accept' ? 'bg-green-600 text-white' : 'bg-green-500/10 text-green-600 hover:bg-green-500/20'}`}><CheckCircle2 size={13} /> Accept</button>
-                </div>
+        <button
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={onClick}
+            className={`flex shrink-0 items-center gap-2 rounded-t-xl border-b-2 px-4 py-3 text-xs font-semibold transition ${active ? 'border-[var(--accent)] text-[var(--text-main)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+        >
+            {icon} {label}
+            <span className="rounded-full bg-[var(--bg-input)] px-2 py-0.5 text-[9px]">{badge}</span>
+        </button>
+    );
+}
+
+/** One independently selectable change, rendered by kind. */
+function ProposalRow({ proposal, checked, onToggle }: {
+    proposal: Proposal;
+    checked: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <div className={`rounded-xl border transition ${checked ? 'border-green-500/40 bg-green-500/[0.04]' : 'border-[var(--border-color)] bg-[var(--bg-input)]/40'}`}>
+            <label className="flex cursor-pointer items-center gap-2.5 px-3 py-2.5">
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={onToggle}
+                    className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+                    aria-label={`Apply: ${proposal.label}`}
+                />
+                {proposal.kind === 'order' || proposal.kind === 'techStack'
+                    ? <ArrowUpDown size={13} className="shrink-0 text-[var(--text-muted)]" />
+                    : null}
+                <span className="text-[11px] font-semibold text-[var(--text-main)]">{proposal.label}</span>
+                <span className="ml-auto text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    {checked ? 'will apply' : 'skipped'}
+                </span>
+            </label>
+            <div className="px-3 pb-3">
+                {proposal.kind === 'text' || proposal.kind === 'bullet' ? (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        <PreviewBlock label="Before" tone="muted"><Line html={proposal.before} /></PreviewBlock>
+                        <PreviewBlock label="Proposed" tone="positive"><Line html={proposal.after} /></PreviewBlock>
+                    </div>
+                ) : proposal.kind === 'order' ? (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        <PreviewBlock label="Current order" tone="muted">
+                            {proposal.beforeLines.map((line, index) => <Line key={index} html={line} prefix={`${index + 1}. `} />)}
+                        </PreviewBlock>
+                        <PreviewBlock label="Proposed order" tone="positive">
+                            {proposal.afterLines.map((line, index) => <Line key={index} html={line} prefix={`${index + 1}. `} />)}
+                        </PreviewBlock>
+                    </div>
+                ) : proposal.kind === 'techStack' ? (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        <PreviewBlock label="Before" tone="muted"><p>{proposal.beforeItems.join(' · ')}</p></PreviewBlock>
+                        <PreviewBlock label="Proposed" tone="positive"><p>{proposal.afterItems.join(' · ')}</p></PreviewBlock>
+                    </div>
+                ) : (
+                    <div className="grid gap-2 lg:grid-cols-2">
+                        <PreviewBlock label="Before" tone="muted">
+                            {proposal.beforeSkills.map((group) => <p key={group.id}><strong>{group.name}:</strong> {group.items.join(', ')}</p>)}
+                        </PreviewBlock>
+                        <PreviewBlock label="Proposed" tone="positive">
+                            {proposal.afterSkills.map((group) => <p key={group.id}><strong>{group.name}:</strong> {group.items.join(', ')}</p>)}
+                        </PreviewBlock>
+                    </div>
+                )}
             </div>
-            <div className="p-4 sm:p-5">{children}</div>
-        </section>
+        </div>
+    );
+}
+
+/**
+ * Resume content carries inline emphasis (<strong>, <em>) on both sides of the
+ * diff, so both are rendered as markup - showing raw tags in the Before column
+ * would misrepresent what the user already has.
+ */
+function Line({ html, prefix }: { html: string; prefix?: string }) {
+    return (
+        <p>
+            {prefix ? <span className="text-[var(--text-muted)]">{prefix}</span> : null}
+            <span dangerouslySetInnerHTML={{ __html: html }} />
+        </p>
     );
 }
 
@@ -717,5 +889,5 @@ function Evidence({ label, value }: { label: string; value: string }) {
 }
 
 function PreviewBlock({ label, tone, children }: { label: string; tone: 'muted' | 'positive'; children: React.ReactNode }) {
-    return <div className={`rounded-xl border p-3 text-xs leading-relaxed ${tone === 'positive' ? 'border-green-500/20 bg-green-500/5 text-[var(--text-main)]' : 'border-[var(--border-color)] bg-[var(--bg-input)] text-[var(--text-muted)]'}`}><p className={`mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] ${tone === 'positive' ? 'text-green-600' : 'text-[var(--text-muted)]'}`}>{label}</p><div className="space-y-2">{children}</div></div>;
+    return <div className={`rounded-xl border p-3 text-xs leading-relaxed ${tone === 'positive' ? 'border-green-500/20 bg-green-500/5 text-[var(--text-main)]' : 'border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)]'}`}><p className={`mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] ${tone === 'positive' ? 'text-green-600' : 'text-[var(--text-muted)]'}`}>{label}</p><div className="space-y-2">{children}</div></div>;
 }
