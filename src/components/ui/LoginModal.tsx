@@ -24,7 +24,7 @@ export function LoginModal() {
             <div className="rv-modal-backdrop absolute inset-0" onClick={() => setIsOpen(false)} />
             <div className="rv-modal relative w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
 
-                <button onClick={() => setIsOpen(false)} className="absolute right-4 top-4 rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]" aria-label="Close login dialog">
+                <button onClick={() => setIsOpen(false)} className="absolute right-4 top-4 z-10 rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]" aria-label="Close login dialog">
                     <X size={17} />
                 </button>
 

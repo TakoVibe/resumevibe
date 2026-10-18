@@ -11,7 +11,7 @@
 }
 
 .resume-root.resume-mode-single-page.dark-mode-editor {
-    --single-sidebar-bg: #18181b;
+    --single-sidebar-bg: var(--bg-main);
     --single-sidebar-text: var(--text-main);
     --single-muted: var(--text-muted);
     --single-rule: rgba(255, 255, 255, 0.72);

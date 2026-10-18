@@ -1,206 +1,41 @@
 ---
 export const prerender = true;
 import { ResumeBuilder } from "../components/ResumeBuilder";
+import HomeLanding from "../components/home/HomeLanding.astro";
 import Layout from "../layouts/Layout.astro";
 import { Footer } from "../components/ui/Footer";
 ---
 
-<Layout includeResumeStyles>
-	<h1 class="sr-only">
-		ResumeVibe - Professional ATS-Friendly Resume Builder & AI Optimization Tool
-	</h1>
-
-	<!-- Full-viewport editor — all scroll is contained within -->
-	<section class="h-[100dvh] overflow-hidden relative">
-		<ResumeBuilder client:load />
-	</section>
-
-		<!-- ══════════════════════════════════════════════════════════════
-	     Below-the-fold: Editorial Marketing Section
-	     ══════════════════════════════════════════════════════════════ -->
-	<section id="about" class="relative bg-[#F4F3ED] dark:bg-[#0A0A0A] text-[#1A1A1A] dark:text-[#F4F3ED] transition-colors duration-700 selection:bg-[#8B7355] selection:text-[#F4F3ED] pb-24">
-		<style>
-			@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-			.font-serif-ed { font-family: 'Cormorant Garamond', serif; }
-			.font-sans-ed { font-family: 'Jost', sans-serif; }
-			
-			.ed-border {
-				border-color: rgba(26, 26, 26, 0.15);
-			}
-			:global(.dark) .ed-border {
-				border-color: rgba(244, 243, 237, 0.12);
-			}
-			.ed-border-heavy {
-				border-color: rgba(26, 26, 26, 0.9);
-			}
-			:global(.dark) .ed-border-heavy {
-				border-color: rgba(244, 243, 237, 0.9);
-			}
-
-			/* Subtle grain overlay */
-			.grain-overlay {
-				background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-			}
-		</style>
-
-		<!-- Atmospheric noise -->
-		<div class="absolute inset-0 opacity-[0.04] dark:opacity-[0.03] grain-overlay pointer-events-none"></div>
-
-		<!-- Top delicate border -->
-		<div class="border-t ed-border w-full relative z-10"></div>
-
-		<!-- Issue / Volume Header -->
-		<div class="relative z-10 max-w-[100rem] mx-auto px-6 md:px-12 py-5 flex justify-between items-center font-sans-ed text-[11px] uppercase tracking-[0.25em] border-b ed-border">
-			<span class="opacity-70">ResumeVibe — The workspace</span>
-			<span class="opacity-70">Built for focused applications</span>
-			<span class="hidden sm:inline-block opacity-70">ATS-aware by design</span>
-		</div>
-
-		<!-- ── Hero Statement ── -->
-		<div class="relative z-10 max-w-[100rem] mx-auto px-6 md:px-12 py-24 md:py-32 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 border-b ed-border">
-			<div class="lg:col-span-8 relative z-10">
-				<h2 class="font-serif-ed text-[clamp(3.25rem,7vw,7.5rem)] leading-[0.9] tracking-tight mb-10">
-					Your resume <br/>
-					<span class="italic text-[#8B7355] dark:text-[#A68F6C] font-light">shouldn't look</span> <br/>
-					like everyone else's.
-				</h2>
-				<p class="font-sans-ed text-lg md:text-xl leading-relaxed font-light opacity-80 max-w-2xl mt-12">
-					ResumeVibe brings writing, tailoring, review, and export into one calm workspace. Your resume remains readable to hiring teams and structured for the systems they use.
-				</p>
-			</div>
-			
-			<div class="lg:col-span-4 flex flex-col justify-end">
-				<div class="border ed-border rounded-[18px] p-8 md:p-10 relative overflow-hidden group hover:border-[#8B7355] dark:hover:border-[#A68F6C] transition-colors duration-300 bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm">
-					<!-- decorative corner -->
-					<div class="absolute top-0 right-0 w-10 h-10 border-l border-b ed-border bg-[#F4F3ED] dark:bg-[#0A0A0A] z-10 transition-colors duration-700 group-hover:border-[#8B7355] dark:group-hover:border-[#A68F6C]"></div>
-					<div class="absolute top-2 right-2 w-1.5 h-1.5 bg-[#1A1A1A] dark:bg-[#F4F3ED] rounded-full z-20"></div>
-					
-					<p class="font-sans-ed text-[10px] uppercase tracking-[0.25em] mb-8 opacity-60">Design principle</p>
-					<p class="font-serif-ed text-7xl mb-6 tracking-tighter text-[#8B7355] dark:text-[#A68F6C]">Clear.</p>
-					<p class="font-sans-ed text-sm leading-relaxed opacity-75 font-light">
-						Strong hierarchy, restrained styling, and predictable document structure—without visual noise competing with your experience.
-					</p>
-				</div>
-			</div>
-		</div>
-
-		<!-- ── Manifesto / Features Layout ── -->
-		<div class="relative z-10 max-w-[100rem] mx-auto px-6 md:px-12 py-24 md:py-28 grid grid-cols-1 md:grid-cols-3 gap-x-12 lg:gap-x-16 gap-y-16 border-b ed-border">
-			
-			<!-- Feature 1 -->
-			<div class="col-span-1 border-t-[3px] ed-border-heavy pt-6 relative group">
-				<div class="font-sans-ed text-[10px] uppercase tracking-[0.2em] mb-10 flex justify-between opacity-60">
-					<span>Chapter I</span>
-					<span>Parse Rate</span>
-				</div>
-				<h3 class="font-serif-ed text-4xl mb-6 tracking-tight group-hover:italic transition-all duration-300">Flawless Extraction</h3>
-				<p class="font-sans-ed text-base leading-relaxed opacity-75 font-light">
-					Simple document structure, conventional headings, and clean text flow help major applicant tracking systems interpret your resume consistently.
-				</p>
-			</div>
-			
-			<!-- Feature 2 -->
-			<div class="col-span-1 border-t-[3px] ed-border-heavy pt-6 relative group">
-				<div class="font-sans-ed text-[10px] uppercase tracking-[0.2em] mb-10 flex justify-between opacity-60">
-					<span>Chapter II</span>
-					<span>AI Rewriting</span>
-				</div>
-				<h3 class="font-serif-ed text-4xl mb-6 tracking-tight group-hover:italic transition-all duration-300">Algorithmic Precision</h3>
-				<p class="font-sans-ed text-base leading-relaxed opacity-75 font-light">
-					Tailor against a job description, review every proposed edit, and keep unsupported claims out of the final application.
-				</p>
-			</div>
-
-			<!-- Feature 3 -->
-			<div class="col-span-1 border-t-[3px] ed-border-heavy pt-6 relative group">
-				<div class="font-sans-ed text-[10px] uppercase tracking-[0.2em] mb-10 flex justify-between opacity-60">
-					<span>Chapter III</span>
-					<span>Live Canvas</span>
-				</div>
-				<h3 class="font-serif-ed text-4xl mb-6 tracking-tight group-hover:italic transition-all duration-300">Direct Manipulation</h3>
-				<p class="font-sans-ed text-base leading-relaxed opacity-75 font-light">
-					Edit directly on the preview. Keyboard-first interactions for those who think faster than they click. What you see is exactly what they read.
-				</p>
-			</div>
-		</div>
-
-		<!-- ── FAQ Section Editorial Style ── -->
-		<div class="relative z-10 max-w-[100rem] mx-auto px-6 md:px-12 py-24 md:py-28 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 border-b ed-border">
-			<div class="lg:col-span-4">
-				<div class="sticky top-24">
-					<p class="font-sans-ed text-[10px] uppercase tracking-[0.2em] mb-8 opacity-60">Inquiries</p>
-					<h3 class="font-serif-ed text-[clamp(3rem,4vw,4.5rem)] leading-[0.9]">Frequently<br/><span class="italic text-[#8B7355] dark:text-[#A68F6C]">Asked</span></h3>
-				</div>
-			</div>
-			
-			<div class="lg:col-span-8 flex flex-col pt-4">
-				<details class="group border-b ed-border pb-10 mb-10 last:border-b-0 last:mb-0 last:pb-0" open>
-					<summary class="list-none cursor-pointer flex justify-between items-center font-serif-ed text-3xl hover:italic transition-all duration-300">
-						Is ResumeVibe really free?
-						<span class="font-sans-ed text-sm opacity-40 group-open:rotate-45 transition-transform duration-500">+</span>
-					</summary>
-					<div class="overflow-hidden">
-						<p class="font-sans-ed text-lg mt-6 opacity-75 max-w-2xl leading-relaxed font-light">
-							Yes. Building, saving, and exporting unlimited resumes is free forever.
-							Premium AI features (bulk optimization, career coaching) use a token system
-							with generous free allocations.
-						</p>
-					</div>
-				</details>
-				
-				<details class="group border-b ed-border pb-10 mb-10 last:border-b-0 last:mb-0 last:pb-0">
-					<summary class="list-none cursor-pointer flex justify-between items-center font-serif-ed text-3xl hover:italic transition-all duration-300">
-						Will optimized resumes look bad to humans?
-						<span class="font-sans-ed text-sm opacity-40 group-open:rotate-45 transition-transform duration-500">+</span>
-					</summary>
-					<div class="overflow-hidden">
-						<p class="font-sans-ed text-lg mt-6 opacity-75 max-w-2xl leading-relaxed font-light">
-							No. Our design system is built to look premium to both machines and people.
-							Clean typography, precise spacing, and professional hierarchy — the same things
-							that make ATS happy also make recruiters impressed.
-						</p>
-					</div>
-				</details>
-				
-				<details class="group border-b ed-border pb-10 mb-10 last:border-b-0 last:mb-0 last:pb-0">
-					<summary class="list-none cursor-pointer flex justify-between items-center font-serif-ed text-3xl hover:italic transition-all duration-300">
-						Can I import my existing resume?
-						<span class="font-sans-ed text-sm opacity-40 group-open:rotate-45 transition-transform duration-500">+</span>
-					</summary>
-					<div class="overflow-hidden">
-						<p class="font-sans-ed text-lg mt-6 opacity-75 max-w-2xl leading-relaxed font-light">
-							Yes. Upload a PDF or paste plain text and our parser will extract your
-							information into structured sections. You can then edit and optimize
-							everything in the live editor.
-						</p>
-					</div>
-				</details>
-			</div>
-		</div>
-
-		<!-- ── Footer CTA ── -->
-		<div class="relative z-10 max-w-[100rem] mx-auto px-6 md:px-12 py-24 md:py-28 flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
-			<div>
-				<p class="font-sans-ed text-[10px] uppercase tracking-[0.2em] mb-4 opacity-60">The Next Step</p>
-				<h3 class="font-serif-ed text-5xl md:text-6xl tracking-tight">Build your <span class="italic text-[#8B7355] dark:text-[#A68F6C]">next application.</span></h3>
-			</div>
-			
-			<div class="flex flex-col sm:flex-row gap-6">
-				<a href="/job-fit" class="group relative inline-flex items-center justify-center px-8 py-4 rounded-[10px] font-sans-ed text-[11px] uppercase tracking-[0.2em] font-medium bg-[#1A1A1A] text-[#F4F3ED] dark:bg-[#F4F3ED] dark:text-[#0A0A0A] hover:opacity-85 transition-opacity">
-					<span class="relative z-10">Check a job fit</span>
-				</a>
-				<a href="/why-resumevibe" class="font-sans-ed text-[11px] uppercase tracking-[0.2em] border-b border-transparent hover:border-[#1A1A1A] dark:hover:border-[#F4F3ED] transition-colors pb-1 opacity-70 hover:opacity-100 self-center">
-					Why ResumeVibe
-				</a>
-				<a href="/ats-resume-guide" class="font-sans-ed text-[11px] uppercase tracking-[0.2em] border-b border-transparent hover:border-[#1A1A1A] dark:hover:border-[#F4F3ED] transition-colors pb-1 opacity-70 hover:opacity-100 self-center">
-					Expert Guide
-				</a>
-				<a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" class="font-sans-ed text-[11px] uppercase tracking-[0.2em] border-b border-transparent hover:border-[#1A1A1A] dark:hover:border-[#F4F3ED] transition-colors pb-1 opacity-70 hover:opacity-100 self-center">
-					<span class="relative z-10">Back to editor</span>
-				</a>
-			</div>
-		</div>
-	</section>
-
-	<Footer client:load />
+<Layout
+    title="ResumeVibe by TakoVibe | Engineering Resume Builder & Job-Fit Check"
+    description="Build your engineering resume and export a PDF for free. No account or job description is needed to start editing. Sign in to import or save online; job-fit comparison is optional."
+    includeResumeStyles
+>
+    <HomeLanding />
+    <!-- Keep the editor on its original URL so saved documents and old links work. -->
+    <section id="builder" aria-label="Free resume builder" class="relative h-[100dvh] overflow-hidden border-t border-[var(--border-color)]" style="contain: layout paint; isolation: isolate;">
+        <ResumeBuilder client:visible />
+    </section>
+    <div class="homepage-footer"><Footer /></div>
 </Layout>
+
+<style>
+    /* Applied before paint so the visible editor can hydrate immediately. */
+    :global(html.resume-editor-home .rv-home),
+    :global(html.resume-editor-home .homepage-footer) {
+        display: none;
+    }
+
+    :global(html.resume-editor-home #builder) {
+        border-top: 0;
+    }
+</style>
+
+<script>
+    // Shared document/tool links keep opening the editor directly.
+    const params = new URLSearchParams(window.location.search);
+    const isEditorLink = ['edit', 'new', 'ai', 'view', 'application'].some((key) => params.has(key));
+    if (isEditorLink && !window.location.hash) {
+        document.getElementById('builder')?.scrollIntoView();
+    }
+</script>

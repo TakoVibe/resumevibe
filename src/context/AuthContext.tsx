@@ -24,32 +24,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem("auth_token");
-        const storedUser = localStorage.getItem("user");
-        const loginTime = localStorage.getItem("login_time");
+        try {
+            const token = localStorage.getItem("auth_token");
+            const storedUser = localStorage.getItem("user");
+            const loginTime = Number(localStorage.getItem("login_time"));
+            const storedData = JSON.parse(storedUser || "null");
+            const loginAge = Date.now() - loginTime;
+            const isValid = token && storedData && typeof storedData === "object"
+                && typeof storedData.email === "string" && storedData.email
+                && loginTime > 0 && loginAge >= 0 && loginAge <= 3 * 24 * 60 * 60 * 1000;
 
-        if (token && storedUser && loginTime) {
-            const now = new Date().getTime();
-            const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-            const isExpired = now - parseInt(loginTime) > threeDaysInMs;
-
-            if (isExpired) {
+            if (isValid) {
+                setUser(storedData);
+            } else if (token || storedUser) {
                 localStorage.removeItem("auth_token");
                 localStorage.removeItem("user");
                 localStorage.removeItem("login_time");
-                setUser(null);
-            } else {
-                try {
-                    setUser(JSON.parse(storedUser));
-                } catch (error) {
-                    console.error("Failed to parse user data", error);
-                    localStorage.removeItem("auth_token");
-                    localStorage.removeItem("user");
-                    localStorage.removeItem("login_time");
-                }
             }
+        } catch {
+            // Malformed or unavailable browser storage is a signed-out session.
+            setUser(null);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }, []);
 
     const login = (token: string, userData: User) => {

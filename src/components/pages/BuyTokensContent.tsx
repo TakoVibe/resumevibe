@@ -6,6 +6,7 @@ import { LoginModal } from '../ui/LoginModal';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
+import { trackCampaignEvent } from '../../lib/campaign';
 import {
     ArrowRight,
     BadgeCheck,
@@ -45,6 +46,18 @@ function BuyTokensInner() {
     const [error, setError] = React.useState<string>('');
     const [paymentModal, setPaymentModal] = React.useState<{ state: 'processing' | 'success' | 'failed'; message: string } | null>(null);
     const pollTimerRef = React.useRef<number | null>(null);
+    const trackedPurchases = React.useRef(new Set<string>());
+
+    const recordPurchase = (orderId: string, tokensAmount: number) => {
+        if (trackedPurchases.current.has(orderId)) return;
+        trackedPurchases.current.add(orderId);
+        const pack = PACKS.find((entry) => entry.tokens === tokensAmount);
+        trackCampaignEvent('token_purchase_completed', {
+            token_pack: tokensAmount,
+            value: Number(pack?.price.replace(/[^\d.]/g, '') || 0),
+            currency: 'INR',
+        });
+    };
 
     const stopPolling = () => {
         if (pollTimerRef.current !== null) {
@@ -53,7 +66,7 @@ function BuyTokensInner() {
         }
     };
 
-    const pollStatus = async (requestId: string, orderId: string, paymentId?: string) => {
+    const pollStatus = async (requestId: string, orderId: string, tokensAmount: number, paymentId?: string) => {
         try {
             const response = await api.get(
                 `/api/users/tokens/payment-status/?request_id=${encodeURIComponent(requestId)}&payment_id=${encodeURIComponent(paymentId || '')}&payment_link_id=${encodeURIComponent(orderId)}`
@@ -63,6 +76,7 @@ function BuyTokensInner() {
             const data = await response.json();
             if (data.status === 'success') {
                 stopPolling();
+                recordPurchase(orderId, tokensAmount);
                 setPaymentModal({ state: 'success', message: data.message || 'Payment successful. Tokens credited.' });
                 fetchTokenData();
                 return;
@@ -122,6 +136,12 @@ function BuyTokensInner() {
             }
             const data = await response.json();
             if (data.order_id && data.key) {
+                const pack = PACKS.find((entry) => entry.tokens === tokensAmount);
+                trackCampaignEvent('checkout_started', {
+                    token_pack: tokensAmount,
+                    value: Number(pack?.price.replace(/[^\d.]/g, '') || 0),
+                    currency: 'INR',
+                });
                 const requestId = data.request_id || `ord-${Date.now()}`;
                 setPaymentModal({ state: 'processing', message: 'Complete payment in the Razorpay popup. We will verify it automatically.' });
 
@@ -141,6 +161,10 @@ function BuyTokensInner() {
                                 throw new Error(verifyData?.message || verifyData?.error || 'Payment verification failed.');
                             }
                             const verifyData = await verifyRes.json();
+                            if (verifyData.status !== 'success') {
+                                throw new Error('Payment verification is still in progress.');
+                            }
+                            recordPurchase(data.order_id, tokensAmount);
                             setPaymentModal({ state: 'success', message: verifyData.message || 'Payment successful. Tokens credited.' });
                             fetchTokenData();
                         } catch (verifyErr) {
@@ -148,9 +172,9 @@ function BuyTokensInner() {
                             setPaymentModal({ state: 'processing', message: 'Payment received. Final verification in progress...' });
                             stopPolling();
                             pollTimerRef.current = window.setInterval(() => {
-                                pollStatus(requestId, data.order_id, paymentResponse?.razorpay_payment_id);
+                                pollStatus(requestId, data.order_id, tokensAmount, paymentResponse?.razorpay_payment_id);
                             }, 5000);
-                            pollStatus(requestId, data.order_id, paymentResponse?.razorpay_payment_id);
+                            pollStatus(requestId, data.order_id, tokensAmount, paymentResponse?.razorpay_payment_id);
                         }
                     },
                     modal: {
@@ -244,7 +268,7 @@ function BuyTokensInner() {
                                 <p className="rv-kicker">Choose your pack</p>
                                 <h2 className="mt-3 font-serif-ed text-4xl text-[var(--text-main)] sm:text-5xl">Buy only what you need.</h2>
                             </div>
-                            <p className="max-w-xs text-xs leading-5 text-[var(--text-muted)] sm:text-right">One token supports a focused AI action inside your ResumeVibe workspace.</p>
+                            <p className="max-w-xs text-xs leading-5 text-[var(--text-muted)] sm:text-right">A tailored application package uses 30 tokens. Each action shows its cost before you start.</p>
                         </div>
 
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -259,7 +283,7 @@ function BuyTokensInner() {
                         >
                             {pack.popular && (
                                 <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--bg-main)]">
-                                    <Sparkles size={11} /> Most popular
+                                    <Sparkles size={11} /> More room
                                 </div>
                             )}
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-color)] pb-5">
@@ -296,7 +320,7 @@ function BuyTokensInner() {
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <Check size={15} className="shrink-0 text-[var(--accent)]" />
-                                    <span>Use tokens to read premium System Design &amp; AI articles <span className="whitespace-nowrap">(coming soon)</span></span>
+                                    <span>Up to {Math.floor(pack.tokens / 30)} tailored application packages</span>
                                 </li>
                             </ul>
 
@@ -318,7 +342,7 @@ function BuyTokensInner() {
                         </div>
 
                         <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border-color)] pt-5 text-[11px] text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
-                            <p className="flex items-center gap-2"><Lock size={14} className="text-[var(--accent)]" /> Payments are securely processed by Razorpay.</p>
+                            <p className="flex items-center gap-2"><Lock size={14} className="text-[var(--accent)]" /> Package counts assume 30 tokens each; imports and other AI actions share your balance.</p>
                             <p className="flex items-center gap-2"><CreditCard size={14} /> We never store card details.</p>
                         </div>
                         {error && (

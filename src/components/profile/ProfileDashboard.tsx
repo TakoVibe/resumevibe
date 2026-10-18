@@ -2,6 +2,9 @@ import React from 'react';
 import { AuthOnlyProviders } from '../Providers';
 import { Navbar } from '../ui/Navbar';
 import { UserResumes } from './UserResumes';
+import { PilotTokenAdmin } from './PilotTokenAdmin';
+import { TokenRequests } from './TokenRequests';
+import { CampaignInsights } from './CampaignInsights';
 import { RecommendedJobs } from './RecommendedJobs';
 import { LoginModal } from '../ui/LoginModal';
 import { Footer } from '../ui/Footer';
@@ -32,11 +35,12 @@ export function ProfileDashboard() {
     );
 }
 
-type Tab = 'wallet' | 'resumes' | 'jobs';
+type Tab = 'wallet' | 'resumes' | 'jobs' | 'requests' | 'insights';
+const insightFetcher = (path: string) => api.get(path);
 
 function ProfileDashboardInner() {
     const { user } = useAuth();
-    const { tokenBalance, totalConsumed, history, isLoading: tokenLoading } = useToken();
+    const { tokenBalance, totalConsumed, history, isLoading: tokenLoading, fetchTokenData } = useToken();
     const [paymentMessage, setPaymentMessage] = React.useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
     const [activeTab, setActiveTab] = React.useState<Tab>('resumes');
 
@@ -44,7 +48,11 @@ function ProfileDashboardInner() {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const tab = params.get('tab');
-            if (tab === 'opportunities' || tab === 'jobs') {
+            if (tab === 'insights') {
+                setActiveTab('insights');
+            } else if (tab === 'requests' || window.location.hash === '#token-requests') {
+                setActiveTab('requests');
+            } else if (tab === 'opportunities' || tab === 'jobs') {
                 setActiveTab('jobs');
             } else if (tab === 'wallet' || window.location.hash === '#tokens') {
                 setActiveTab('wallet');
@@ -94,7 +102,7 @@ function ProfileDashboardInner() {
         <>
             <Navbar>
                 <a
-                    href="/"
+                    href="/#builder"
                     className="flex items-center gap-2 px-2 md:px-4 py-2 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors whitespace-nowrap"
                 >
                     <ChevronLeft size={16} />
@@ -126,14 +134,14 @@ function ProfileDashboardInner() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-16 items-end">
                             
                             {/* Identity Section */}
-                            <div className="lg:col-span-6 flex gap-6 items-center">
+                            <div className="lg:col-span-6 flex min-w-0 gap-6 items-center">
                                 <div className="w-20 h-20 bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center font-serif-ed text-3xl tracking-tighter text-[var(--text-main)] shrink-0 shadow-sm relative group">
                                     {user?.profile_image
                                         ? <img src={user.profile_image} alt="avatar" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                                         : initials}
                                     <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 border border-[var(--bg-main)]"></div>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="font-sans-ed text-[10px] uppercase tracking-[0.25em] mb-2 opacity-60">Identification</p>
                                     <h1 className="font-serif-ed text-5xl tracking-tight leading-none mb-2 truncate max-w-[300px]">{displayName || 'Hello'}</h1>
                                     {user?.email && <p className="font-sans-ed text-sm text-[var(--text-muted)] font-light truncate max-w-[300px]">{user.email}</p>}
@@ -164,17 +172,19 @@ function ProfileDashboardInner() {
                                     >
                                         Acquire Tokens
                                     </a>
+                                    <a href="/profile?tab=requests" className="mt-3 block text-center text-xs underline underline-offset-4">Token requests</a>
                                 </div>
                             </div>
 
                         </div>
 
                         {/* Tab bar */}
-                        <div className="flex gap-12 border-b border-[var(--border-color)]">
+                        <div className="flex flex-wrap gap-x-6 gap-y-3 border-b border-[var(--border-color)] sm:gap-x-12">
                             {([
                                 { id: 'wallet',  label: 'Ledger',  icon: <Wallet size={14} className="opacity-50" /> },
                                 { id: 'resumes', label: 'Documents', icon: <FileText size={14} className="opacity-50" /> },
                                 { id: 'jobs', label: 'Opportunities', icon: <Briefcase size={14} className="opacity-50" /> },
+                                { id: 'requests', label: 'Token requests', icon: <Zap size={14} className="opacity-50" /> },
                             ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(tab => (
                                 <button
                                     key={tab.id}
@@ -194,6 +204,9 @@ function ProfileDashboardInner() {
 
                 {/* ── Content ── */}
                 <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                    <PilotTokenAdmin onSelfGrant={fetchTokenData} />
+                    {activeTab === 'requests' && <TokenRequests refreshWallet={fetchTokenData} />}
+                    {activeTab === 'insights' && <CampaignInsights fetcher={insightFetcher} />}
 
                     {activeTab === 'wallet' && (
                         <section id="tokens">
@@ -304,7 +317,7 @@ function ProfileDashboardInner() {
                                 <div className="mb-5 flex items-center justify-between">
                                     <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My Resumes</h2>
                                     <a
-                                        href="/"
+                                        href="/#builder"
                                         className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[var(--bg-main)] transition-all hover:opacity-90"
                                     >
                                         <Plus size={12} /> Create New

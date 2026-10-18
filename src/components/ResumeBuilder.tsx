@@ -23,7 +23,6 @@ import { ShareModal } from './ShareModal';
 import { CareerGuidanceModal } from './editor/CareerGuidanceModal';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { TokenProvider } from '../context/TokenContext';
-import { GoogleLogin } from './GoogleLogin';
 import { api } from '../lib/api';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { useToken } from '../context/TokenContext';
@@ -31,6 +30,7 @@ import { UpgradeModal } from './ui/UpgradeModal';
 import { TailoredApplicationReview } from './TailoredApplicationReview';
 import { StandaloneCoverLetterModal } from './StandaloneCoverLetterModal';
 import { fetchLatestResume, resumeEditorUrl } from '../lib/resumeNavigation';
+import { guestDraftEditorUrl } from '../lib/guestDraft';
 import { ProductTour, replayProductTour, type ProductTourStep } from './ui/ProductTour';
 import { trackCampaignEvent } from '../lib/campaign';
 import type { JobApplicationRecord } from '../types/application';
@@ -40,6 +40,7 @@ import { normalizeResumeData } from '../lib/normalizeResume';
 
 const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
 const JOB_MATCH_HELPER_DISMISSED_KEY = 'resume-job-match-helper-dismissed-v1';
+const GUEST_SAVE_NOTICE_DISMISSED_KEY = 'resumevibe:guest-save-notice-dismissed:v1';
 
 const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
     {
@@ -133,16 +134,27 @@ function ResumeBuilderContent() {
     const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
     const [pdfPreviewError, setPdfPreviewError] = useState('');
     const [lastDownloadedFile, setLastDownloadedFile] = useState('');
-    const [showLoginModal, setShowLoginModal] = useState(false);
     const [isPublicView, setIsPublicView] = useState(false);
     const [isResolvingInitialResume, setIsResolvingInitialResume] = useState(true);
+    const [showGuestSaveNotice, setShowGuestSaveNotice] = useState(() => {
+        try { return typeof window === 'undefined' || sessionStorage.getItem(GUEST_SAVE_NOTICE_DISMISSED_KEY) !== 'true'; }
+        catch { return true; }
+    });
     const [completedApplication, setCompletedApplication] = useState<JobApplicationRecord | null>(null);
     const [showCompletionBanner, setShowCompletionBanner] = useState(false);
     const [showApplicationKit, setShowApplicationKit] = useState(false);
     const trackedCompletionRef = useRef<string | null>(null);
+    const trackedEditorOpenRef = useRef(false);
+    const guestDraftSaveIntentRef = useRef(false);
     const pdfPreviewUrlRef = useRef<string | null>(null);
     const pdfPreviewRequestRef = useRef(0);
     const pdfPreviewAbortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        if (!isLoaded || trackedEditorOpenRef.current) return;
+        trackedEditorOpenRef.current = true;
+        trackCampaignEvent('builder_opened');
+    }, [isLoaded]);
 
     const openJobMatchHelper = useCallback(() => {
         setShowRecruiterAI(true);
@@ -173,12 +185,18 @@ function ResumeBuilderContent() {
         }
     }, []);
 
-    // Close login modal when authenticated
+    // Keep the pre-paint homepage hint in sync after sign-in or session expiry.
     useEffect(() => {
-        if (isAuthenticated) {
-            setShowLoginModal(false);
+        if (window.location.pathname === '/' && !isAuthLoading) {
+            document.documentElement.classList.toggle('resume-editor-home', isAuthenticated);
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, isAuthLoading]);
+
+    useEffect(() => {
+        if (!isAuthenticated || !resumeMetadata?.id || !guestDraftSaveIntentRef.current) return;
+        guestDraftSaveIntentRef.current = false;
+        window.history.replaceState(window.history.state, '', resumeEditorUrl(resumeMetadata.slug));
+    }, [isAuthenticated, resumeMetadata]);
 
     // Resolve a requested resume, or continue a returning user's most recently
     // updated resume when they arrive at the bare homepage.
@@ -448,6 +466,9 @@ function ResumeBuilderContent() {
 
             setLastDownloadedFile(filename);
             setShowSuccessModal(true);
+            trackCampaignEvent('resume_export_completed', {
+                source: completedApplication ? 'tailored_application' : 'editor',
+            });
             if (completedApplication) {
                 trackCampaignEvent('tailored_resume_exported', {
                     application_id: completedApplication.id,
@@ -462,9 +483,18 @@ function ResumeBuilderContent() {
         }
     };
 
+    const signInToSaveDraft = () => {
+        // The visible guest draft may not be the document named by ?edit=.
+        // Keep its content and save a new private copy after sign-in instead.
+        guestDraftSaveIntentRef.current = true;
+        setResumeMetadata(null);
+        window.history.replaceState(window.history.state, '', guestDraftEditorUrl(window.location.href));
+        window.dispatchEvent(new CustomEvent('show-login-modal'));
+    };
+
     const handleSave = async () => {
         if (!isAuthenticated) {
-            setShowLoginModal(true);
+            signInToSaveDraft();
             return;
         }
         await saveToBackend();
@@ -472,7 +502,7 @@ function ResumeBuilderContent() {
 
     const handleSaveVersion = async () => {
         if (!isAuthenticated) {
-            setShowLoginModal(true);
+            window.dispatchEvent(new CustomEvent('show-login-modal'));
             return;
         }
         await saveVersionToBackend();
@@ -611,7 +641,7 @@ function ResumeBuilderContent() {
         (profileFields.filter((field) => Boolean(field?.trim())).length / profileFields.length) * 100
     );
     const visibleSectionCount = Object.values(data.visibleSections || {}).filter(Boolean).length;
-    const documentTitle = resumeMetadata?.name || data.personalInfo.fullName || 'Untitled resume';
+    const documentTitle = (isAuthenticated ? resumeMetadata?.name : null) || data.personalInfo.fullName || 'Untitled resume';
 
     return (
         <div className="flex flex-col h-screen bg-[var(--bg-main)] selection:bg-[var(--accent)]/20">
@@ -800,6 +830,19 @@ function ResumeBuilderContent() {
                 </div>
             </Navbar>
 
+            {!isAuthenticated && showGuestSaveNotice && <section aria-label="Signed out progress notice" aria-describedby="guest-save-notice-detail" data-testid="guest-save-notice" className="relative z-[58] shrink-0 border-b border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-2 py-1 text-[var(--text-main)] sm:px-5">
+                <div className="mx-auto flex max-w-7xl items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]" title="Your draft is kept only in this browser. Log in to save online and access it across devices."><span className="sm:hidden">This device only</span><span className="hidden sm:inline">Save your progress online and access it across devices.</span></p>
+                    <p id="guest-save-notice-detail" className="sr-only">Your draft is kept only in this browser. Clearing browser data can remove it. {new URLSearchParams(window.location.search).has('edit') && "The private resume in this link has not been loaded. You are seeing this browser's draft, or the example if no draft exists."}</p>
+                    <button type="button" data-action="guest-save-login" aria-label="Log in to save this draft" onClick={signInToSaveDraft} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-[var(--text-main)] px-2 text-[11px] font-semibold whitespace-nowrap text-[var(--bg-main)] transition hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] sm:px-3"><LogIn size={13} /> Log in to save</button>
+                    {new URLSearchParams(window.location.search).has('edit') && <button type="button" data-action="guest-open-linked" aria-label="Log in to open linked resume" title="Log in to open the linked saved resume instead of saving this browser draft" onClick={() => window.dispatchEvent(new CustomEvent('show-login-modal'))} className="h-8 shrink-0 px-1 text-[11px] whitespace-nowrap underline underline-offset-4 hover:text-[var(--accent)]">Open linked</button>}
+                    <button type="button" aria-label="Dismiss login reminder" title="Hide this reminder for this tab" onClick={() => {
+                        setShowGuestSaveNotice(false);
+                        try { sessionStorage.setItem(GUEST_SAVE_NOTICE_DISMISSED_KEY, 'true'); } catch { /* Closing must still work without browser storage. */ }
+                    }} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-main)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"><X size={15} /></button>
+                </div>
+            </section>}
+
             {completedApplication && showCompletionBanner && (
                 <section className="relative z-[58] border-b border-green-500/25 bg-green-500/10 px-3 py-3 sm:px-5" aria-label="Tailored resume saved">
                     <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center">
@@ -828,7 +871,7 @@ function ResumeBuilderContent() {
                 </section>
             )}
 
-            <main className="relative flex flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
+            <main className="relative flex min-h-0 flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
                 {activeTab === 'editor' && (
                     <aside
                         data-layout="workspace-sidebar"
@@ -1050,7 +1093,7 @@ function ResumeBuilderContent() {
                             }
                         }}
                         isAuthenticated={isAuthenticated}
-                        onRequireAuth={() => setShowLoginModal(true)}
+                        onRequireAuth={() => window.dispatchEvent(new CustomEvent('show-login-modal'))}
                     />
 
                     {showGuidanceModal && (
@@ -1137,7 +1180,7 @@ function ResumeBuilderContent() {
                                 }}
                                 onAuditResult={(result) => setGuidanceAuditResult(result)}
                                 isAuthenticated={isAuthenticated}
-                                onRequireAuth={() => setShowLoginModal(true)}
+                                onRequireAuth={() => window.dispatchEvent(new CustomEvent('show-login-modal'))}
                             />
                         </div>
                     </div>

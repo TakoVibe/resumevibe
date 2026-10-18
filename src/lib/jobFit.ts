@@ -11,6 +11,7 @@ const STOP_WORDS = new Set([
 const REQUIREMENT_CUES = /\b(must|required|requirements?|minimum|preferred|experience|proficien|expertise|knowledge|familiar|hands[- ]on|years?|degree|ability to|understanding of|skilled|background in)\b/i;
 const MUST_HAVE_CUES = /\b(must|required|minimum|at least|\d+\+?\s+years?|bachelor|master|degree)\b/i;
 const NOISE_CUES = /\b(equal opportunity|salary|compensation|benefits?|health insurance|about us|who we are|our mission|privacy|accommodation|diversity|401k|holiday|vacation)\b/i;
+const SHORT_TECH_TERMS = new Set(['go', 'ai', 'ml', 'js', 'ts', 'c', 'c#', 'r']);
 
 function stripHtml(value: string) {
     return value.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
@@ -27,7 +28,7 @@ function meaningfulTokens(value: string) {
             .replace(/[^a-z0-9+#.\-/\s]/g, ' ')
             .split(/\s+/)
             .map((token) => token.replace(/^[./-]+|[./-]+$/g, ''))
-            .filter((token) => token.length > 2 && !STOP_WORDS.has(token) && !/^\d+$/.test(token))
+            .filter((token) => (token.length > 2 || SHORT_TECH_TERMS.has(token)) && !STOP_WORDS.has(token) && !/^\d+$/.test(token))
     ));
 }
 
@@ -98,8 +99,16 @@ function splitJobDescription(jobDescription: string) {
     return selected;
 }
 
+function statedExperienceYears(value: string): number | null {
+    // Compare explicit statements only. A skills list or a career-wide date
+    // range cannot establish years spent using a particular technology.
+    const match = value.match(/\b(\d+(?:\.\d+)?)\s*(?:\+|[-–]\s*\d+(?:\.\d+)?)?\s*(?:years?|yrs?)\b/i);
+    return match ? Number(match[1]) : null;
+}
+
 function scoreEvidence(requirement: string, chunks: Array<{ text: string; source: string }>) {
     const requirementTokens = meaningfulTokens(requirement);
+    const requiredYears = statedExperienceYears(requirement);
     let best = { score: 0, text: '', source: '' };
 
     for (const chunk of chunks) {
@@ -110,7 +119,15 @@ function scoreEvidence(requirement: string, chunks: Array<{ text: string; source
         )));
         const coverage = requirementTokens.length ? matched.length / requirementTokens.length : 0;
         const strength = matched.length >= 3 ? 0.12 : matched.length === 2 ? 0.06 : 0;
-        const score = Math.min(1, coverage + strength);
+        let score = Math.min(1, coverage + strength);
+        if (requiredYears !== null) {
+            const evidenceYears = statedExperienceYears(chunk.text);
+            if (evidenceYears === null || evidenceYears < requiredYears) {
+                // Keep relevant text available for review without certifying a
+                // numeric qualification on the basis of matching words.
+                score = Math.min(score, 0.41);
+            }
+        }
         if (score > best.score) best = { score, text: chunk.text, source: chunk.source };
     }
 
@@ -133,6 +150,7 @@ export function analyzeJobFit(resume: ResumeSchema, jobDescription: string): Evi
         const priority = MUST_HAVE_CUES.test(requirement) ? 'must-have' : 'preferred';
         const match = scoreEvidence(requirement, chunks);
         const status = match.score >= 0.42 ? 'matched' : match.score >= 0.18 ? 'partial' : 'gap';
+        const requiredYears = statedExperienceYears(requirement);
 
         return {
             id: `requirement-${index + 1}`,
@@ -147,8 +165,10 @@ export function analyzeJobFit(resume: ResumeSchema, jobDescription: string): Evi
             recommendation: status === 'matched'
                 ? 'Keep this evidence prominent and use the employer’s wording only when it remains accurate.'
                 : status === 'partial'
-                    ? 'Clarify the related experience, but do not imply deeper experience than the resume supports.'
-                    : 'Treat this as a real gap. Do not add the requirement unless you can provide truthful evidence.',
+                    ? requiredYears !== null
+                        ? `Review the ${requiredYears}-year requirement. The cited text does not establish that duration; confirm it before marking this requirement as supported.`
+                        : 'Clarify the related experience, but do not imply deeper experience than the resume supports.'
+                    : 'This requirement is not evidenced in the current resume. Add supporting experience only if it is accurate.',
         };
     });
 

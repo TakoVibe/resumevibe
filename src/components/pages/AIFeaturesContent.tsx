@@ -24,7 +24,7 @@ const aiFeatures = [
         title: 'Job Fit & Evidence Map',
         description: 'Paste a job description and see which requirements your resume supports, partially supports, or cannot prove yet.',
         value: 'Stop wasting applications on roles you cannot support—and find the exact gaps worth fixing.',
-        outputs: ['Apply, Stretch, or Skip guidance', 'Requirement-by-requirement evidence', 'No invented experience'],
+        outputs: ['Requirements to review', 'Requirement-by-requirement evidence', 'Review before applying edits'],
         price: 'Free comparison',
         href: '/job-fit',
         action: 'Check a job fit',
@@ -50,7 +50,7 @@ const aiFeatures = [
         value: 'Catch weak positioning and missing proof while you can still fix it.',
         outputs: ['Recruiter-style diagnostic', 'Prioritized risks and strengths', 'Actionable improvement guidance'],
         price: '30 tokens',
-        href: '/?ai=audit',
+        href: '/?ai=audit#builder',
         action: 'Open AI audit',
     },
     {
@@ -61,7 +61,7 @@ const aiFeatures = [
         value: 'Improve one weak sentence without rewriting or replacing the rest of your resume.',
         outputs: ['Before-and-after comparison', 'ATS-aware phrasing', 'Accept or discard control'],
         price: '5 tokens / suggestion',
-        href: '/?ai=writing',
+        href: '/?ai=writing#builder',
         action: 'Improve resume text',
     },
     {
@@ -72,7 +72,7 @@ const aiFeatures = [
         value: 'Start from a grounded first draft instead of a blank page.',
         outputs: ['Resume-grounded draft', 'Role-specific positioning', 'Editable and ready to copy'],
         price: '30 tokens',
-        href: '/?ai=cover-letter',
+        href: '/?ai=cover-letter#builder',
         action: 'Create cover letter',
     },
     {
@@ -83,7 +83,7 @@ const aiFeatures = [
         value: 'Get from an old resume to a clean, editable workspace in minutes.',
         outputs: ['Structured resume sections', 'Editable imported content', 'Immediate template preview'],
         price: 'Available now',
-        href: '/?ai=import',
+        href: '/?ai=import#builder',
         action: 'Import a resume',
     },
 ];
@@ -100,7 +100,7 @@ export function AIFeaturesContent() {
         <AuthOnlyProviders>
             <Navbar>
                 <div className="flex min-w-0 flex-1 items-center justify-end">
-                    <a href="/" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
+                    <a href="/#builder" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
                         Back to resume <ArrowRight size={13} />
                     </a>
                 </div>

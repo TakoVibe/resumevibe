@@ -43,21 +43,21 @@ type WorkspaceStep = 'input' | 'report';
 
 const decisionCopy: Record<FitDecision, { label: string; headline: string; description: string; tone: string }> = {
     apply: {
-        label: 'Apply',
-        headline: 'Your resume has credible evidence for this role.',
+        label: 'Evidence found',
+        headline: 'Your resume contains related evidence for this role.',
         description: 'Lead with the strongest matches and review the remaining gaps before submitting.',
         tone: 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400',
     },
     stretch: {
-        label: 'Stretch',
-        headline: 'This role is plausible, but needs a focused application.',
-        description: 'Several requirements have indirect evidence. Clarify what is true and leave real gaps visible.',
+        label: 'Needs clarification',
+        headline: 'Some requirements need a closer look.',
+        description: 'Review the related experience and clarify anything the comparison could not establish.',
         tone: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
     },
     skip: {
-        label: 'Consider skipping',
-        headline: 'Critical requirements are not supported yet.',
-        description: 'Apply only if you can add genuine evidence that is missing from the current resume.',
+        label: 'Review missing evidence',
+        headline: 'Important requirements are not clear in this resume.',
+        description: 'Check what the comparison missed and add relevant experience where it is accurate.',
         tone: 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
     },
 };
@@ -266,7 +266,7 @@ function ApplicationCopilotWorkspace() {
             <main className="relative overflow-hidden">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_58%_0%,var(--accent-glow),transparent_43%)] opacity-80" />
                 <div className="relative mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-                    <a href="/" className="mb-7 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] transition hover:text-[var(--text-main)]">
+                    <a href="/#builder" className="mb-7 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] transition hover:text-[var(--text-main)]">
                         <ArrowLeft size={13} /> Back to resume
                     </a>
 
@@ -359,7 +359,7 @@ function InputStep({
                 </p>
                 <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                     {[
-                        { icon: Gauge, label: 'Fit decision', value: 'Apply, stretch or skip' },
+                        { icon: Gauge, label: 'Requirements', value: 'Evidence and clarification' },
                         { icon: ShieldCheck, label: 'Factual boundary', value: 'No invented experience' },
                         { icon: Zap, label: 'Free first step', value: 'No tokens to analyze' },
                     ].map((item) => (
@@ -381,7 +381,7 @@ function InputStep({
                             <h2 className="mt-1 truncate font-serif-ed text-3xl">{resumeName}</h2>
                             <p className="mt-1 text-xs text-[var(--text-muted)]">{resumeTitle} · {resumeEvidenceCount} evidence points available</p>
                         </div>
-                        <a href="/" className="ml-auto shrink-0 text-[10px] font-semibold text-[var(--accent)] hover:underline">Edit resume</a>
+                        <a href="/#builder" className="ml-auto shrink-0 text-[10px] font-semibold text-[var(--accent)] hover:underline">Edit resume</a>
                     </div>
                     {isSampleResume && (
                         <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
@@ -478,7 +478,7 @@ function ReportStep({
                     <div className="grid gap-3 sm:grid-cols-3">
                         <MetricCard label="Supported" value={report.matchedCount} icon={CheckCircle2} tone="text-green-600" />
                         <MetricCard label="Partial" value={report.partialCount} icon={TriangleAlert} tone="text-amber-600" />
-                        <MetricCard label="Real gaps" value={report.gapCount} icon={XCircle} tone="text-red-500" />
+                        <MetricCard label="Not evidenced" value={report.gapCount} icon={XCircle} tone="text-red-500" />
                     </div>
 
                     <section className="rv-panel overflow-hidden">
@@ -548,7 +548,7 @@ function ReportStep({
                     <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
                         <p className="flex items-center gap-2 text-xs font-semibold"><Lightbulb size={14} className="text-amber-500" /> Risks to prepare for</p>
                         <ul className="mt-3 space-y-2 text-[11px] leading-4 text-[var(--text-muted)]">
-                            {(report.risks.length ? report.risks : ['No major gaps identified.']).map((item) => <li key={item}>• {item}</li>)}
+                            {(report.risks.length ? report.risks : ['Review the comparison for requirements it may have missed.']).map((item) => <li key={item}>• {item}</li>)}
                         </ul>
                     </div>
                 </aside>

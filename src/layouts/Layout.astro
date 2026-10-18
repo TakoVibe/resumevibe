@@ -1,5 +1,6 @@
 ---
 import SEO from "../components/SEO.astro";
+import Analytics from "../components/Analytics.astro";
 import "../styles/global.css";
 import { AuthProvider } from "../context/AuthContext";
 import { TokenProvider } from "../context/TokenContext";
@@ -30,6 +31,7 @@ const { title, description, image, keywords, includeResumeStyles = false, noinde
             keywords={keywords}
             noindex={noindex}
         />
+        <Analytics />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
@@ -53,17 +55,34 @@ const { title, description, image, keywords, includeResumeStyles = false, noinde
         {includeResumeStyles && <link rel="stylesheet" href="/resume.css" />}
         <script is:inline>
             // Immediate theme application to prevent flash
+            // This local session hint only selects the homepage view; it never
+            // authorizes an API request or exposes protected server data.
+            const hasHomepageSession = (() => {
+                if (window.location.pathname !== "/") return false;
+                try {
+                    const token = localStorage.getItem("auth_token");
+                    const user = JSON.parse(localStorage.getItem("user") || "null");
+                    const loginTime = Number(localStorage.getItem("login_time"));
+                    const loginAge = Date.now() - loginTime;
+                    return Boolean(token && user && typeof user === "object" && typeof user.email === "string" && user.email
+                        && loginTime > 0 && loginAge >= 0 && loginAge <= 3 * 24 * 60 * 60 * 1000);
+                } catch {
+                    return false;
+                }
+            })();
+            if (hasHomepageSession) document.documentElement.classList.add("resume-editor-home");
+
             const theme = (() => {
-                if (
-                    typeof localStorage !== "undefined" &&
-                    localStorage.getItem("theme")
-                ) {
-                    return localStorage.getItem("theme");
+                const isHomepage = window.location.pathname === "/";
+                try {
+                    const savedTheme = localStorage.getItem("theme");
+                    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+
+                    if (hasHomepageSession) return "dark";
+                } catch {
+                    // Missing or inaccessible storage should not block rendering.
                 }
-                if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-                    return "dark";
-                }
-                return "dark"; // Default to dark as requested
+                return isHomepage ? "light" : "dark";
             })();
 
             if (theme === "dark") {
@@ -81,3 +100,24 @@ const { title, description, image, keywords, includeResumeStyles = false, noinde
     </AuthProvider>
     </body>
 </html>
+
+<script>
+    import { captureCampaignAttribution, trackCampaignEvent } from '../lib/campaign';
+    captureCampaignAttribution();
+    trackCampaignEvent('page_view');
+    const params = new URLSearchParams(window.location.search);
+    const editorEntry = ['edit', 'new', 'ai', 'view', 'application'].some((key) => params.has(key));
+    if (window.location.pathname === '/' && !editorEntry && window.location.hash !== '#builder' && !document.documentElement.classList.contains('resume-editor-home')) {
+        trackCampaignEvent('landing_view', { page: 'home' });
+    }
+    document.addEventListener('click', (event) => {
+        const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[data-campaign-cta]') : null;
+        if (link) {
+            trackCampaignEvent('landing_cta_clicked', {
+                action: link.dataset.campaignCta,
+                destination: new URL(link.href).pathname + new URL(link.href).hash,
+                page: 'home',
+            });
+        }
+    });
+</script>

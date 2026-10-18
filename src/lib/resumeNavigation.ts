@@ -7,7 +7,7 @@ export interface ResumeNavigationTarget {
 
 export function resumeEditorUrl(slug: string, extraParams?: Record<string, string>) {
     const params = new URLSearchParams({ edit: slug, ...extraParams });
-    return `/?${params.toString()}`;
+    return `/?${params.toString()}#builder`;
 }
 
 export async function fetchLatestResume(): Promise<ResumeNavigationTarget | null> {

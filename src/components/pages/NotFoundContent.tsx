@@ -70,7 +70,7 @@ export function NotFoundContent() {
                                 </p>
 
                                 <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                                    <a href="/" className="rv-button-primary min-h-12 px-6">
+                                    <a href="/#builder" className="rv-button-primary min-h-12 px-6">
                                         <ArrowLeft size={15} /> Back to resume builder
                                     </a>
                                     <a href="/ai-tools" className="rv-button-secondary min-h-12 px-6">

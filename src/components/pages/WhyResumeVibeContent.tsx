@@ -74,7 +74,7 @@ export function WhyResumeVibeContent() {
             <Navbar>
                 <div className="flex items-center gap-4">
                     <a
-                        href="/"
+                        href="/#builder"
                         className="flex items-center gap-2 px-2 md:px-4 py-2 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors whitespace-nowrap"
                     >
                         <ChevronLeft size={16} />
@@ -150,10 +150,10 @@ export function WhyResumeVibeContent() {
                                 <Target size={20} className="text-[var(--accent)]" />
                             </div>
                             <h3 className="text-lg font-black tracking-tight text-[var(--text-main)] mb-3">
-                                Distant Match Odds
+                                Requirement Evidence
                             </h3>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed">
-                                Applying for a wildly different role? The engine calculates your exact percentage odds of selection while presenting brutal, actionable warnings about core capability gaps.
+                                Compare the job requirements with text from your resume. Review related experience, clarify missing details, and check the suggestions before you apply.
                             </p>
                         </div>
                     </div>
@@ -276,10 +276,10 @@ export function WhyResumeVibeContent() {
                         <div className="p-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
                             <h3 className="text-lg font-black mb-2 text-[var(--text-main)]">Free Tier</h3>
                             <div className="text-3xl font-black text-[var(--accent)] mb-6">
-                                100 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
+                                200 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
                             </div>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed mb-6">
-                                Every new user gets 100 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
+                                Every new user gets 200 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
@@ -288,7 +288,7 @@ export function WhyResumeVibeContent() {
                                 </li>
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
                                     <Sparkles size={16} className="text-[var(--accent)] shrink-0" />
-                                    <span>100 tokens for AI Actions</span>
+                                    <span>200 tokens for AI Actions</span>
                                 </li>
                             </ul>
                         </div>
@@ -336,7 +336,7 @@ export function WhyResumeVibeContent() {
                 {/* Call to Action Footer */}
                 <footer className="text-center pb-20 mb-20">
                     <a
-                        href="/"
+                        href="/#builder"
                         className="inline-flex items-center gap-4 px-10 py-5 bg-[var(--text-main)] text-[var(--bg-main)] rounded-lg text-sm font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all"
                     >
                         Build Your Edge <ArrowRight size={24} />

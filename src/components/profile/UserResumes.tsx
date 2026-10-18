@@ -141,7 +141,7 @@ export function UserResumes() {
                     You haven't saved any resumes yet. Start creating your professional path now.
                 </p>
                 <a
-                    href="/"
+                    href="/#builder"
                     className="flex items-center gap-2 px-6 py-3 bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl font-bold uppercase tracking-widest transition-all shadow-sm"
                 >
                     <Plus size={18} />
@@ -198,7 +198,7 @@ export function UserResumes() {
                         <div className="mt-auto flex flex-col gap-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <a
-                                    href={`/?edit=${resume.slug}`}
+                                    href={`/?edit=${encodeURIComponent(resume.slug)}#builder`}
                                     className="flex items-center justify-center gap-2 py-3 border border-[var(--border-color)] text-[var(--text-main)] hover:border-[var(--text-main)] font-sans-ed text-[10px] uppercase tracking-[0.2em] transition-all"
                                 >
                                     <Edit size={12} /> Edit

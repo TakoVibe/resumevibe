@@ -61,21 +61,21 @@ You should be able to communicate technical tradeoffs clearly to engineering and
 
 const decisionContent: Record<FitDecision, { label: string; title: string; description: string; className: string }> = {
     apply: {
-        label: 'Apply',
-        title: 'Your resume has credible evidence for this role.',
+        label: 'Evidence found',
+        title: 'Your resume contains related evidence for this role.',
         description: 'Lead with the strongest matches and review the remaining gaps before submitting.',
         className: 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400',
     },
     stretch: {
-        label: 'Stretch',
-        title: 'This role is plausible, but needs a focused application.',
-        description: 'Several requirements have indirect evidence. Clarify what is true and leave real gaps visible.',
+        label: 'Needs clarification',
+        title: 'Some requirements need a closer look.',
+        description: 'Review the related experience and clarify anything the comparison could not establish.',
         className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
     },
     skip: {
-        label: 'Consider skipping',
-        title: 'Critical requirements are not supported yet.',
-        description: 'Apply only if you can add genuine evidence that is missing from the current resume.',
+        label: 'Review missing evidence',
+        title: 'Important requirements are not clear in this resume.',
+        description: 'Check what the comparison missed and add relevant experience where it is accurate.',
         className: 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
     },
 };
@@ -111,6 +111,7 @@ function JobFitLanding() {
     const [showSuggestionPreview, setShowSuggestionPreview] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const hasTrackedLanding = useRef(false);
+    const hasOpenedLinkedSample = useRef(false);
 
     const hasSavedResume = isLoaded && savedResume.personalInfo?.email !== initialResume.personalInfo.email;
     const selectedResumeReady = resumeSource === 'sample'
@@ -171,7 +172,7 @@ function JobFitLanding() {
 
     const runAnalysis = useCallback(async () => {
         if (jobDescription.trim().length < 350) {
-            setError('Paste more of the job description, including responsibilities and requirements.');
+            setError('A role title alone is not enough for a job-fit comparison. Paste the full responsibilities and qualifications, or open the resume editor below—no job description is needed there.');
             return;
         }
         if (!selectedResumeReady) {
@@ -255,19 +256,36 @@ function JobFitLanding() {
     useEffect(() => {
         if (!waitingForLogin || !isAuthenticated) return;
         setWaitingForLogin(false);
-        trackCampaignEvent('signup_completed', { continuation: 'fit_analysis' });
+        trackCampaignEvent('authentication_continued', { continuation: 'fit_analysis' });
         void runAnalysis();
     }, [isAuthenticated, runAnalysis, waitingForLogin]);
 
-    const useSample = () => {
+    const useSample = useCallback(() => {
+        const sampleReport = analyzeJobFit(initialResume, SAMPLE_JOB_DESCRIPTION);
         setResumeSource('sample');
         setJobDescription(SAMPLE_JOB_DESCRIPTION);
         setResumeFile(null);
         setResumeText('');
         setError('');
+        setReportResume(initialResume);
+        setReport(sampleReport);
         trackCampaignEvent('sample_demo_selected');
-        window.setTimeout(() => document.getElementById('job-description')?.focus(), 0);
-    };
+        trackCampaignEvent('fit_report_completed', {
+            resume_source: 'sample',
+            decision: sampleReport.decision,
+            coverage: sampleReport.coverage,
+            requirement_count: sampleReport.requirements.length,
+            free_first_check: false,
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
+    useEffect(() => {
+        if (!hasOpenedLinkedSample.current && new URLSearchParams(window.location.search).get('demo') === 'sample') {
+            hasOpenedLinkedSample.current = true;
+            useSample();
+        }
+    }, [useSample]);
 
     const openSuggestionPreview = (stage: 'landing' | 'report') => {
         setShowSuggestionPreview(true);
@@ -339,35 +357,31 @@ function JobFitLanding() {
                                 </p>
 
                                 <div className="mt-7 grid max-w-xl gap-3 sm:flex">
+                                    <a
+                                        href="/#builder"
+                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_resume', destination: '/#builder' })}
+                                        className="rv-button-primary min-h-12 flex-1 gap-2 rounded-2xl px-4 py-3 text-xs"
+                                    >
+                                        <FileText size={16} /> Build my resume free <ArrowRight size={15} />
+                                    </a>
                                     <button
                                         type="button"
                                         onClick={useSample}
-                                        className="rv-ai-home-glow group inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--accent)]/40 bg-[var(--accent)] px-4 py-3 text-left text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:brightness-105 motion-reduce:animate-none"
+                                        className="rv-button-secondary group min-h-12 flex-1 gap-2 rounded-2xl px-4 py-3 text-left text-xs"
                                     >
                                         <Sparkles size={16} />
                                         <span className="flex-1">
                                             <span className="block">See a sample report</span>
-                                            <span className="mt-0.5 block text-[10px] font-normal text-white/75">Try it with a ready-made resume</span>
+                                            <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-muted)]">Try it with a ready-made resume</span>
                                         </span>
                                         <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => openSuggestionPreview('landing')}
-                                        className="rv-ai-home-glow group inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[var(--accent)]/35 bg-[var(--bg-card)] px-4 py-3 text-left text-xs font-semibold transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:text-[var(--accent)] motion-reduce:animate-none"
-                                    >
-                                        <FileCheck2 size={16} className="shrink-0 text-[var(--accent)]" />
-                                        <span className="flex-1">
-                                            <span className="block">Preview automatic updates</span>
-                                            <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-muted)]">See how edits stay in your control</span>
-                                        </span>
-                                        <ArrowRight size={15} className="text-[var(--accent)] transition group-hover:translate-x-0.5" />
-                                    </button>
                                 </div>
+                                <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">No account or job description needed to edit and export. Compare with a specific job whenever you are ready.</p>
 
                                 <div className="mt-8 hidden space-y-3 sm:block">
                                     {[
-                                        [Gauge, 'Apply, stretch, or skip guidance'],
+                                        [Gauge, 'Requirements explained with source text'],
                                         [ShieldCheck, 'Every conclusion linked to resume evidence'],
                                         [UserRoundCheck, 'Approved edits are applied automatically'],
                                     ].map(([Icon, label]) => (
@@ -396,7 +410,7 @@ function JobFitLanding() {
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--text-main)] text-[11px] font-semibold text-[var(--bg-main)]">1</span>
                                         <div>
                                             <h3 className="text-sm font-semibold">Your resume</h3>
-                                            <p className="text-[10px] text-[var(--text-muted)]">PDF or pasted text</p>
+                                            <p className="text-[10px] text-[var(--text-muted)]">PDF or pasted text · Google sign-in required to import</p>
                                         </div>
                                         {selectedResumeReady && <CheckCircle2 size={17} className="ml-auto text-green-500" />}
                                     </div>
@@ -477,8 +491,8 @@ function JobFitLanding() {
                                     <div className="flex items-center gap-3">
                                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--text-main)] text-[11px] font-semibold text-[var(--bg-main)]">2</span>
                                         <div>
-                                            <h3 className="text-sm font-semibold">The job you want</h3>
-                                            <p className="text-[10px] text-[var(--text-muted)]">Paste responsibilities and qualifications</p>
+                                            <h3 className="text-sm font-semibold">Full job description</h3>
+                                            <p id="job-description-help" className="text-[10px] text-[var(--text-muted)]">Only needed for this comparison—not for the resume editor.</p>
                                         </div>
                                         {jobDescription.trim().length >= 350 && <CheckCircle2 size={17} className="ml-auto text-green-500" />}
                                     </div>
@@ -486,6 +500,7 @@ function JobFitLanding() {
                                     <div className="relative mt-4">
                                         <textarea
                                             id="job-description"
+                                            aria-describedby="job-description-help"
                                             value={jobDescription}
                                             onChange={(event) => {
                                                 setJobDescription(event.target.value);
@@ -506,13 +521,21 @@ function JobFitLanding() {
                                     <button type="button" onClick={handleAnalyze} disabled={isProcessing} className="rv-button-primary mt-6 w-full justify-center py-3.5 text-sm">
                                         {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Reading and comparing…</> : <><Target size={16} /> Check my fit <ArrowRight size={16} /></>}
                                     </button>
+                                    <a
+                                        href="/#builder"
+                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_without_job_description', destination: '/#builder' })}
+                                        className="rv-button-secondary mt-3 w-full gap-2 px-3 py-3 text-center text-xs"
+                                    >
+                                        <FileText size={15} className="shrink-0" /> Open the editor without a job description <ArrowRight size={15} className="shrink-0" />
+                                    </a>
+                                    <p className="mt-2 text-center text-[10px] leading-5 text-[var(--text-muted)]">Only have a role such as backend developer? Start in the editor and add or import your resume there.</p>
 
                                     <div className="mt-4 flex items-start gap-2 text-[10px] leading-5 text-[var(--text-muted)]">
                                         <LockKeyhole size={12} className="mt-1 shrink-0 text-[var(--accent)]" />
                                         <p>{resumeSource === 'pdf' || resumeSource === 'text'
                                             ? !freeJobFitAvailable
                                                 ? 'Your free fit check is complete. Future new resume imports use 50 VibeTokens; the evidence comparison stays free.'
-                                                : 'Your first resume import and evidence comparison are free. No VibeTokens are required.'
+                                                : 'Your first resume import and evidence comparison are free with Google sign-in. No card is required.'
                                             : 'The evidence comparison runs in this browser. This is guidance, not a prediction of an interview.'}</p>
                                     </div>
                                 </div>
@@ -536,9 +559,9 @@ function CampaignHeader({ userName, isAuthenticated }: { userName?: string; isAu
     return (
         <header className="sticky top-0 z-[60] border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] backdrop-blur-xl">
             <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-                <a href="/" className="flex items-center gap-2.5" aria-label="ResumeVibe home">
+                <a href="/" className="flex items-center gap-2.5" aria-label="ResumeVibe by TakoVibe home">
                     <Logo className="h-8 w-8" />
-                    <span className="font-serif-ed text-xl tracking-tight">ResumeVibe</span>
+                    <span><span className="block font-serif-ed text-xl leading-none tracking-tight">ResumeVibe</span><span className="mt-1 block text-[8px] uppercase tracking-wider text-[var(--text-muted)]">by TakoVibe</span></span>
                 </a>
                 <div className="flex items-center gap-2">
                     <span className="hidden items-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-green-700 dark:text-green-400 sm:inline-flex"><ShieldCheck size={11} /> Evidence, not guesses</span>
@@ -757,7 +780,7 @@ function SuggestionPreviewDialog({ isOpen, onClose }: { isOpen: boolean; onClose
 
 function TrustSection({ onPreview }: { onPreview: () => void }) {
     const items = [
-        { icon: ShieldCheck, title: 'No invented experience', text: 'Real gaps remain visible. ResumeVibe never turns a missing skill into a false claim.' },
+        { icon: ShieldCheck, title: 'Review every change', text: 'Suggestions use your existing resume. Check each proposed edit for accuracy before accepting it.' },
         { icon: ThumbsUp, title: 'Approve once, then it is done', text: 'Review each proposal; accepted edits are applied automatically and saved as a new version.' },
         { icon: BriefcaseBusiness, title: 'Built around one real job', text: 'Compare against the role in front of you instead of receiving generic resume advice.' },
     ];

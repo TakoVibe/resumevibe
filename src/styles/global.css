@@ -31,25 +31,25 @@
 }
 
 :root.dark {
-    /* Editorial Dark Theme */
-    --bg-main: #0A0A0A;
-    --bg-card: #141414;
-    --bg-input: rgba(244, 243, 237, 0.04);
-    --border-color: rgba(244, 243, 237, 0.12);
-    --text-main: #F4F3ED;
-    --text-muted: #b8b0a4;
+    /* Soft charcoal surfaces keep dark mode calm without disappearing into black. */
+    --bg-main: #1C1F22;
+    --bg-card: #262A2E;
+    --bg-input: rgba(244, 243, 237, 0.07);
+    --border-color: rgba(244, 243, 237, 0.18);
+    --text-main: #F5F2ED;
+    --text-muted: #d0c9bf;
     --accent: #A68F6C;
     --accent-hover: #c4ae8b;
     --accent-subtle: rgba(166, 143, 108, 0.08);
     --accent-glow: rgba(166, 143, 108, 0.2);
-    --shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
-    --glass-bg: rgba(10, 10, 10, 0.85);
-    --glass-bg-strong: rgba(10, 10, 10, 0.95);
-    --glass-border: rgba(244, 243, 237, 0.08);
-    --nav-border: rgba(244, 243, 237, 0.12);
-    --panel-bg: #141414;
-    --score-ring-bg: rgba(244, 243, 237, 0.06);
-    --overlay-bg: rgba(0, 0, 0, 0.72);
+    --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.3);
+    --glass-bg: rgba(28, 31, 34, 0.88);
+    --glass-bg-strong: rgba(28, 31, 34, 0.96);
+    --glass-border: rgba(244, 243, 237, 0.14);
+    --nav-border: rgba(244, 243, 237, 0.18);
+    --panel-bg: #262A2E;
+    --score-ring-bg: rgba(244, 243, 237, 0.12);
+    --overlay-bg: rgba(15, 18, 21, 0.54);
 }
 
 body {
@@ -217,6 +217,11 @@ a:focus-visible,
 .rv-field:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+:root.dark .rv-field::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
 }
 
 .rv-dropzone {
@@ -389,12 +394,12 @@ nav,
 
 /* Dark mode override for the editor view */
 .resume-root.dark-mode-editor {
-    --bg-main: #09090b;
-    --bg-card: #111114;
-    --bg-input: rgba(255, 255, 255, 0.04);
-    --border-color: rgba(255, 255, 255, 0.08);
-    --text-main: #fafafa;
-    --text-muted: #a1a1aa;
+    --bg-main: #1C1F22;
+    --bg-card: #262A2E;
+    --bg-input: rgba(244, 243, 237, 0.07);
+    --border-color: rgba(244, 243, 237, 0.18);
+    --text-main: #F5F2ED;
+    --text-muted: #d0c9bf;
     --accent: #8b5cf6;
     --accent-hover: #7c3aed;
 

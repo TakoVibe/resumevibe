@@ -17,7 +17,9 @@ export default defineConfig({
   security: {
     checkOrigin: false
   },
-  integrations: [react(), sitemap()],
+  integrations: [react(), sitemap({
+    filter: (page) => !['/profile', '/404'].includes(new URL(page).pathname.replace(/\/$/, '')),
+  })],
   server: {
     host: false,
     port: process.env.PORT ? parseInt(process.env.PORT) : 4322,

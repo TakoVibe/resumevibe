@@ -44,7 +44,7 @@ export function ATSResumeGuideContent() {
     return (
         <AuthOnlyProviders>
             <Navbar>
-                <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
+                <a href="/#builder" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
                     <ChevronLeft size={14} /> Back to editor
                 </a>
             </Navbar>
@@ -166,7 +166,7 @@ export function ATSResumeGuideContent() {
                 <section className="py-20 text-center lg:py-28">
                     <p className="rv-kicker">Ready when you are</p>
                     <h2 className="mx-auto mt-4 max-w-3xl font-serif-ed text-4xl text-[var(--text-main)] sm:text-6xl">Create a package you can confidently stand behind.</h2>
-                    <a href="/" className="rv-button-primary mx-auto mt-8 w-fit px-6 py-3">
+                    <a href="/#builder" className="rv-button-primary mx-auto mt-8 w-fit px-6 py-3">
                         Open resume editor <ArrowRight size={15} />
                     </a>
                 </section>

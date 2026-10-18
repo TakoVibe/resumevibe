@@ -10,112 +10,76 @@ interface Props {
 }
 
 const {
-    title = "ResumeVibe - Free Professional ATS Resume Builder",
-    description = "Build a professional, ATS-friendly resume for free. No login required. AI-powered optimization, modern templates, and instant PDF export. Perfect for software engineers and professionals.",
+    title = "ResumeVibe by TakoVibe | Free Resume Builder & Job-Fit Check",
+    description = "Build your engineering resume, compare it with a job, review suggested edits, and export your PDF. ResumeVibe is built by Rahul Beniwal at TakoVibe.",
     image = "/og-image.png",
     canonicalURL = new URL(Astro.url.pathname, Astro.site),
     type = "website",
-    keywords = "resume builder, ats-friendly resume, free resume maker, ai resume optimization, professional resume templates, software engineer resume, cv maker, online resume builder",
+    keywords = "engineering resume builder, resume job fit checker, tailor resume to job description, free resume builder",
     noindex = false,
 } = Astro.props;
----
 
-<!-- Global Metadata -->
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="icon" type="image/svg+xml" href="/logo.png" />
-<link rel="manifest" href="/manifest.json" />
-<meta name="generator" content={Astro.generator} />
-
-<!-- Canonical URL -->
-<link rel="canonical" href={canonicalURL} />
-
-<!-- Primary Meta Tags -->
-<title>{title}</title>
-<meta name="title" content={title} />
-<meta name="description" content={description} />
-<meta name="keywords" content={keywords} />
-
-<!-- Open Graph / Facebook -->
-<meta property="og:type" content={type} />
-<meta property="og:url" content={Astro.url} />
-<meta property="og:title" content={title} />
-<meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image, Astro.url)} />
-
-<!-- Twitter -->
-<meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:url" content={Astro.url} />
-<meta property="twitter:title" content={title} />
-<meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={new URL(image, Astro.url)} />
-
-<!-- Robots -->
-<meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow"} />
-
-<!-- Structured Data (Schema.org) -->
-<script
-    type="application/ld+json"
-    is:inline
-    set:html={JSON.stringify([
+const siteName = "ResumeVibe by TakoVibe";
+const googleVerification = import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION;
+const siteURL = new URL("/", Astro.site || "https://resumevibe.takovibe.com");
+const pageTitle = title.includes("by TakoVibe") ? title : title.replace("ResumeVibe", siteName);
+const canonical = new URL(canonicalURL, siteURL);
+const imageURL = new URL(image, siteURL);
+const structuredData = [
+    ...(Astro.url.pathname === "/" ? [
         {
             "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: "ResumeVibe",
-            operatingSystem: "Web",
-            applicationCategory: "BusinessApplication",
-            offers: {
-                "@type": "Offer",
-                price: "0",
-                priceCurrency: "USD",
-            },
-            description: description,
+            "@type": "WebSite",
+            "@id": new URL("#website", siteURL).href,
+            name: siteName,
+            alternateName: ["ResumeVibe", "resumevibe.takovibe.com"],
+            url: siteURL.href,
+            publisher: { "@id": "https://takovibe.com/#organization" },
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "@id": "https://takovibe.com/#organization",
+            name: "TakoVibe",
+            url: "https://takovibe.com/",
+            logo: new URL("/takovibe_logo.svg", siteURL).href,
         },
         {
             "@context": "https://schema.org",
             "@type": "WebApplication",
-            name: "ResumeVibe Builder",
-            url: "https://resumevibe.takovibe.com",
-            description:
-                "High-performance, AI-powered ATS resume builder for tech professionals.",
+            name: siteName,
+            url: siteURL.href,
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            description: "A resume editor and job-fit comparison for engineers. Building and PDF export are free; additional AI features use VibeTokens.",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+            creator: {
+                "@type": "Person",
+                name: "Rahul Beniwal",
+                url: "https://rahulbeniwal.takovibe.com/",
+            },
         },
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: [
-                {
-                    "@type": "Question",
-                    name: "Is ResumeVibe really free?",
-                    acceptedAnswer: {
-                        "@type": "Answer",
-                        text: "Yes. Building, formatting, and exporting resumes is free. Advanced AI features use VibeTokens, and ResumeVibe shows the token cost before each action.",
-                    },
-                },
-                {
-                    "@type": "Question",
-                    name: "What is an ATS-friendly resume?",
-                    acceptedAnswer: {
-                        "@type": "Answer",
-                        text: "An ATS-friendly resume uses conventional headings, readable text, and a predictable document structure so applicant tracking systems can extract its content more consistently.",
-                    },
-                },
-                {
-                    "@type": "Question",
-                    name: "Do I need to login to build a resume?",
-                    acceptedAnswer: {
-                        "@type": "Answer",
-                        text: "No, you can start building your resume immediately without creating an account. Your data is saved locally in your browser for convenience.",
-                    },
-                },
-                {
-                    "@type": "Question",
-                    name: "How does AI resume optimization work?",
-                    acceptedAnswer: {
-                        "@type": "Answer",
-                        text: "Our AI analyzes your resume against industry standards and specific job descriptions (if provided) to suggest improvements in phrasing, keywords, and impact metrics.",
-                    },
-                },
-            ],
-        },
-    ])}
-/>
+    ] : []),
+];
+---
+
+<link rel="manifest" href="/manifest.json" />
+<link rel="canonical" href={canonical} />
+<title>{pageTitle}</title>
+<meta name="description" content={description} />
+<meta name="keywords" content={keywords} />
+<meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
+{googleVerification && <meta name="google-site-verification" content={googleVerification} />}
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={siteName} />
+<meta property="og:url" content={canonical} />
+<meta property="og:title" content={pageTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={imageURL} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={pageTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={imageURL} />
+{structuredData.length > 0 && (
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData).replace(/</g, "\\u003c")} />
+)}

@@ -15,14 +15,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     // Load initial theme from localStorage
     useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark') {
-            setIsDarkMode(true);
-            document.documentElement.classList.add('dark');
-        } else {
-            setIsDarkMode(false);
-            document.documentElement.classList.remove('dark');
-        }
+        let savedTheme: string | null = null;
+        try { savedTheme = localStorage.getItem('theme'); } catch { /* Use the already-rendered theme. */ }
+        const dark = savedTheme === 'dark' || (savedTheme !== 'light' && document.documentElement.classList.contains('dark'));
+        setIsDarkMode(dark);
+        document.documentElement.classList.toggle('dark', dark);
     }, []);
 
     const toggleGradients = () => setShowGradients(prev => !prev);

@@ -1,0 +1,154 @@
+---
+const steps = [
+    { number: '01', title: 'Open the free editor', description: 'Start building immediately. You do not need an account or a job description to edit your resume.' },
+    { number: '02', title: 'Make it yours', description: 'Add your details, experience, skills, and projects. Already have a resume? Sign in to import it into editable sections.' },
+    { number: '03', title: 'Export your PDF', description: 'Review your layout and download your resume for free. Compare it with a specific job later, when you have a job description.' },
+];
+const questions = [
+    { question: 'What can I use for free?', answer: 'Building, editing, and exporting resumes are free. You can start in the editor without an account. Sign in to save online and get your first resume import and job-fit check free.' },
+    { question: 'When do I need an account?', answer: 'Importing a PDF or pasted resume, saving online, and using paid AI features require Google sign-in. You can explore the sample report and edit a resume without signing in.' },
+    { question: 'Do I need a job description to start?', answer: 'No. Open the editor and build your resume for a role such as backend developer. A full job description is only needed if you choose to compare your resume with a specific vacancy.' },
+    { question: 'What do the AI features cost?', answer: 'New accounts receive 200 VibeTokens. A tailored application package uses 30 tokens; additional resume imports use 50. Comparing a resume already in your workspace with another job stays free. Costs are shown before you start.' },
+    { question: 'Will this tell me whether I will get an interview?', answer: 'The report compares the text in your resume with the job description. It can miss related experience and cannot verify your background or predict a hiring decision. Use it to review your application, and correct anything it misunderstands.' },
+];
+---
+
+<div class="rv-home bg-[var(--bg-main)] text-[var(--text-main)]">
+    <a href="#home-main" class="skip-link">Skip to content</a>
+    <header class="home-nav">
+        <a href="/" class="home-brand" aria-label="ResumeVibe by TakoVibe home">
+            <img src="/logo.png" alt="" width="38" height="38" />
+            <span><span class="brand-name">ResumeVibe</span><span class="brand-parent">by TakoVibe</span></span>
+        </a>
+        <nav aria-label="Main navigation" class="home-links">
+            <a href="#how-it-works" class="desktop-link">How it works</a>
+            <a href="/buy-tokens" class="desktop-link">AI pricing</a>
+            <a href="#builder" data-campaign-cta="open_builder" class="home-nav-cta">Open editor <span aria-hidden="true">↗</span></a>
+        </nav>
+    </header>
+
+    <main id="home-main">
+        <section class="home-hero" aria-labelledby="home-title">
+            <div class="hero-copy">
+                <p class="home-kicker"><span class="status-dot" aria-hidden="true"></span> Free resume builder for engineers</p>
+                <h1 id="home-title">Your experience.<br />Your next resume.<br /><em>Start here.</em></h1>
+                <p class="hero-description">Build your engineering resume, edit it directly on the page, and export a clean PDF. You can start without an account or a job description.</p>
+                <div class="hero-actions">
+                    <a href="#builder" data-campaign-cta="build_resume" class="home-primary">Build my resume free <span aria-hidden="true">→</span></a>
+                    <a href="/job-fit" data-campaign-cta="check_job_fit" class="home-secondary">Compare with a job</a>
+                </div>
+                <p class="entry-note">Free editing & PDF export · Sign in to import or save online · No card needed</p>
+                <a href="/job-fit?demo=sample" data-campaign-cta="sample_report" class="sample-link"><span aria-hidden="true">▷</span> Explore the optional job-fit report <span class="sample-note">No sign-in</span></a>
+            </div>
+
+            <aside class="report-preview" aria-label="Illustrative resume preview">
+                <div class="preview-top"><span class="home-kicker">A resume you can make your own</span><span class="preview-label">Illustrative example</span></div>
+                <div class="preview-title"><div><p class="preview-role">Backend Developer</p><p class="preview-subtitle">Your details. Your experience. A clear layout.</p></div><span class="document-icon" aria-hidden="true">↗</span></div>
+                <div class="evidence-item">
+                    <div class="evidence-heading"><span class="evidence-tag supported">Professional summary</span><span class="item-number">01</span></div>
+                    <blockquote>Backend developer building Python services with PostgreSQL and Redis.</blockquote>
+                    <p class="evidence-source">Example content—replace it with your own background.</p>
+                </div>
+                <div class="evidence-item">
+                    <div class="evidence-heading"><span class="evidence-tag review">Experience & skills</span><span class="item-number">02</span></div>
+                    <h2>Show the work behind your skills</h2>
+                    <p class="evidence-description">Add your projects, responsibilities, and results. Adjust your sections and review the PDF before you share it.</p>
+                </div>
+                <div class="preview-bottom"><span class="approval-mark" aria-hidden="true">✓</span><span>No job description needed. Start with your experience.</span></div>
+            </aside>
+        </section>
+
+        <section id="how-it-works" class="workflow-section" aria-labelledby="workflow-title">
+            <div class="section-intro"><p class="home-kicker">Start with your resume</p><h2 id="workflow-title">From your first draft,<br /><em>to your final PDF.</em></h2></div>
+            <div class="workflow-grid">{steps.map((step) => <article class="workflow-step"><span class="step-number">{step.number}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
+        </section>
+
+        <section class="free-section" aria-labelledby="free-title">
+            <div><p class="home-kicker">Start with what you need</p><h2 id="free-title">Free to build.<br /><em>AI when you need it.</em></h2><p>Use the editor and export your PDF for free. Add AI help for tailoring, writing, or importing when it is useful to you.</p></div>
+            <div class="free-actions"><a href="#builder" data-campaign-cta="free_editor" class="home-secondary">Open the free editor <span aria-hidden="true">→</span></a><a href="/buy-tokens" class="pricing-link">See token packs and pricing</a></div>
+        </section>
+
+        <section class="faq-section" aria-labelledby="faq-title">
+            <div><p class="home-kicker">Before you start</p><h2 id="faq-title">A few useful answers.</h2></div>
+            <div>{questions.map((item) => <details class="home-faq"><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div>
+        </section>
+
+        <section class="maker-section" aria-label="About the builder"><p>Built by <a href="https://rahulbeniwal.takovibe.com/">Rahul Beniwal</a>, a backend engineer and the creator of <a href="https://takovibe.com/">TakoVibe</a>.</p><a href="/ats-resume-guide">Read the resume guide <span aria-hidden="true">↗</span></a></section>
+    </main>
+</div>
+
+<style>
+    .rv-home { font-family: 'Jost', sans-serif; }
+    .home-nav, .home-hero, .workflow-section, .free-section, .faq-section, .maker-section { max-width: 1200px; margin-inline: auto; }
+    .home-nav { align-items: center; display: flex; justify-content: space-between; padding: 24px 32px; gap: 16px; }
+    .home-brand { align-items: center; display: inline-flex; gap: 11px; flex-shrink: 0; }
+    .home-brand img { border-radius: 50%; }
+    .brand-name { display: block; font: 500 26px/.95 'Cormorant Garamond', serif; letter-spacing: -.6px; }
+    .brand-parent { display: block; margin-top: 6px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+    .home-links { display: flex; align-items: center; gap: 28px; font-size: 13px; }
+    .home-links a:hover, .sample-link:hover, .pricing-link:hover, .maker-section a:hover { color: var(--accent); }
+    .home-nav-cta { display: inline-flex; gap: 20px; padding: 12px 17px; border: 1px solid var(--border-color); border-radius: 10px; }
+    .home-hero { display: grid; grid-template-columns: 1.12fr 1fr; align-items: center; gap: 64px; padding: 72px 32px 96px; }
+    .home-kicker { color: var(--accent); display: flex; align-items: center; gap: 9px; font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; }
+    .status-dot { background: var(--accent); border-radius: 50%; width: 6px; height: 6px; flex-shrink: 0; }
+    h1 { font: 400 clamp(44px, 4.6vw, 64px)/1.04 'Cormorant Garamond', serif; letter-spacing: -2px; margin: 27px 0 25px; }
+    em { font-weight: 400; color: var(--accent); }
+    .hero-description { max-width: 465px; font-size: 16px; line-height: 1.8; color: var(--text-muted); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .home-primary, .home-secondary { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 24px; padding: 13px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; transition: transform 150ms, opacity 150ms; }
+    .home-primary { color: var(--bg-main); background: var(--text-main); border: 1px solid var(--text-main); }
+    .home-secondary { border: 1px solid var(--border-color); background: var(--bg-card); }
+    .home-primary:hover, .home-secondary:hover { opacity: .85; transform: translateY(-1px); }
+    .entry-note { margin-top: 14px; font-size: 11px; line-height: 1.7; color: var(--text-muted); }
+    .sample-link { margin-top: 28px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; }
+    .sample-link > span:first-child { font-size: 20px; color: var(--accent); }
+    .sample-note { color: var(--text-muted); font-size: 10px; border-left: 1px solid var(--border-color); padding-left: 10px; }
+    .report-preview { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 18px; padding: 26px; box-shadow: 0 24px 65px -32px var(--accent-glow); transform: rotate(1deg); }
+    .preview-top, .preview-title, .evidence-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .preview-top { border-bottom: 1px solid var(--border-color); padding-bottom: 18px; }
+    .preview-top .home-kicker { font-size: 8px; }
+    .preview-label { color: var(--text-muted); font-size: 9px; white-space: nowrap; }
+    .preview-title { margin-block: 25px; }
+    .preview-role { font: 500 32px/1 'Cormorant Garamond', serif; letter-spacing: -.5px; }
+    .preview-subtitle { color: var(--text-muted); margin-top: 8px; font-size: 11px; }
+    .document-icon { display: grid; place-items: center; width: 37px; height: 45px; border: 1px solid var(--border-color); border-radius: 5px; color: var(--accent); }
+    .evidence-item { padding: 18px; margin-top: 12px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; }
+    .evidence-tag { padding: 4px 7px; font-size: 8px; font-weight: 600; letter-spacing: .04em; border-radius: 4px; }
+    .supported { color: #16734b; background: #18865a13; }
+    .review { color: #986418; background: #b9862015; }
+    :global(.dark) .supported { color: #8ecbb0; background: #6fb49415; }
+    :global(.dark) .review { color: #d5b27a; background: #c9995015; }
+    .item-number { color: var(--text-muted); font-size: 10px; }
+    .evidence-item h2 { font-size: 13px; font-weight: 500; margin-top: 13px; }
+    blockquote { font: 400 19px/1.5 'Cormorant Garamond', serif; margin-top: 10px; }
+    .evidence-source { color: var(--text-muted); font-size: 9px; line-height: 1.6; margin-top: 12px; }
+    .evidence-description { color: var(--text-muted); font-size: 11px; line-height: 1.8; margin-top: 8px; }
+    .preview-bottom { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 10px; line-height: 1.6; margin-top: 22px; }
+    .approval-mark { font-size: 14px; color: var(--accent); }
+    .workflow-section { border-top: 1px solid var(--border-color); padding: 56px 32px 64px; }
+    .section-intro h2, .free-section h2, .faq-section h2 { font: 400 clamp(32px, 3.8vw, 45px)/1.05 'Cormorant Garamond', serif; letter-spacing: -1px; margin-top: 15px; }
+    .workflow-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin-top: 38px; }
+    .step-number { color: var(--accent); font-size: 10px; }
+    .workflow-step h3 { font-size: 15px; font-weight: 500; margin-top: 13px; }
+    .workflow-step p { color: var(--text-muted); font-size: 13px; line-height: 1.8; margin-top: 10px; }
+    .free-section { border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 48px 32px; }
+    .free-section p:not(.home-kicker) { color: var(--text-muted); max-width: 480px; font-size: 13px; line-height: 1.8; margin-top: 16px; }
+    .free-actions { display: flex; flex-direction: column; align-items: center; gap: 15px; flex-shrink: 0; }
+    .pricing-link { color: var(--text-muted); font-size: 11px; }
+    .faq-section { border-top: 1px solid var(--border-color); display: grid; grid-template-columns: .8fr 1.2fr; gap: 64px; padding: 56px 32px; }
+    .home-faq { border-bottom: 1px solid var(--border-color); }
+    summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; cursor: pointer; font-size: 14px; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary span { color: var(--accent); font-size: 20px; }
+    details[open] summary span { transform: rotate(45deg); }
+    .home-faq p { padding-bottom: 20px; font-size: 13px; line-height: 1.9; color: var(--text-muted); }
+    .maker-section { border-top: 1px solid var(--border-color); padding: 25px 32px 40px; display: flex; justify-content: space-between; gap: 24px; color: var(--text-muted); font-size: 11px; line-height: 1.8; }
+    .maker-section a { color: var(--text-main); text-decoration: underline; text-underline-offset: 3px; }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+    .skip-link { position: absolute; left: 16px; top: -100px; padding: 12px; border-radius: 8px; background: var(--text-main); color: var(--bg-main); z-index: 100; }
+    .skip-link:focus { top: 8px; }
+    @media (max-width: 900px) { .home-hero { gap: 30px; } h1 { font-size: 56px; letter-spacing: -2px; } .report-preview { padding: 20px; transform: none; } .preview-top { flex-wrap: wrap; gap: 8px; } }
+    @media (max-width: 700px) { .home-nav { padding: 20px; } .desktop-link { display: none; } .home-nav-cta { padding: 10px 13px; font-size: 12px; gap: 12px; } .brand-name { font-size: 24px; } .home-hero { grid-template-columns: 1fr; padding: 40px 20px 48px; gap: 38px; } h1 { font-size: clamp(43px, 10.8vw, 62px); letter-spacing: -1.8px; } .hero-description { font-size: 15px; } .hero-actions { gap: 8px; } .home-primary, .home-secondary { padding-inline: 16px; font-size: 12px; gap: 14px; } .workflow-section, .free-section, .faq-section { padding: 38px 20px; } .workflow-grid { grid-template-columns: 1fr; gap: 28px; } .workflow-step { padding-top: 16px; border-top: 1px solid var(--border-color); } .free-section { flex-direction: column; align-items: flex-start; gap: 24px; } .free-actions { align-items: flex-start; } .faq-section { grid-template-columns: 1fr; gap: 16px; } .maker-section { padding: 24px 20px 32px; flex-direction: column; gap: 12px; } }
+    @media (max-width: 359px) { .home-nav { padding: 18px 16px; } .home-brand { gap: 8px; } .home-brand img { width: 30px; height: 30px; } .brand-name { font-size: 20px; } .home-nav-cta { padding: 10px; font-size: 11px; gap: 8px; } .home-kicker { font-size: 9px; letter-spacing: .075em; } }
+    @media (prefers-reduced-motion: reduce) { a { transition: none !important; } .home-primary:hover, .home-secondary:hover { transform: none; } }
+</style>

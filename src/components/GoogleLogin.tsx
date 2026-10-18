@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { toast } from "react-hot-toast";
+import { getCampaignAttribution, trackCampaignEvent } from '../lib/campaign';
 
 const GOOGLE_CLIENT_ID = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -52,16 +53,20 @@ export function GoogleLogin() {
                                 return;
                             }
                             const res = await api.post("/api/users/google/", {
-                                code: response.credential
+                                code: response.credential,
+                                product: 'resumevibe',
+                                campaign_attribution: navigator.doNotTrack === '1' ? {} : getCampaignAttribution(),
                             });
 
                             if (res.ok) {
                                 const data = await res.json();
                                 login(data.data.auth_token, data.data.user);
+                                if (data.data.is_new_user === true) trackCampaignEvent('account_created');
                                 toast.success("Successfully logged in!");
                             } else {
                                 console.error("Authentication failed");
-                                toast.error("Login failed. Please try again.");
+                                const failure = await res.json().catch(() => ({}));
+                                toast.error(failure.message || "Login failed. Please try again.");
                             }
                         } catch (error) {
                             console.error("Authentication error:", error);
