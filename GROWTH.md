@@ -80,7 +80,7 @@ Users can submit requests at `/profile?tab=requests`, with their desired amount 
 
 Admins review the inbox at ResumeVibe `/profile?tab=requests` or TakoVibe `/dashboard` → **Users** → **Token request inbox**. They can approve a custom amount or reject with a user-visible reason. Approval updates the request, wallet and credit ledger atomically; retrying the same review cannot add credit twice. No email notifications are sent; use **Refresh status** / **Refresh requests**.
 
-Deploy the backend migrations through `0027_signup_acquisition` and the API before deploying the interfaces. This includes `0025_admin_token_grants` and `0026_token_requests`. No live grants or production migrations were executed during development.
+Deploy the backend migrations through `0028_email_log_bulk_token_grant` and the API before deploying the interfaces. This includes `0025_admin_token_grants`, `0026_token_requests` and `0027_signup_acquisition`. No live grants or production migrations were executed during development.
 
 ## Admin campaign insights
 
@@ -101,6 +101,30 @@ https://resumevibe.takovibe.com/?utm_source=google&utm_medium=cpc&utm_campaign=i
 ```
 
 “No saved resume” is **not** “did nothing”: guest/local edits and PDF exports are not included. Deleted resumes are not counted, and saved samples do not prove a completed real resume. Purchase flags use purchase-credit ledger records, excluding signup/pilot grants. This report does not connect ad spend/clicks, revenue/refunds, export counts or profit; its saved-resume rate is not an ad-click conversion rate.
+
+## Resume reminder email
+
+Campaign insights has a **Remind users with no saved resume** panel (TakoVibe `/dashboard#campaign`, ResumeVibe `/profile?tab=insights`) and an **Email resume reminder** button on each active user with no saved resume.
+
+- **Preview email** renders it with your account; **Send test to me** emails only you and is not logged.
+- **Check recipients** is a dry run over the applied report filters, then **Send** emails up to 100 users per click through the Resend Batch API.
+- Skips inactive accounts, newsletter-unsubscribed emails (global opt-out) and anyone reminded in the last 14 days. Every send is logged in `EmailLog` (template, sender, status, Resend ID); failed sends can be retried.
+- The email links to the editor with `utm_source=email&utm_medium=lifecycle&utm_campaign=resume_reminder`. It requires `RESEND_API_KEY` and `SENDER_EMAIL` on the backend, and replies go to `SENDER_EMAIL`.
+- Narrow the report to ResumeVibe signups (Signup product) before a bulk send if TakoVibe-only readers should not receive it.
+
+## Campaign token grant
+
+Campaign insights opens with **Give tokens to every active user** (TakoVibe `/dashboard#campaign`, ResumeVibe `/profile?tab=insights`). Enter tokens per user (1–10,000), a reason and a source, then **Review grant** (a server dry run showing the recipient count and total) and **Confirm**.
+
+- Recipients are every active account except Admin/superuser accounts. Report filters do not apply.
+- One transaction writes an `admin_grant` credit ledger entry per user and increments balances; it is recorded as a `BulkTokenGrant` (amount, reason, admin, recipients, total), listed under **Recent campaign grants**.
+- Retrying a confirm reuses the same grant ID, so a lost response or double click cannot credit anyone twice. There is no automatic undo.
+
+## Emails section
+
+TakoVibe `/dashboard#emails` (Admin/superuser only) resends any of our emails to chosen people: ResumeVibe welcome (shows the user's current balance), TakoVibe welcome, Resume reminder (only users without a saved resume) and Article update (pick a published article). Password reset is intentionally excluded; its link must come from the owner's own request.
+
+Preview, **Send test to me**, then search and add up to 50 active users and confirm. Inactive accounts, unsubscribed addresses and anyone who received the same email within its resend guard (10 minutes; 14 days for the resume reminder; per article for article updates) are skipped and counted. Admin sends are listed under **Recently sent by admins**. Automatic signup emails are not logged, so the section cannot tell who missed one before this release.
 
 ## Campaign launch priorities
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import { analyticsEventParameters, isAnalyticsPage } from '../src/lib/analytics.ts';
-import { captureCampaignAttribution, getCampaignAttribution, getCampaignSessionId, trackCampaignEvent } from '../src/lib/campaign.ts';
+import { captureCampaignAttribution, getCampaignAttribution, getCampaignSessionId, trackAdsConversion, trackCampaignEvent } from '../src/lib/campaign.ts';
 
 const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 let values;
@@ -86,6 +86,22 @@ test('denied browser storage cannot interrupt the funnel', () => {
 
 test('event values are restricted to bounded safe primitives', () => {
     assert.deepEqual(analyticsEventParameters({ coverage: Infinity, value: 85, resume_source: 'pdf', source: 'email@example.com', destination: '/job-fit?email=x', page: 'x'.repeat(200), resume: { name: 'private' } }), { value: 85, resume_source: 'pdf' });
+});
+
+test('a Google Ads conversion carries only its target and a query-free page URL', () => {
+    window.location.search = '?gclid=abc&email=private@example.com';
+    trackAdsConversion('AW-123456789/AbC-D_efG');
+    assert.deepEqual(sent, [['event', 'conversion', { send_to: 'AW-123456789/AbC-D_efG', page_location: 'https://resumevibe.takovibe.com/', page_referrer: '' }]]);
+});
+
+test('Google Ads conversions stay off when unconfigured, private, or opted out', () => {
+    for (const sendTo of ['/', 'AW-123456789/', '/AbC-D_efG', 'G-ABC/label']) trackAdsConversion(sendTo);
+    window.location.pathname = '/profile';
+    trackAdsConversion('AW-123456789/AbC-D_efG');
+    window.location.pathname = '/';
+    navigator.doNotTrack = '1';
+    trackAdsConversion('AW-123456789/AbC-D_efG');
+    assert.equal(sent.length, 0);
 });
 
 test('invalid event names cannot be emitted', () => {

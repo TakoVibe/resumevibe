@@ -36,7 +36,13 @@ export function ProfileDashboard() {
 }
 
 type Tab = 'wallet' | 'resumes' | 'jobs' | 'requests' | 'insights';
-const insightFetcher = (path: string) => api.get(path);
+const insightFetcher = (path: string, body?: unknown) => body === undefined ? api.get(path) : api.post(path, body);
+const insightLoader = (text: string) => (
+    <div className="flex items-center justify-center gap-2 py-14 text-[var(--text-muted)]">
+        <Loader2 size={18} className="animate-spin" />
+        <span className="text-sm font-bold">{text}</span>
+    </div>
+);
 
 function ProfileDashboardInner() {
     const { user } = useAuth();
@@ -206,7 +212,7 @@ function ProfileDashboardInner() {
                 <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                     <PilotTokenAdmin onSelfGrant={fetchTokenData} />
                     {activeTab === 'requests' && <TokenRequests refreshWallet={fetchTokenData} />}
-                    {activeTab === 'insights' && <CampaignInsights fetcher={insightFetcher} />}
+                    {activeTab === 'insights' && <CampaignInsights fetcher={insightFetcher} renderLoading={insightLoader} />}
 
                     {activeTab === 'wallet' && (
                         <section id="tokens">

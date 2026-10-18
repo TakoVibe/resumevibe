@@ -1,25 +1,48 @@
 ---
 import { isAnalyticsPage } from '../lib/analytics';
-const measurementId = (import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '').trim();
-const enabled = /^G-[A-Z0-9]+$/.test(measurementId) && isAnalyticsPage(Astro.url.pathname);
+const gaId = (import.meta.env.PUBLIC_GA_MEASUREMENT_ID || '').trim();
+const googleAdsId = (import.meta.env.PUBLIC_GOOGLE_ADS_ID || '').trim();
+const measurementId = /^G-[A-Z0-9]+$/.test(gaId) ? gaId : '';
+const adsId = /^AW-\d+$/.test(googleAdsId) ? googleAdsId : '';
+const enabled = Boolean(measurementId || adsId) && isAnalyticsPage(Astro.url.pathname);
 ---
 
-{enabled && <script is:inline define:vars={{ measurementId }}>
+{enabled && <script is:inline define:vars={{ measurementId, adsId }}>
     // Configuration is opt-in. Honor visitors who request no tracking.
     if (navigator.doNotTrack !== '1') {
         window.dataLayer = window.dataLayer || [];
         window.gtag = function () { window.dataLayer.push(arguments); };
         window.gtag('js', new Date());
-        window.gtag('config', measurementId, {
-            send_page_view: false,
-            allow_google_signals: false,
-            allow_ad_personalization_signals: false,
-            page_location: window.location.origin + window.location.pathname,
-            page_referrer: document.referrer ? new URL(document.referrer).origin : '',
-        });
+        const pageLocation = window.location.origin + window.location.pathname;
+        const pageReferrer = document.referrer ? new URL(document.referrer).origin : '';
+        if (measurementId) {
+            window.gtag('config', measurementId, {
+                send_page_view: false,
+                allow_google_signals: false,
+                allow_ad_personalization_signals: false,
+                page_location: pageLocation,
+                page_referrer: pageReferrer,
+            });
+        }
+        if (adsId) {
+            // Google Ads needs only its own click IDs to attribute a later sign-up;
+            // every other query parameter stays out, as it does for GA4.
+            const query = new URLSearchParams(window.location.search);
+            const clickIds = new URLSearchParams();
+            for (const key of ['gclid', 'gbraid', 'wbraid']) {
+                const value = query.get(key);
+                if (value) clickIds.set(key, value);
+            }
+            const clickQuery = clickIds.toString();
+            window.gtag('config', adsId, {
+                allow_ad_personalization_signals: false,
+                page_location: pageLocation + (clickQuery ? '?' + clickQuery : ''),
+                page_referrer: pageReferrer,
+            });
+        }
         const script = document.createElement('script');
         script.async = true;
-        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(measurementId);
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(measurementId || adsId);
         document.head.appendChild(script);
     }
 </script>}

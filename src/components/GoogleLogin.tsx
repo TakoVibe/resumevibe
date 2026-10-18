@@ -2,9 +2,10 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { toast } from "react-hot-toast";
-import { getCampaignAttribution, trackCampaignEvent } from '../lib/campaign';
+import { getCampaignAttribution, trackAdsConversion, trackCampaignEvent } from '../lib/campaign';
 
 const GOOGLE_CLIENT_ID = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID;
+const GOOGLE_ADS_SIGNUP = `${(import.meta.env.PUBLIC_GOOGLE_ADS_ID || '').trim()}/${(import.meta.env.PUBLIC_GOOGLE_ADS_SIGNUP_LABEL || '').trim()}`;
 
 declare global {
     interface Window {
@@ -61,7 +62,10 @@ export function GoogleLogin() {
                             if (res.ok) {
                                 const data = await res.json();
                                 login(data.data.auth_token, data.data.user);
-                                if (data.data.is_new_user === true) trackCampaignEvent('account_created');
+                                if (data.data.is_new_user === true) {
+                                    trackCampaignEvent('account_created');
+                                    trackAdsConversion(GOOGLE_ADS_SIGNUP);
+                                }
                                 toast.success("Successfully logged in!");
                             } else {
                                 console.error("Authentication failed");
