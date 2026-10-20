@@ -1,13 +1,60 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { ATSResumeGuideContent } from "../components/pages/ATSResumeGuideContent";
+import { Footer } from '../components/ui/Footer';
 
 export const prerender = true;
 ---
 
 <Layout
-    title="ResumeVibe Expert Guide: ATS Resume and Tailored Applications"
-    description="Build a readable ATS-friendly resume, tailor it to a job with verified evidence, and review resume changes and your cover letter before approval."
+    title="ATS-Friendly Resume Guide for Software Engineers | ResumeVibe by TakoVibe"
+    description="Learn how to format a readable software engineering resume, write evidence-based bullets, check your PDF text, and tailor one application with worked examples."
 >
-    <ATSResumeGuideContent client:load />
+    <div class="bg-[var(--bg-main)] text-[var(--text-main)]">
+        <header class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
+            <a href="/" class="font-serif-ed text-2xl">ResumeVibe <span class="text-sm text-[var(--text-muted)]">by TakoVibe</span></a>
+            <nav aria-label="Guide navigation" class="flex flex-wrap gap-5 text-sm"><a href="/resume-examples" class="hover:underline">Resume examples</a><a href="/job-fit" class="hover:underline">Check job fit</a><a href="/#builder" class="font-semibold text-[var(--accent)] hover:underline">Open editor</a></nav>
+        </header>
+        <main class="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+            <header class="border-t border-[var(--border-color)] py-14 sm:py-20">
+                <p class="rv-kicker">Practical resume guide</p>
+                <h1 class="mt-5 max-w-4xl font-serif-ed text-5xl leading-tight sm:text-6xl">How to write an ATS-friendly software engineering resume</h1>
+                <p class="mt-7 max-w-3xl text-lg leading-8 text-[var(--text-muted)]">A useful resume is easy for a person to scan and easy for software to extract. Start with a clear document, then show the work behind your skills. These steps apply whether you use ResumeVibe or another editor.</p>
+                <nav aria-label="On this page" class="mt-8 flex flex-wrap gap-3 text-sm"><a href="#format" class="rv-button-secondary px-4 py-2">Format</a><a href="#bullets" class="rv-button-secondary px-4 py-2">Write bullets</a><a href="#tailor" class="rv-button-secondary px-4 py-2">Tailor for a job</a><a href="#check" class="rv-button-secondary px-4 py-2">Check the PDF</a></nav>
+            </header>
+
+            <section id="format" class="border-t border-[var(--border-color)] py-12">
+                <h2 class="font-serif-ed text-4xl">Use a clear reading order</h2>
+                <p class="mt-5 max-w-3xl leading-8">Put your name and contact details in ordinary document text. Follow with a short summary, relevant skills, experience, projects when useful, and education. Use familiar labels such as <strong>Experience</strong>, <strong>Projects</strong>, and <strong>Education</strong>, with consistent job titles and dates.</p>
+                <div class="mt-6 grid gap-5 md:grid-cols-2">
+                    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6"><h3 class="text-lg font-semibold">A safer default</h3><ul class="mt-4 list-disc space-y-2 pl-5 leading-7 text-[var(--text-muted)]"><li>One main text column and ordinary section headings.</li><li>Selectable text in the PDF.</li><li>Contact information in the body of the document.</li><li>Employer, role, and dates together for each position.</li></ul></div>
+                    <div class="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6"><h3 class="text-lg font-semibold">Watch for parse problems</h3><p class="mt-4 leading-7 text-[var(--text-muted)]">Images of text, dense tables, decorative columns, and details placed in headers or text boxes can cause partial or failed extraction. Greenhouse lists these among the possible reasons its resume parser fails. Other applicant systems differ, so check the actual application form after uploading.</p><a class="mt-3 inline-block text-sm text-[var(--accent)] underline" href="https://support.greenhouse.io/hc/en-us/articles/200989175-Unsuccessful-resume-parse">Greenhouse’s parsing guidance</a></div>
+                </div>
+                <p class="mt-5 max-w-3xl leading-7 text-[var(--text-muted)]">An ATS-friendly layout cannot guarantee an interview or a score. It simply reduces the chance that your document loses information during extraction.</p>
+            </section>
+
+            <section id="bullets" class="border-t border-[var(--border-color)] py-12">
+                <h2 class="font-serif-ed text-4xl">Write bullets that show evidence</h2>
+                <p class="mt-5 max-w-3xl leading-8">For each role, lead with the work most relevant to the next job. Describe the system or feature, your contribution, and an outcome you can defend. Numbers help when they come from measurements you actually made; a precise technical decision can also be useful without a number.</p>
+                <div class="mt-6 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 sm:p-8"><p class="text-sm font-semibold uppercase tracking-widest text-[var(--accent)]">Fictional writing example</p><p class="mt-5 leading-7"><strong>Vague:</strong> “Responsible for backend APIs and database optimization.”</p><p class="mt-4 leading-7"><strong>Specific:</strong> “Reduced median catalog API response time from 420 ms to 260 ms by adding PostgreSQL indexes and caching frequent reads in Redis.”</p><p class="mt-4 leading-7 text-[var(--text-muted)]">The second bullet gives a system, a change, and a result. Those numbers are invented for illustration. Use your own measurements, or remove the figures if you cannot verify them.</p></div>
+                <p class="mt-6 max-w-3xl leading-8">A reasonable summary for a backend role might say: “Backend developer building Python APIs and PostgreSQL data services, with experience improving latency and release safety.” This says what the person has done. It leaves out claims such as “expert” that the rest of the resume does not support.</p>
+                <p class="mt-5 leading-7">See a <a href="/resume-examples/backend-developer" class="text-[var(--accent)] underline">complete backend developer example</a> or an <a href="/resume-examples/software-engineer" class="text-[var(--accent)] underline">early-career software engineer example</a>, with the full context around each bullet.</p>
+            </section>
+
+            <section id="tailor" class="border-t border-[var(--border-color)] py-12">
+                <h2 class="font-serif-ed text-4xl">Tailor one truthful application</h2>
+                <p class="mt-5 max-w-3xl leading-8">Read the full job description and separate required skills from preferred ones. For each requirement, find a real project or job bullet that supports it. Put the strongest relevant evidence near the top, using the employer’s terminology when it accurately describes your experience.</p>
+                <div class="mt-6 grid gap-5 md:grid-cols-3"><div class="rv-panel p-6"><h3 class="font-semibold">Requirement</h3><p class="mt-3 leading-7 text-[var(--text-muted)]">“Operate Python services backed by PostgreSQL.”</p></div><div class="rv-panel p-6"><h3 class="font-semibold">Supported evidence</h3><p class="mt-3 leading-7 text-[var(--text-muted)]">Your work building Python endpoints and improving a PostgreSQL query.</p></div><div class="rv-panel p-6"><h3 class="font-semibold">Actual gap</h3><p class="mt-3 leading-7 text-[var(--text-muted)]">If you used neither technology, leave the claim out. A keyword alone cannot create experience.</p></div></div>
+                <p class="mt-6 max-w-3xl leading-8">A resume comparison tool can help organise this review, but it can miss related work and cannot verify your background. <a href="/job-fit" class="text-[var(--accent)] underline">Compare a resume with a job here</a>, then decide for yourself which changes are true.</p>
+            </section>
+
+            <section id="check" class="border-t border-[var(--border-color)] py-12">
+                <h2 class="font-serif-ed text-4xl">Check the exported PDF</h2>
+                <ol class="mt-6 max-w-3xl list-decimal space-y-4 pl-6 leading-8"><li>Open the PDF and try selecting and copying the name, job titles, dates, and one bullet. Paste them into a plain-text editor. Check their order and spacing.</li><li>Scan at ordinary zoom. Can you find the current role, key skills, and important outcomes in a few seconds?</li><li>Upload the document to the actual application form and review any fields it fills. Correct missing employer names, dates, or contact details.</li><li>Read every fact as an interviewer might. Remove example details, invented metrics, and skills you cannot explain.</li></ol>
+                <p class="mt-6 max-w-3xl leading-8 text-[var(--text-muted)]">If the employer specifies a file format, size, or extra questions, follow those instructions. Resume parsing is one step in an application; it is not a reliable predictor of hiring decisions.</p>
+            </section>
+
+            <section class="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-7 sm:p-10"><h2 class="font-serif-ed text-4xl">Build a resume from real work</h2><p class="mt-4 max-w-2xl leading-8 text-[var(--text-muted)]">Start with an example if you need structure, replace its details with your history, and export a PDF you can stand behind.</p><div class="mt-7 flex flex-wrap gap-3"><a href="/resume-examples" class="rv-button-primary px-6 py-3">Explore editable examples</a><a href="/#builder" class="rv-button-secondary px-6 py-3">Start a blank resume</a></div></section>
+        </main>
+        <Footer />
+    </div>
 </Layout>

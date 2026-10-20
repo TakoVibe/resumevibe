@@ -10,9 +10,10 @@ export { ThemeToggle };
 interface NavbarProps {
     children?: React.ReactNode;
     showBrandOnly?: boolean;
+    focusMode?: boolean;
 }
 
-export function Navbar({ children }: NavbarProps) {
+export function Navbar({ children, focusMode = false }: NavbarProps) {
     const { user, isAuthenticated, logout } = useAuth();
     const { tokenBalance } = useToken();
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -21,7 +22,7 @@ export function Navbar({ children }: NavbarProps) {
         <nav className="sticky top-0 z-[60] flex h-16 items-center gap-2 border-b border-[var(--border-color)] bg-[var(--glass-bg-strong)] px-2 text-[var(--text-main)] backdrop-blur-xl transition-colors duration-300 sm:gap-3 sm:px-4 md:px-6">
 
             {/* ── Zone 1: Brand (fixed left) ── */}
-            <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            {!focusMode && <div className="flex items-center gap-2 md:gap-3 shrink-0">
                 <div className="hidden md:block"><BrandSwitcher /></div>
                 <div className="md:hidden"><BrandSwitcher compact /></div>
                 <div className="hidden h-5 w-px bg-[var(--border-color)] 2xl:block"></div>
@@ -36,7 +37,7 @@ export function Navbar({ children }: NavbarProps) {
                     <span className="sm:hidden">AI</span>
                     <span className="hidden sm:inline">AI tools</span>
                 </a>
-            </div>
+            </div>}
 
             {/* ── Zone 2: Page-specific actions (fluid center) ── */}
             {children && (
@@ -46,7 +47,7 @@ export function Navbar({ children }: NavbarProps) {
             )}
 
             {/* ── Zone 3: Account + Theme (fixed right) ── */}
-            <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {!focusMode && <div className="flex items-center gap-1.5 shrink-0 ml-auto">
 
                 {isAuthenticated ? (
                     <div className="relative">
@@ -162,7 +163,7 @@ export function Navbar({ children }: NavbarProps) {
                 )}
 
                     <div className="hidden sm:block"><ThemeToggle /></div>
-            </div>
+            </div>}
         </nav>
     );
 }

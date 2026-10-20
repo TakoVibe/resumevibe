@@ -1,6 +1,6 @@
 // Only public product pages and non-content event fields go to the optional
 // analytics provider. Resume data, application IDs, and URL queries stay out.
-const PUBLIC_PATHS = new Set(['/', '/job-fit', '/application-copilot', '/ai-tools', '/ats-resume-guide', '/why-resumevibe', '/buy-tokens']);
+const PUBLIC_PATHS = new Set(['/', '/job-fit', '/application-copilot', '/ai-tools', '/ats-resume-guide', '/why-resumevibe', '/buy-tokens', '/resume-examples', '/resume-examples/backend-developer', '/resume-examples/software-engineer']);
 const EVENT_FIELDS = new Set([
     'page', 'action', 'destination', 'source', 'stage', 'resume_source',
     'decision', 'coverage', 'requirement_count', 'free_first_check',

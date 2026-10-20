@@ -88,10 +88,10 @@ test('event values are restricted to bounded safe primitives', () => {
     assert.deepEqual(analyticsEventParameters({ coverage: Infinity, value: 85, resume_source: 'pdf', source: 'email@example.com', destination: '/job-fit?email=x', page: 'x'.repeat(200), resume: { name: 'private' } }), { value: 85, resume_source: 'pdf' });
 });
 
-test('a Google Ads conversion carries only its target and a query-free page URL', () => {
+test('a Google Ads conversion carries its configured value and a query-free page URL', () => {
     window.location.search = '?gclid=abc&email=private@example.com';
     trackAdsConversion('AW-123456789/AbC-D_efG');
-    assert.deepEqual(sent, [['event', 'conversion', { send_to: 'AW-123456789/AbC-D_efG', page_location: 'https://resumevibe.takovibe.com/', page_referrer: '' }]]);
+    assert.deepEqual(sent, [['event', 'conversion', { send_to: 'AW-123456789/AbC-D_efG', value: 1.0, currency: 'INR', page_location: 'https://resumevibe.takovibe.com/', page_referrer: '' }]]);
 });
 
 test('Google Ads conversions stay off when unconfigured, private, or opted out', () => {

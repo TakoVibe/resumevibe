@@ -13,7 +13,7 @@ const {
     title = "ResumeVibe by TakoVibe | Free Resume Builder & Job-Fit Check",
     description = "Build your engineering resume, compare it with a job, review suggested edits, and export your PDF. ResumeVibe is built by Rahul Beniwal at TakoVibe.",
     image = "/og-image.png",
-    canonicalURL = new URL(Astro.url.pathname, Astro.site),
+    canonicalURL = new URL(Astro.url.pathname === "/" ? "/" : Astro.url.pathname.replace(/\/$/, ""), Astro.site),
     type = "website",
     keywords = "engineering resume builder, resume job fit checker, tailor resume to job description, free resume builder",
     noindex = false,

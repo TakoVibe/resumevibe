@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { normalizeResumeData } from '../lib/normalizeResume';
+import { addOpenSourceToOlderExampleDraft } from '../lib/exampleDraft';
 
 const STORAGE_KEY = 'resume-data-v3';
 const METADATA_STORAGE_KEY = 'resume-metadata-v1';
@@ -61,14 +62,21 @@ interface ResumeContextType {
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
 
-export function ResumeProvider({ children }: { children: ReactNode }) {
+export function ResumeProvider({ children, initialData = initialResume, storageNamespace = '', autoSave = true }: {
+    children: ReactNode;
+    initialData?: ResumeSchema;
+    storageNamespace?: string;
+    autoSave?: boolean;
+}) {
+    const storageKey = storageNamespace ? `${STORAGE_KEY}:${storageNamespace}` : STORAGE_KEY;
+    const metadataStorageKey = storageNamespace ? `${METADATA_STORAGE_KEY}:${storageNamespace}` : METADATA_STORAGE_KEY;
     const [history, setHistory] = useState<{
         past: ResumeSchema[];
         present: ResumeSchema;
         future: ResumeSchema[];
     }>({
         past: [],
-        present: initialResume,
+        present: initialData,
         future: []
     });
 
@@ -85,38 +93,41 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
         resumeMetadataRef.current = meta;
         setResumeMetadataState(meta);
         if (meta) {
-            writeStorage(METADATA_STORAGE_KEY, meta);
+            writeStorage(metadataStorageKey, meta);
         } else {
-            removeStorage(METADATA_STORAGE_KEY);
+            removeStorage(metadataStorageKey);
         }
-    }, []);
+    }, [metadataStorageKey]);
 
     useEffect(() => {
-        const stored = readStorage(STORAGE_KEY);
+        const stored = readStorage(storageKey);
         if (stored) {
             try {
                 const parsed = normalizeResumeData(JSON.parse(stored));
+                const restored = storageNamespace.startsWith('example:')
+                    ? addOpenSourceToOlderExampleDraft(parsed, initialData)
+                    : parsed;
                 setHistory(prev => ({
                     ...prev,
-                    present: parsed
+                    present: restored
                 }));
-                writeStorage(STORAGE_KEY, parsed);
+                writeStorage(storageKey, restored);
             } catch (e) {
                 console.error("Failed to parse resume data", e);
             }
         }
-        const storedMetadata = readStorage(METADATA_STORAGE_KEY);
+        const storedMetadata = readStorage(metadataStorageKey);
         if (storedMetadata) {
             try {
                 const parsed = JSON.parse(storedMetadata);
                 if (parsed?.slug) setResumeMetadata(parsed);
             } catch (e) {
                 console.error('Failed to parse resume metadata', e);
-                removeStorage(METADATA_STORAGE_KEY);
+                removeStorage(metadataStorageKey);
             }
         }
         setIsLoaded(true);
-    }, [setResumeMetadata]);
+    }, [initialData, metadataStorageKey, setResumeMetadata, storageKey, storageNamespace]);
 
     const updateResume = useCallback((newData: ResumeSchema) => {
         const normalizedData = normalizeResumeData(newData);
@@ -126,10 +137,10 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
                 present: normalizedData,
                 future: []
             };
-            writeStorage(STORAGE_KEY, normalizedData);
+            writeStorage(storageKey, normalizedData);
             return newHistory;
         });
-    }, []);
+    }, [storageKey]);
 
     const undo = useCallback(() => {
         setHistory(curr => {
@@ -144,10 +155,10 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
                 future: [curr.present, ...curr.future]
             };
 
-            writeStorage(STORAGE_KEY, previous);
+            writeStorage(storageKey, previous);
             return newHistory;
         });
-    }, []);
+    }, [storageKey]);
 
     const redo = useCallback(() => {
         setHistory(curr => {
@@ -162,10 +173,10 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
                 future: newFuture
             };
 
-            writeStorage(STORAGE_KEY, next);
+            writeStorage(storageKey, next);
             return newHistory;
         });
-    }, []);
+    }, [storageKey]);
 
     const lastSavedDataRef = useRef<string | null>(null);
 
@@ -249,7 +260,7 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const isTestingResume = history.present.personalInfo?.email === 'johnathan.doe@example.com';
 
-        if (isAuthenticated && isLoaded && !isTestingResume) {
+        if (autoSave && isAuthenticated && isLoaded && !isTestingResume) {
             // Compare current with last saved
             const currentDataString = JSON.stringify(history.present);
             if (currentDataString === lastSavedDataRef.current) {
@@ -265,7 +276,7 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
         return () => {
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
         };
-    }, [history.present, isAuthenticated, isLoaded, saveToBackend]);
+    }, [autoSave, history.present, isAuthenticated, isLoaded, saveToBackend]);
 
     const updateSection = <K extends keyof ResumeSchema>(section: K, value: ResumeSchema[K]) => {
         const newData = { ...history.present, [section]: value };
@@ -273,7 +284,7 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     };
 
     const resetToDefault = () => {
-        updateResume(initialResume);
+        updateResume(initialData);
     };
 
     return (

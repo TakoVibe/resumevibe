@@ -22,6 +22,7 @@ const questions = [
         </a>
         <nav aria-label="Main navigation" class="home-links">
             <a href="#how-it-works" class="desktop-link">How it works</a>
+            <a href="/resume-examples" class="desktop-link">Resume examples</a>
             <a href="/buy-tokens" class="desktop-link">AI pricing</a>
             <a href="#builder" data-campaign-cta="open_builder" class="home-nav-cta">Open editor <span aria-hidden="true">↗</span></a>
         </nav>
@@ -31,7 +32,7 @@ const questions = [
         <section class="home-hero" aria-labelledby="home-title">
             <div class="hero-copy">
                 <p class="home-kicker"><span class="status-dot" aria-hidden="true"></span> Free resume builder for engineers</p>
-                <h1 id="home-title">Your experience.<br />Your next resume.<br /><em>Start here.</em></h1>
+                <h1 id="home-title">A free resume builder<br />for software engineers.<br /><em>Start here.</em></h1>
                 <p class="hero-description">Build your engineering resume, edit it directly on the page, and export a clean PDF. You can start without an account or a job description.</p>
                 <div class="hero-actions">
                     <a href="#builder" data-campaign-cta="build_resume" class="home-primary">Build my resume free <span aria-hidden="true">→</span></a>
@@ -58,6 +59,11 @@ const questions = [
             </aside>
         </section>
 
+        <section class="examples-section" aria-labelledby="examples-title">
+            <div><p class="home-kicker">See what works on the page</p><h2 id="examples-title">Start with an example.<br /><em>Make it your own.</em></h2><p>Read full, fictional resumes with explanations. Then edit a copy, replace every sample detail with your own experience, and export a PDF for free.</p></div>
+            <div class="examples-links"><a href="/resume-examples/backend-developer">Backend developer resume example <span aria-hidden="true">→</span></a><a href="/resume-examples/software-engineer">Software engineer resume template <span aria-hidden="true">→</span></a><a href="/resume-examples">Browse all examples <span aria-hidden="true">→</span></a></div>
+        </section>
+
         <section id="how-it-works" class="workflow-section" aria-labelledby="workflow-title">
             <div class="section-intro"><p class="home-kicker">Start with your resume</p><h2 id="workflow-title">From your first draft,<br /><em>to your final PDF.</em></h2></div>
             <div class="workflow-grid">{steps.map((step) => <article class="workflow-step"><span class="step-number">{step.number}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
@@ -79,7 +85,7 @@ const questions = [
 
 <style>
     .rv-home { font-family: 'Jost', sans-serif; }
-    .home-nav, .home-hero, .workflow-section, .free-section, .faq-section, .maker-section { max-width: 1200px; margin-inline: auto; }
+    .home-nav, .home-hero, .workflow-section, .examples-section, .free-section, .faq-section, .maker-section { max-width: 1200px; margin-inline: auto; }
     .home-nav { align-items: center; display: flex; justify-content: space-between; padding: 24px 32px; gap: 16px; }
     .home-brand { align-items: center; display: inline-flex; gap: 11px; flex-shrink: 0; }
     .home-brand img { border-radius: 50%; }
@@ -131,6 +137,12 @@ const questions = [
     .step-number { color: var(--accent); font-size: 10px; }
     .workflow-step h3 { font-size: 15px; font-weight: 500; margin-top: 13px; }
     .workflow-step p { color: var(--text-muted); font-size: 13px; line-height: 1.8; margin-top: 10px; }
+    .examples-section { border-top: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 50px; padding: 56px 32px; }
+    .examples-section h2 { font: 400 clamp(32px, 3.8vw, 45px)/1.05 'Cormorant Garamond', serif; letter-spacing: -1px; margin-top: 15px; }
+    .examples-section p:not(.home-kicker) { color: var(--text-muted); max-width: 480px; font-size: 13px; line-height: 1.8; margin-top: 16px; }
+    .examples-links { display: grid; align-content: center; gap: 10px; }
+    .examples-links a { display: flex; justify-content: space-between; gap: 16px; border: 1px solid var(--border-color); border-radius: 10px; padding: 17px 20px; font-size: 13px; background: var(--bg-card); }
+    .examples-links a:hover { color: var(--accent); }
     .free-section { border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 48px 32px; }
     .free-section p:not(.home-kicker) { color: var(--text-muted); max-width: 480px; font-size: 13px; line-height: 1.8; margin-top: 16px; }
     .free-actions { display: flex; flex-direction: column; align-items: center; gap: 15px; flex-shrink: 0; }
@@ -148,7 +160,7 @@ const questions = [
     .skip-link { position: absolute; left: 16px; top: -100px; padding: 12px; border-radius: 8px; background: var(--text-main); color: var(--bg-main); z-index: 100; }
     .skip-link:focus { top: 8px; }
     @media (max-width: 900px) { .home-hero { gap: 30px; } h1 { font-size: 56px; letter-spacing: -2px; } .report-preview { padding: 20px; transform: none; } .preview-top { flex-wrap: wrap; gap: 8px; } }
-    @media (max-width: 700px) { .home-nav { padding: 20px; } .desktop-link { display: none; } .home-nav-cta { padding: 10px 13px; font-size: 12px; gap: 12px; } .brand-name { font-size: 24px; } .home-hero { grid-template-columns: 1fr; padding: 40px 20px 48px; gap: 38px; } h1 { font-size: clamp(43px, 10.8vw, 62px); letter-spacing: -1.8px; } .hero-description { font-size: 15px; } .hero-actions { gap: 8px; } .home-primary, .home-secondary { padding-inline: 16px; font-size: 12px; gap: 14px; } .workflow-section, .free-section, .faq-section { padding: 38px 20px; } .workflow-grid { grid-template-columns: 1fr; gap: 28px; } .workflow-step { padding-top: 16px; border-top: 1px solid var(--border-color); } .free-section { flex-direction: column; align-items: flex-start; gap: 24px; } .free-actions { align-items: flex-start; } .faq-section { grid-template-columns: 1fr; gap: 16px; } .maker-section { padding: 24px 20px 32px; flex-direction: column; gap: 12px; } }
+    @media (max-width: 700px) { .home-nav { padding: 20px; } .desktop-link { display: none; } .home-nav-cta { padding: 10px 13px; font-size: 12px; gap: 12px; } .brand-name { font-size: 24px; } .home-hero { grid-template-columns: 1fr; padding: 40px 20px 48px; gap: 38px; } h1 { font-size: clamp(43px, 10.8vw, 62px); letter-spacing: -1.8px; } .hero-description { font-size: 15px; } .hero-actions { gap: 8px; } .home-primary, .home-secondary { padding-inline: 16px; font-size: 12px; gap: 14px; } .workflow-section, .examples-section, .free-section, .faq-section { padding: 38px 20px; } .workflow-grid, .examples-section { grid-template-columns: 1fr; gap: 28px; } .workflow-step { padding-top: 16px; border-top: 1px solid var(--border-color); } .free-section { flex-direction: column; align-items: flex-start; gap: 24px; } .free-actions { align-items: flex-start; } .faq-section { grid-template-columns: 1fr; gap: 16px; } .maker-section { padding: 24px 20px 32px; flex-direction: column; gap: 12px; } }
     @media (max-width: 359px) { .home-nav { padding: 18px 16px; } .home-brand { gap: 8px; } .home-brand img { width: 30px; height: 30px; } .brand-name { font-size: 20px; } .home-nav-cta { padding: 10px; font-size: 11px; gap: 8px; } .home-kicker { font-size: 9px; letter-spacing: .075em; } }
     @media (prefers-reduced-motion: reduce) { a { transition: none !important; } .home-primary:hover, .home-secondary:hover { transform: none; } }
 </style>

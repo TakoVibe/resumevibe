@@ -1,0 +1,21 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { Footer } from '../../components/ui/Footer';
+export const prerender = true;
+const examples = [
+    { href: '/resume-examples/backend-developer', role: 'Backend developer', description: 'See how a Python developer can describe APIs, PostgreSQL work, reliable payment flows, and background jobs without stuffing a skills list.', details: 'Mid-level · Python, FastAPI, PostgreSQL' },
+    { href: '/resume-examples/software-engineer', role: 'Software engineer', description: 'See an early-career software engineer explain shipped React and Node.js features, tests, an internship, and a personal project.', details: 'Early career · TypeScript, React, Node.js' },
+];
+---
+<Layout title="Free Software Engineering Resume Examples and Templates | ResumeVibe by TakoVibe" description="Read complete fictional engineering resumes, see why their bullets work, then edit a backend developer or software engineer example and export a PDF free.">
+    <div class="bg-[var(--bg-main)] text-[var(--text-main)]">
+        <header class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8"><a href="/" class="font-serif-ed text-2xl">ResumeVibe <span class="text-sm text-[var(--text-muted)]">by TakoVibe</span></a><nav aria-label="Examples navigation" class="flex gap-5 text-sm"><a href="/ats-resume-guide" class="hover:underline">ATS guide</a><a href="/#builder" class="font-semibold text-[var(--accent)] hover:underline">Open editor</a></nav></header>
+        <main class="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+            <header class="border-t border-[var(--border-color)] py-16"><p class="rv-kicker">Editable examples</p><h1 class="mt-5 max-w-4xl font-serif-ed text-5xl leading-tight sm:text-6xl">Software engineering resume examples with work behind the words</h1><p class="mt-6 max-w-3xl text-lg leading-8 text-[var(--text-muted)]">Read a complete resume, see what each section contributes, then change a copy in the free editor. These examples are fictional teaching materials; replace the names, companies, metrics, and history with your own before applying.</p></header>
+            <section class="grid gap-6 md:grid-cols-2" aria-label="Example resumes">{examples.map((item) => <article class="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-7 sm:p-9"><p class="rv-kicker">{item.details}</p><h2 class="mt-4 font-serif-ed text-4xl">{item.role} resume</h2><p class="mt-5 leading-8 text-[var(--text-muted)]">{item.description}</p><a href={item.href} class="rv-button-primary mt-7 inline-flex px-5 py-3">Read and edit example →</a></article>)}</section>
+            <section class="mt-14 grid gap-8 border-t border-[var(--border-color)] pt-12 md:grid-cols-2"><div><h2 class="font-serif-ed text-4xl">What makes an example useful?</h2><p class="mt-4 leading-8 text-[var(--text-muted)]">The full job, dates, decisions, tools, and outcomes supply context. A good example helps you describe your own work; it is never a source of claims to copy.</p></div><div><h3 class="text-lg font-semibold">Before you export</h3><ul class="mt-4 list-disc space-y-3 pl-5 leading-7 text-[var(--text-muted)]"><li>Replace all fictional contact details and employers.</li><li>Remove skills you have not used.</li><li>Check every result against work you can explain.</li><li>Copy text from the PDF to test its reading order.</li></ul></div></section>
+            <p class="mt-10 leading-7">For formatting and job-tailoring steps, read the <a href="/ats-resume-guide" class="text-[var(--accent)] underline">ATS-friendly resume guide</a>. If you already have a resume, <a href="/job-fit" class="text-[var(--accent)] underline">compare it with a job description</a>.</p>
+        </main>
+        <Footer />
+    </div>
+</Layout>

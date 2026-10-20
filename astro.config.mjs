@@ -10,6 +10,7 @@ import node from '@astrojs/node';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://resumevibe.takovibe.com',
+  trailingSlash: 'never',
   output: 'server',
   adapter: node({
     mode: 'standalone'
@@ -18,7 +19,17 @@ export default defineConfig({
     checkOrigin: false
   },
   integrations: [react(), sitemap({
-    filter: (page) => !['/profile', '/404'].includes(new URL(page).pathname.replace(/\/$/, '')),
+    filter: (page) => {
+      const pathname = new URL(page).pathname.replace(/\/$/, '');
+      return !['/profile', '/404'].includes(pathname) && !pathname.endsWith('/edit');
+    },
+    serialize: (item) => {
+      const url = new URL(item.url);
+      return {
+        ...item,
+        url: url.pathname === '/' ? url.href : url.href.replace(/\/$/, ''),
+      };
+    },
   })],
   server: {
     host: false,

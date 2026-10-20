@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2 } from 'lucide-react';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2, Maximize2, Minimize2 } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
 import { Toaster, toast } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -37,6 +37,8 @@ import type { JobApplicationRecord } from '../types/application';
 import { buildResumePdfPayload } from '../lib/pdfExport';
 import { ResumeErrorBoundary } from './ui/ResumeErrorBoundary';
 import { normalizeResumeData } from '../lib/normalizeResume';
+import { resumeExamples, type ResumeExampleId } from '../data/resumeExamples';
+import { prepareExampleForProfile } from '../lib/exampleImport';
 
 const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
 const JOB_MATCH_HELPER_DISMISSED_KEY = 'resume-job-match-helper-dismissed-v1';
@@ -111,11 +113,13 @@ const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
     },
 ];
 
-function ResumeBuilderContent() {
+function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     const { data, updateResume, resetToDefault, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
     const { user, isAuthenticated, logout, isLoading: isAuthLoading } = useAuth();
     const { showUpgradeModal, setShowUpgradeModal } = useToken();
     const [showMoreActions, setShowMoreActions] = useState(false);
+    const [isFocusMode, setIsFocusMode] = useState(false);
+    const [isImportingExample, setIsImportingExample] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'parser'>('editor');
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -146,9 +150,51 @@ function ResumeBuilderContent() {
     const trackedCompletionRef = useRef<string | null>(null);
     const trackedEditorOpenRef = useRef(false);
     const guestDraftSaveIntentRef = useRef(false);
+    const pendingExampleImportRef = useRef(false);
+    const exampleImportInFlightRef = useRef(false);
     const pdfPreviewUrlRef = useRef<string | null>(null);
     const pdfPreviewRequestRef = useRef(0);
     const pdfPreviewAbortRef = useRef<AbortController | null>(null);
+    const workspaceRef = useRef<HTMLDivElement | null>(null);
+
+    const toggleFocusMode = useCallback(async () => {
+        if (isFocusMode) {
+            if (document.fullscreenElement === workspaceRef.current) {
+                try { await document.exitFullscreen(); } catch { /* Keep the in-page exit available. */ }
+            }
+            setIsFocusMode(false);
+            return;
+        }
+
+        setActiveTab('editor');
+        setShowRecruiterAI(false);
+        setShowMoreActions(false);
+        setIsFocusMode(true);
+        try {
+            await workspaceRef.current?.requestFullscreen?.();
+        } catch {
+            // The distraction-free layout still works when browser fullscreen is unavailable.
+        }
+    }, [isFocusMode]);
+
+    useEffect(() => {
+        const syncFullscreen = () => {
+            if (document.fullscreenElement !== workspaceRef.current) setIsFocusMode(false);
+        };
+        const exitInPageFocus = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || !isFocusMode || document.querySelector('[role="dialog"]')) return;
+            if (document.fullscreenElement === workspaceRef.current) {
+                void document.exitFullscreen().catch(() => undefined);
+            }
+            setIsFocusMode(false);
+        };
+        document.addEventListener('fullscreenchange', syncFullscreen);
+        document.addEventListener('keydown', exitInPageFocus);
+        return () => {
+            document.removeEventListener('fullscreenchange', syncFullscreen);
+            document.removeEventListener('keydown', exitInPageFocus);
+        };
+    }, [isFocusMode]);
 
     useEffect(() => {
         if (!isLoaded || trackedEditorOpenRef.current) return;
@@ -178,12 +224,47 @@ function ResumeBuilderContent() {
         try {
             const wasExplicitlyDismissed = localStorage.getItem(JOB_MATCH_HELPER_DISMISSED_KEY) === 'true';
             const hasDesktopWorkspace = window.matchMedia('(min-width: 1280px)').matches;
-            setShowRecruiterAI(hasDesktopWorkspace && !wasExplicitlyDismissed);
+            setShowRecruiterAI(!example && hasDesktopWorkspace && !wasExplicitlyDismissed);
         } catch (error) {
             console.warn('Could not restore the Job Match Helper visibility.', error);
-            setShowRecruiterAI(window.matchMedia('(min-width: 1280px)').matches);
+            setShowRecruiterAI(!example && window.matchMedia('(min-width: 1280px)').matches);
         }
-    }, []);
+    }, [example]);
+
+    const importExampleToProfile = useCallback(async () => {
+        if (!example || !user || exampleImportInFlightRef.current) return;
+        exampleImportInFlightRef.current = true;
+        setIsImportingExample(true);
+        try {
+            const copy = prepareExampleForProfile(data, user);
+            const response = await api.post('/api/resumes/', { resume_data: copy, is_public: false });
+            if (!response.ok) throw new Error(`Could not save example copy (${response.status})`);
+            const saved = await response.json();
+            if (!saved?.slug) throw new Error('Saved example copy has no editor link');
+            window.location.assign(resumeEditorUrl(saved.slug));
+        } catch (error) {
+            console.error('Could not add example to profile:', error);
+            toast.error('Could not add this example to your profile. Please try again.');
+            exampleImportInFlightRef.current = false;
+            setIsImportingExample(false);
+        }
+    }, [data, example, user]);
+
+    const handleExampleImport = useCallback(() => {
+        if (isImportingExample) return;
+        if (!isAuthenticated) {
+            pendingExampleImportRef.current = true;
+            window.dispatchEvent(new CustomEvent('show-login-modal'));
+            return;
+        }
+        void importExampleToProfile();
+    }, [importExampleToProfile, isAuthenticated, isImportingExample]);
+
+    useEffect(() => {
+        if (!example || !isAuthenticated || !isLoaded || !pendingExampleImportRef.current) return;
+        pendingExampleImportRef.current = false;
+        void importExampleToProfile();
+    }, [example, importExampleToProfile, isAuthenticated, isLoaded]);
 
     // Keep the pre-paint homepage hint in sync after sign-in or session expiry.
     useEffect(() => {
@@ -493,6 +574,10 @@ function ResumeBuilderContent() {
     };
 
     const handleSave = async () => {
+        if (example) {
+            handleExampleImport();
+            return;
+        }
         if (!isAuthenticated) {
             signInToSaveDraft();
             return;
@@ -644,23 +729,23 @@ function ResumeBuilderContent() {
     const documentTitle = (isAuthenticated ? resumeMetadata?.name : null) || data.personalInfo.fullName || 'Untitled resume';
 
     return (
-        <div className="flex flex-col h-screen bg-[var(--bg-main)] selection:bg-[var(--accent)]/20">
+        <div ref={workspaceRef} data-focus-mode={isFocusMode ? 'true' : 'false'} className={`flex h-[100dvh] flex-col bg-[var(--bg-main)] selection:bg-[var(--accent)]/20 ${isFocusMode ? 'fixed inset-0 z-[120] w-screen' : ''}`}>
             {/* Hidden instance for PDF generation scraping */}
             <div className="fixed left-[-9999px] top-0 pointer-events-none opacity-0">
                 <ResumePreview data={data} id="resume-preview-for-generation" />
             </div>
 
             {/* Focused workspace header */}
-            <Navbar>
+            <Navbar focusMode={isFocusMode}>
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:justify-between">
-                    <div className="hidden min-w-0 2xl:block">
+                    <div className={`${isFocusMode ? 'min-w-0 flex-1' : 'hidden min-w-0 2xl:block'}`}>
                         <p className="truncate text-sm font-semibold text-[var(--text-main)]">{documentTitle}</p>
-                        <p className="text-[10px] font-medium text-[var(--text-muted)]">
+                        <p className={`text-[10px] font-medium text-[var(--text-muted)] ${isFocusMode ? 'hidden sm:block' : ''}`}>
                             {isSaving ? 'Saving changes…' : lastSaved ? 'All changes saved' : 'Ready to edit'}
                         </p>
                     </div>
 
-                    <div className="flex h-9 shrink-0 items-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-1" role="tablist" aria-label="Editor views">
+                    {!isFocusMode && <div className="flex h-9 shrink-0 items-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-1" role="tablist" aria-label="Editor views">
                         <button
                             id="editor-view-tab"
                             type="button"
@@ -700,17 +785,30 @@ function ResumeBuilderContent() {
                         >
                             <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
                         </button>
-                    </div>
+                    </div>}
 
                     <div className="flex shrink-0 items-center gap-1.5">
+                        {isFocusMode && <button type="button" onClick={() => setShowInfoModal(true)} title="Edit personal details" aria-label="Edit personal details" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:bg-[var(--accent-subtle)]"><User size={15} /></button>}
+                        <button
+                            type="button"
+                            data-action="toggle-focus-mode"
+                            aria-pressed={isFocusMode}
+                            aria-label={isFocusMode ? 'Exit focus mode' : 'Enter focus mode'}
+                            title={isFocusMode ? 'Exit focus mode (Esc)' : 'Focus mode: fullscreen editor'}
+                            onClick={() => void toggleFocusMode()}
+                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                        >
+                            {isFocusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                            <span className="hidden sm:inline">{isFocusMode ? 'Exit focus' : 'Focus'}</span>
+                        </button>
                         <button
                             onClick={handleSave}
-                            disabled={isSaving}
+                            disabled={isSaving || isImportingExample}
                             className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] disabled:opacity-50 md:w-auto md:px-3"
-                            title="Save changes"
+                            title={example ? 'Save a copy to my profile' : 'Save changes'}
                         >
-                            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                            <span className="ml-1.5 hidden text-[11px] font-semibold md:inline">Save</span>
+                            {isSaving || isImportingExample ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                            <span className="ml-1.5 hidden text-[11px] font-semibold md:inline">{example ? 'Save copy' : 'Save'}</span>
                         </button>
 
                         <button
@@ -723,25 +821,25 @@ function ResumeBuilderContent() {
                             <span className="hidden sm:inline">{isGenerating ? 'Exporting…' : 'Export PDF'}</span>
                         </button>
 
-                        <button
+                        {!isFocusMode && <button
                             onClick={() => setShowCoverLetterGenerator(true)}
                             className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
                             title="Generate cover letter (30 tokens)"
                         >
                             <Mail size={14} className="text-[var(--accent)]" />
                             <span className="hidden sm:inline">Cover letter</span>
-                        </button>
+                        </button>}
 
-                        <button
+                        {!isFocusMode && <button
                             onClick={() => setShowShareModal(true)}
                             className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
                             title="Share resume"
                         >
                             <Globe size={14} className="text-[var(--accent)]" />
                             <span className="hidden sm:inline">Share</span>
-                        </button>
+                        </button>}
 
-                        <div className="relative">
+                        {!isFocusMode && <div className="relative">
                         <button
                             onClick={() => setShowMoreActions(!showMoreActions)}
                                 className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] transition hover:text-[var(--text-main)]"
@@ -825,12 +923,22 @@ function ResumeBuilderContent() {
                                     </div>
                             </>
                         )}
-                        </div>
+                        </div>}
                     </div>
                 </div>
             </Navbar>
 
-            {!isAuthenticated && showGuestSaveNotice && <section aria-label="Signed out progress notice" aria-describedby="guest-save-notice-detail" data-testid="guest-save-notice" className="relative z-[58] shrink-0 border-b border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-2 py-1 text-[var(--text-main)] sm:px-5">
+            {example && !isFocusMode && <section aria-label="Example resume actions" className="shrink-0 border-b border-[var(--border-color)] bg-[var(--accent-subtle)] px-3 py-2 lg:hidden">
+                <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] leading-4 text-[var(--text-main)]">Edit this example, then add a private copy to your profile.</p>
+                    <button type="button" data-action="import-example-mobile" onClick={handleExampleImport} disabled={isImportingExample} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[var(--accent)] px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-50">
+                        {isImportingExample ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                        {isImportingExample ? 'Saving…' : 'Import & edit'}
+                    </button>
+                </div>
+            </section>}
+
+            {!isFocusMode && !isAuthenticated && showGuestSaveNotice && <section aria-label="Signed out progress notice" aria-describedby="guest-save-notice-detail" data-testid="guest-save-notice" className="relative z-[58] shrink-0 border-b border-[var(--accent)]/30 bg-[var(--accent-subtle)] px-2 py-1 text-[var(--text-main)] sm:px-5">
                 <div className="mx-auto flex max-w-7xl items-center gap-2">
                     <p className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-muted)]" title="Your draft is kept only in this browser. Log in to save online and access it across devices."><span className="sm:hidden">This device only</span><span className="hidden sm:inline">Save your progress online and access it across devices.</span></p>
                     <p id="guest-save-notice-detail" className="sr-only">Your draft is kept only in this browser. Clearing browser data can remove it. {new URLSearchParams(window.location.search).has('edit') && "The private resume in this link has not been loaded. You are seeing this browser's draft, or the example if no draft exists."}</p>
@@ -843,7 +951,7 @@ function ResumeBuilderContent() {
                 </div>
             </section>}
 
-            {completedApplication && showCompletionBanner && (
+            {!isFocusMode && completedApplication && showCompletionBanner && (
                 <section className="relative z-[58] border-b border-green-500/25 bg-green-500/10 px-3 py-3 sm:px-5" aria-label="Tailored resume saved">
                     <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-500/15 text-green-700 dark:text-green-400">
@@ -872,24 +980,36 @@ function ResumeBuilderContent() {
             )}
 
             <main className="relative flex min-h-0 flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
-                {activeTab === 'editor' && (
+                {activeTab === 'editor' && !isFocusMode && (
                     <aside
                         data-layout="workspace-sidebar"
                         className={`w-60 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] xl:w-64 ${showRecruiterAI ? 'hidden' : 'hidden lg:flex'}`}
                     >
                         <div className="border-b border-[var(--border-color)] px-5 py-5">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Your workspace</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{example ? 'Example workspace' : 'Your workspace'}</p>
                             <h2 className="mt-1.5 truncate font-serif-ed text-2xl leading-tight text-[var(--text-main)]">{documentTitle}</h2>
-                            <div className="mt-4 flex items-center justify-between text-[11px] font-medium">
-                                <span className="text-[var(--text-muted)]">Profile details</span>
-                                <span className="text-[var(--text-main)]">{profileCompletion}%</span>
-                            </div>
-                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-input)]">
-                                <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${profileCompletion}%` }} />
-                            </div>
+                            {example ? <p className="mt-3 text-[11px] text-[var(--text-muted)]">Fictional details—make a copy to use your own.</p> : <>
+                                <div className="mt-4 flex items-center justify-between text-[11px] font-medium">
+                                    <span className="text-[var(--text-muted)]">Profile details</span>
+                                    <span className="text-[var(--text-main)]">{profileCompletion}%</span>
+                                </div>
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-input)]">
+                                    <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${profileCompletion}%` }} />
+                                </div>
+                            </>}
                         </div>
 
                         <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                            {example && <section aria-label="Save example to your profile" className="rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Editable example</p>
+                                <h3 className="mt-2 text-sm font-semibold text-[var(--text-main)]">Make this resume yours</h3>
+                                <p className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">Change the example here, then save a new private copy to your profile. Your existing resumes stay as they are.</p>
+                                <button type="button" data-action="import-example-profile" onClick={handleExampleImport} disabled={isImportingExample} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-3 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+                                    {isImportingExample ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                    {isImportingExample ? 'Saving your copy…' : 'Import to profile & edit'}
+                                </button>
+                                <p className="mt-2 text-[10px] leading-4 text-[var(--text-muted)]">Replace the fictional work history and results with your own before applying.</p>
+                            </section>}
                             <div>
                                 <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Build</p>
                                 <div className="mt-2 space-y-1">
@@ -947,7 +1067,7 @@ function ResumeBuilderContent() {
                     </aside>
                 )}
 
-                {!showRecruiterAI && (
+                {!isFocusMode && !showRecruiterAI && (
                     <button
                         type="button"
                         data-action="open-recruiter-panel"
@@ -962,8 +1082,8 @@ function ResumeBuilderContent() {
 
                 <div
                     id={activeTab === 'preview' ? 'preview-view-panel' : 'editor-view-panel'}
-                    role="tabpanel"
-                    aria-labelledby={activeTab === 'preview' ? 'preview-view-tab' : 'editor-view-tab'}
+                    role={isFocusMode ? undefined : 'tabpanel'}
+                    aria-labelledby={isFocusMode ? undefined : activeTab === 'preview' ? 'preview-view-tab' : 'editor-view-tab'}
                     tabIndex={0}
                     data-layout="resume-editor"
                     className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
@@ -977,7 +1097,7 @@ function ResumeBuilderContent() {
                         </div>
                     )}
 
-                    {activeTab === 'editor' && (
+                    {activeTab === 'editor' && !isFocusMode && (
                         <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-[var(--border-color)] bg-[var(--glass-bg-strong)] p-1.5 shadow-2xl backdrop-blur-xl lg:hidden">
                             <button data-tour="personal-details" onClick={() => setShowInfoModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><User size={15} /> Details</button>
                             <button data-tour="add-section" onClick={() => setShowSectionTypeModal(true)} className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-[11px] font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)]"><FileText size={15} /> Add</button>
@@ -1153,7 +1273,7 @@ function ResumeBuilderContent() {
                 </div>
 
                 {/* One responsive helper instance: docked on desktop, drawer on smaller screens. */}
-                {showRecruiterAI && (
+                {!isFocusMode && showRecruiterAI && (
                     <div
                         data-layout="recruiter-panel"
                         className="fixed inset-0 z-[70] xl:static xl:z-auto xl:h-full xl:w-[400px] xl:shrink-0 2xl:w-[420px]"
@@ -1187,12 +1307,12 @@ function ResumeBuilderContent() {
                 )}
             </main>
 
-            <ProductTour
+            {!isFocusMode && <ProductTour
                 steps={RESUME_PRODUCT_TOUR_STEPS}
                 onStart={handleProductTourStart}
                 onStepChange={prepareProductTourStep}
                 onEnd={handleProductTourEnd}
-            />
+            />}
 
             {completedApplication && showApplicationKit && (
                 <ApplicationKitDialog
@@ -1277,14 +1397,14 @@ function ApplicationKitAsset({ icon: Icon, title, wide = false, children }: { ic
     );
 }
 
-export function ResumeBuilder() {
+export function ResumeBuilder({ example }: { example?: ResumeExampleId }) {
     return (
         <ThemeProvider>
             <AuthProvider>
                 <TokenProvider>
-                    <ResumeProvider>
+                    <ResumeProvider initialData={example ? resumeExamples[example] : undefined} storageNamespace={example ? `example:${example}` : ''} autoSave={!example}>
                         <ResumeErrorBoundary>
-                            <ResumeBuilderContent />
+                            <ResumeBuilderContent example={example} />
                         </ResumeErrorBoundary>
                         <Toaster position="bottom-center" toastOptions={{
                             style: {

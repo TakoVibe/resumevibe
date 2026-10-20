@@ -78,15 +78,13 @@ export const initialResume: ResumeSchema = {
     openSource: [
         {
             id: "os-1",
-            name: "Kubernetes/Kops",
-            description: "Contributor to the cluster lifecycle management tool, primarily focusing on AWS provider stability and networking interface improvements (#4421).",
-            link: "https://github.com/kubernetes/kops"
+            name: "Community Go metrics exporter (fictional example)",
+            description: "Added tests for failed metric scrapes and documented how contributors can reproduce timeout errors. Replace this with a real contribution and pull-request link."
         },
         {
             id: "os-2",
-            name: "React-Hook-Form",
-            description: "Frequent contributor with focus on performance optimization for extreme form fields and complex validation logic (#892, #904).",
-            link: "https://github.com/react-hook-form/react-hook-form"
+            name: "React form helper (fictional example)",
+            description: "Improved keyboard focus behavior and added regression tests for validation errors. Remove this section if you have no open-source contribution to show."
         }
     ],
     projects: [

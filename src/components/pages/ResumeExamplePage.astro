@@ -1,0 +1,124 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { Footer } from '../ui/Footer';
+import { resumeExamples, type ResumeExampleId } from '../../data/resumeExamples';
+
+interface Props { example: ResumeExampleId }
+const { example: exampleId } = Astro.props;
+const resume = resumeExamples[exampleId];
+const backend = exampleId === 'backend-developer';
+const role = backend ? 'Backend developer' : 'Software engineer';
+const copy = backend ? {
+    title: 'Backend Developer Resume Example and Free Editable Template',
+    description: 'Explore a complete fictional backend developer resume with Python API, PostgreSQL, and reliability examples. Edit the template and export a PDF free.',
+    intro: 'A backend resume should explain what you built, how it ran, and what changed for users or your team. This example places API work, data systems, and reliability evidence in the first half of the page.',
+    first: 'The first role leads with API latency and safe payment processing. It names the system, the tools, and the change in a single bullet. Replace every figure with a measurement you can explain.',
+    second: 'The earlier role is shorter because its relevance is narrower. Two concrete contributions give more information than a long list of routine duties.',
+    project: 'The queue project demonstrates background processing and failure handling. Keep projects when they add evidence that a paid role does not already show.',
+    openSource: 'The contribution names a specific test and documentation change. In your own resume, link the real pull request or issue so a reviewer can verify it.',
+    before: 'Responsible for backend APIs and database optimization.',
+    after: 'Reduced median catalog API response time from 420 ms to 260 ms by adding PostgreSQL indexes and caching frequent reads in Redis.',
+    proof: 'This bullet identifies the API, the technical change, and the measured result. Use it as a writing pattern, never as a claim about your own work.',
+    checklist: ['State which services or data flows you owned.', 'Name languages and databases only where you used them.', 'Explain reliability, performance, or delivery changes with evidence.', 'Keep operations claims such as uptime or latency tied to a measurement you know.'],
+    related: 'software-engineer',
+    relatedLabel: 'Software engineer resume example',
+} : {
+    title: 'Software Engineer Resume Example and Free Editable Template',
+    description: 'Explore a fictional software engineer resume with web features, tests, and project examples. Edit the template in your browser and export a PDF free.',
+    intro: 'For an early-career software engineer, shipped features and clear technical decisions carry more weight than a long list of tools. This example shows two years of product work, an internship, and a relevant project.',
+    first: 'The current role starts with a feature and its failure cases. Its performance bullet names the endpoint and a measured response-time change rather than making a general speed claim.',
+    second: 'The internship shows delivery and collaboration without stretching the scope of the work. An internship belongs on a resume when it supplies useful evidence.',
+    project: 'The event planner project adds API design and data modelling. Explain your own decisions and tests; a project title alone does little for a reviewer.',
+    openSource: 'The contribution shows accessibility work and regression testing. Include a real repository or pull-request link when you have one.',
+    before: 'Worked on a React app and improved the website.',
+    after: 'Built an account settings flow in React and Node.js, with API validation and automated tests for the main failure cases.',
+    proof: 'The revised version names the feature, tools, and quality work. Add a measured user or performance result only when you can verify it.',
+    checklist: ['Lead with delivered features and the part you built.', 'Use job titles and dates that match your actual history.', 'Show testing, accessibility, or reliability where it was part of your work.', 'Describe a project’s design decisions and boundaries, not just its tech stack.'],
+    related: 'backend-developer',
+    relatedLabel: 'Backend developer resume example',
+};
+const sampleBullets = (items: typeof resume.experience[number]['metrics']) => items.map((item) => typeof item === 'string' ? item : item.text);
+---
+
+<Layout title={`${copy.title} | ResumeVibe by TakoVibe`} description={copy.description} includeResumeStyles>
+    <div class="bg-[var(--bg-main)] text-[var(--text-main)]">
+        <a href="#main" class="sr-only focus:not-sr-only">Skip to example</a>
+        <header class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
+            <a href="/" class="font-serif-ed text-2xl">ResumeVibe <span class="text-sm text-[var(--text-muted)]">by TakoVibe</span></a>
+            <nav aria-label="Example navigation" class="flex flex-wrap gap-5 text-sm">
+                <a href="/resume-examples" class="hover:underline">All examples</a>
+                <a href="/ats-resume-guide" class="hover:underline">ATS guide</a>
+                <a href={`/resume-examples/${exampleId}/edit`} class="font-semibold text-[var(--accent)] hover:underline">Edit this example</a>
+            </nav>
+        </header>
+        <main id="main" class="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+            <section class="border-t border-[var(--border-color)] py-14 sm:py-20">
+                <p class="rv-kicker">Fictional example · Free PDF export</p>
+                <h1 class="mt-5 max-w-4xl font-serif-ed text-5xl leading-tight sm:text-6xl">{role} resume example you can edit</h1>
+                <p class="mt-6 max-w-3xl text-lg leading-8 text-[var(--text-muted)]">{copy.intro}</p>
+                <div class="mt-8 flex flex-wrap gap-3">
+                    <a href={`/resume-examples/${exampleId}/edit`} class="rv-button-primary px-6 py-3">Edit this resume</a>
+                    <a href="/ats-resume-guide" class="rv-button-secondary px-6 py-3">Read the ATS guide</a>
+                </div>
+                <p class="mt-5 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">The companies, person, results, and contact details below are invented to teach the format. Replace them with your own verified experience before applying.</p>
+            </section>
+
+            <div class="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+                <article aria-label="Fictional resume text" class="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-sm sm:p-10">
+                    <h2 class="font-serif-ed text-3xl">{resume.personalInfo.fullName}</h2>
+                    <p class="mt-1 text-sm font-semibold text-[var(--accent)]">{resume.personalInfo.title} · {resume.personalInfo.location}</p>
+                    <p class="mt-1 text-sm text-[var(--text-muted)]">{resume.personalInfo.email} · {resume.personalInfo.phone}</p>
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Professional summary</h3>
+                    <p class="mt-3 leading-7">{resume.summary}</p>
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Skills</h3>
+                    {resume.skills.map((group) => <p class="mt-3 leading-7"><strong>{group.name}:</strong> {group.items.join(', ')}</p>)}
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Experience</h3>
+                    {resume.experience.map((job) => <section class="mt-6">
+                        <h4 class="text-lg font-semibold">{job.role} · {job.company}</h4>
+                        <p class="mt-1 text-sm text-[var(--text-muted)]">{job.duration} · {job.location}</p>
+                        <ul class="mt-3 list-disc space-y-2 pl-5 leading-7">{sampleBullets(job.metrics).map((bullet) => <li>{bullet}</li>)}</ul>
+                    </section>)}
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Projects</h3>
+                    {resume.projects.map((project) => <section class="mt-5">
+                        <h4 class="font-semibold">{project.name}</h4>
+                        <p class="mt-2 leading-7">{project.description}</p>
+                        <ul class="mt-2 list-disc space-y-2 pl-5 leading-7">{sampleBullets(project.metrics || []).map((bullet) => <li>{bullet}</li>)}</ul>
+                    </section>)}
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Open source contributions</h3>
+                    {resume.openSource?.map((contribution) => <section class="mt-5">
+                        <h4 class="font-semibold">{contribution.name}</h4>
+                        <p class="mt-2 leading-7">{contribution.description}</p>
+                    </section>)}
+                    <h3 class="mt-8 border-b border-[var(--border-color)] pb-2 text-sm font-semibold uppercase tracking-widest">Education</h3>
+                    {resume.education.map((school) => <p class="mt-3 leading-7"><strong>{school.degree}</strong> · {school.institution} · {school.duration}</p>)}
+                </article>
+                <aside class="self-start rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 sm:p-8">
+                    <h2 class="font-serif-ed text-3xl">Why this example works</h2>
+                    <ol class="mt-6 space-y-6 leading-7 text-[var(--text-muted)]">
+                        <li><strong class="text-[var(--text-main)]">1. Relevant first role.</strong> {copy.first}</li>
+                        <li><strong class="text-[var(--text-main)]">2. Concise earlier role.</strong> {copy.second}</li>
+                        <li><strong class="text-[var(--text-main)]">3. Useful project.</strong> {copy.project}</li>
+                        <li><strong class="text-[var(--text-main)]">4. Specific open source work.</strong> {copy.openSource} This section is optional; remove it if you have no contribution to describe.</li>
+                    </ol>
+                    <h3 class="mt-8 text-lg font-semibold">Before and after</h3>
+                    <p class="mt-3 text-sm text-[var(--text-muted)]">Vague: “{copy.before}”</p>
+                    <p class="mt-3 rounded-xl bg-[var(--accent-subtle)] p-4 leading-7">{copy.after}</p>
+                    <p class="mt-3 text-sm leading-6 text-[var(--text-muted)]">{copy.proof}</p>
+                </aside>
+            </div>
+
+            <section class="mt-14 grid gap-8 border-t border-[var(--border-color)] py-12 md:grid-cols-2">
+                <div><h2 class="font-serif-ed text-4xl">Make this resume yours</h2><p class="mt-4 leading-7 text-[var(--text-muted)]">Keep a simple reading order, replace every sample claim, then compare the finished PDF with the exact job you want. Read the PDF as a stranger would: could you explain every result and decision in an interview?</p></div>
+                <div><h3 class="text-lg font-semibold">Review before applying</h3><ul class="mt-4 list-disc space-y-3 pl-5 leading-7 text-[var(--text-muted)]">{copy.checklist.map((item) => <li>{item}</li>)}</ul></div>
+            </section>
+
+            <section class="border-t border-[var(--border-color)] pt-12">
+                <h2 class="font-serif-ed text-4xl">Edit the {role.toLowerCase()} template</h2>
+                <p class="mt-3 max-w-3xl leading-7 text-[var(--text-muted)]">Open a copy in the editor, change the sample details, and export your PDF for free. Your edits to this example stay in this browser until you sign in and save. This example has a separate draft from your main resume.</p>
+                <a href={`/resume-examples/${exampleId}/edit`} class="rv-button-primary mt-6 inline-flex px-6 py-3">Open editable template →</a>
+            </section>
+            <nav aria-label="Related resources" class="mt-12 flex flex-wrap gap-5 text-sm font-semibold"><a href={`/resume-examples/${copy.related}`} class="text-[var(--accent)] hover:underline">{copy.relatedLabel} →</a><a href="/job-fit" class="text-[var(--accent)] hover:underline">Compare your resume with a job →</a></nav>
+        </main>
+        <Footer />
+    </div>
+</Layout>

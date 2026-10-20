@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ResumeBuilder } from '../ResumeBuilder';
+import type { ResumeExampleId } from '../../data/resumeExamples';
+interface Props { example: ResumeExampleId }
+const { example } = Astro.props;
+const role = example === 'backend-developer' ? 'backend developer' : 'software engineer';
+---
+<Layout title={`Edit a ${role} resume example | ResumeVibe by TakoVibe`} description={`Edit a fictional ${role} resume example and export a PDF.`} includeResumeStyles noindex>
+    <main>
+        <h1 class="sr-only">Edit the {role} resume example</h1>
+        <div class="h-[100dvh] overflow-hidden"><ResumeBuilder example={example} client:load /></div>
+    </main>
+</Layout>

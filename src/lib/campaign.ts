@@ -118,8 +118,8 @@ export function trackCampaignEvent(name: string, details: Record<string, unknown
     }
 }
 
-// Google Ads receives only the conversion target and a query-free page URL.
-// The click is matched through the click ID the Ads tag stored on landing.
+// Google Ads receives only the conversion target, its configured value, and a
+// query-free page URL. The click is matched through the ID stored on landing.
 export function trackAdsConversion(sendTo: string) {
     if (typeof window === 'undefined' || !/^AW-\d+\/[A-Za-z0-9_-]+$/.test(sendTo)) return;
 
@@ -128,6 +128,8 @@ export function trackAdsConversion(sendTo: string) {
 
     analyticsWindow.gtag('event', 'conversion', {
         send_to: sendTo,
+        value: 1.0,
+        currency: 'INR',
         page_location: window.location.origin + window.location.pathname,
         page_referrer: document.referrer ? new URL(document.referrer).origin : '',
     });
