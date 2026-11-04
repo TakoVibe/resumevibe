@@ -303,18 +303,48 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         setAssistantHighlight((current) => current?.section === suggestion.section ? null : current);
     }, []);
 
-    const applyAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
-        const nextData = previewAssistantChange(data, suggestion);
+    const applyAssistantSuggestions = useCallback(async (suggestions: AssistantSuggestion[]) => {
+        let nextData = data;
+        const appliedSuggestions: AssistantSuggestion[] = [];
+        suggestions.forEach((suggestion) => {
+            const updatedData = previewAssistantChange(nextData, suggestion);
+            if (updatedData !== nextData) appliedSuggestions.push(suggestion);
+            nextData = updatedData;
+        });
 
-        if (nextData === data) return;
+        if (nextData === data || appliedSuggestions.length === 0) return false;
+
+        const beforeMetadata = await saveToBackend(data);
+        if (!beforeMetadata?.slug) {
+            toast.error('Could not save the safety checkpoint. No AI changes were applied.');
+            return false;
+        }
+        const beforeCheckpointSaved = await saveVersionToBackend(beforeMetadata.slug, { silent: true });
+        if (!beforeCheckpointSaved) {
+            toast.error('Could not create the safety checkpoint. No AI changes were applied.');
+            return false;
+        }
+
         setAssistantPreviewSuggestion(null);
         updateResume(nextData);
-        focusAssistantSection(suggestion.section, 'applied');
-        toast.success('AI change applied', { icon: '✨' });
+        focusAssistantSection(appliedSuggestions[0].section, 'applied');
+
+        const afterMetadata = await saveToBackend(nextData);
+        const afterCheckpointSaved = afterMetadata?.slug
+            ? await saveVersionToBackend(afterMetadata.slug, { silent: true })
+            : false;
+        if (!afterCheckpointSaved) {
+            toast.error('AI changes were applied, but the after-change checkpoint could not be saved.');
+        } else {
+            toast.success(appliedSuggestions.length === 1
+                ? 'AI change applied · checkpoints saved'
+                : `${appliedSuggestions.length} AI changes applied · checkpoints saved`, { icon: '✨' });
+        }
         window.setTimeout(() => {
             setAssistantHighlight((current) => current?.phase === 'applied' ? null : current);
         }, 1800);
-    }, [data, focusAssistantSection, updateResume]);
+        return true;
+    }, [data, focusAssistantSection, saveToBackend, saveVersionToBackend, updateResume]);
 
     const undoAssistantSuggestion = useCallback(() => {
         setAssistantPreviewSuggestion(null);
@@ -1403,7 +1433,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                                 onRequireAuth={() => window.dispatchEvent(new CustomEvent('show-login-modal'))}
                                 onClose={hideJobMatchHelper}
                                 onPreviewSuggestion={previewAssistantSuggestion}
-                                onApplySuggestion={applyAssistantSuggestion}
+                                onApplySuggestions={applyAssistantSuggestions}
                                 onRejectSuggestion={rejectAssistantSuggestion}
                                 onUndo={undoAssistantSuggestion}
                                 onActivityChange={setAssistantActivity}

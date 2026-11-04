@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { AlertTriangle, Check, Eye, FileCheck2, Loader2, MessageCircle, RotateCcw, Send, Sparkles, UserCheck, X, Zap } from 'lucide-react';
 import type { ResumeSchema } from '../../types/resume';
 import { useToken } from '../../context/TokenContext';
+import { RESUME_ASSISTANT_TOKEN_COST, type ResumeAssistantMemoryFact } from '../../lib/resumeAssistant';
 
-export const RESUME_ASSISTANT_PRICE = 5;
+export const RESUME_ASSISTANT_PRICE = RESUME_ASSISTANT_TOKEN_COST;
 
 export interface AssistantSuggestion {
     id: string;
@@ -46,7 +47,7 @@ interface Props {
     onRequireAuth: () => void;
     onClose: () => void;
     onPreviewSuggestion: (suggestion: AssistantSuggestion) => void;
-    onApplySuggestion: (suggestion: AssistantSuggestion) => void;
+    onApplySuggestions: (suggestions: AssistantSuggestion[]) => Promise<boolean>;
     onRejectSuggestion: (suggestion: AssistantSuggestion) => void;
     onUndo: () => void;
     onActivityChange: (activity: AssistantActivity | null) => void;
@@ -94,6 +95,14 @@ const WELCOME_MESSAGE: AssistantMessage = {
 };
 
 const CONVERSATION_STORAGE_PREFIX = 'resumevibe:assistant-chat:v1:';
+const MEMORY_STORAGE_PREFIX = 'resumevibe:assistant-memory:v1:';
+const MEMORY_CATEGORY_LABELS: Record<ResumeAssistantMemoryFact['category'], string> = {
+    technology: 'Technology',
+    work_context: 'Work context',
+    achievement: 'Achievement',
+    target_role: 'Target role',
+    preference: 'Preference',
+};
 
 export function AssistantPanel({
     data,
@@ -102,7 +111,7 @@ export function AssistantPanel({
     onRequireAuth,
     onClose,
     onPreviewSuggestion,
-    onApplySuggestion,
+    onApplySuggestions,
     onRejectSuggestion,
     onUndo,
     onActivityChange,
@@ -110,21 +119,30 @@ export function AssistantPanel({
     const [messages, setMessages] = useState<AssistantMessage[]>([WELCOME_MESSAGE]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [isApplying, setIsApplying] = useState(false);
     const [activity, setActivity] = useState<AssistantActivity | null>(null);
+    const [confirmedFacts, setConfirmedFacts] = useState<ResumeAssistantMemoryFact[]>([]);
     const [error, setError] = useState('');
     const [appliedSuggestionIds, setAppliedSuggestionIds] = useState<Set<string>>(new Set());
     const [rejectedSuggestionIds, setRejectedSuggestionIds] = useState<Set<string>>(new Set());
-    const [lastAppliedSuggestionId, setLastAppliedSuggestionId] = useState<string | null>(null);
+    const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<Set<string>>(new Set());
+    const [lastAppliedBatchIds, setLastAppliedBatchIds] = useState<string[]>([]);
     const [questionAnswers, setQuestionAnswers] = useState<Record<string, string[]>>({});
     const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
     const [submittedQuestionMessageIds, setSubmittedQuestionMessageIds] = useState<Set<string>>(new Set());
     const scrollRef = useRef<HTMLDivElement>(null);
     const loadedStorageKeyRef = useRef<string | null>(null);
     const previousStorageKeyRef = useRef<string | null>(null);
+    const loadedMemoryKeyRef = useRef<string | null>(null);
+    const previousMemoryKeyRef = useRef<string | null>(null);
     const activityTimersRef = useRef<number[]>([]);
-    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
+    const { canAffordTokens, fetchTokenData, setShowUpgradeModal } = useToken();
     const conversationStorageKey = useMemo(
         () => `${CONVERSATION_STORAGE_PREFIX}${conversationId}`,
+        [conversationId],
+    );
+    const memoryStorageKey = useMemo(
+        () => `${MEMORY_STORAGE_PREFIX}${conversationId}`,
         [conversationId],
     );
 
@@ -159,7 +177,8 @@ export function AssistantPanel({
         setError('');
         setAppliedSuggestionIds(new Set());
         setRejectedSuggestionIds(new Set());
-        setLastAppliedSuggestionId(null);
+        setSelectedSuggestionIds(new Set());
+        setLastAppliedBatchIds([]);
         setQuestionAnswers({});
         setQuestionNotes({});
         setSubmittedQuestionMessageIds(new Set());
@@ -180,6 +199,42 @@ export function AssistantPanel({
             console.warn('Could not save the resume conversation.', storageError);
         }
     }, [conversationStorageKey, messages]);
+
+    useEffect(() => {
+        try {
+            let stored = localStorage.getItem(memoryStorageKey);
+            const previousKey = previousMemoryKeyRef.current;
+            if (!stored && previousKey?.endsWith(':draft')) {
+                stored = localStorage.getItem(previousKey);
+                if (stored) localStorage.setItem(memoryStorageKey, stored);
+            }
+            const parsed = stored ? JSON.parse(stored) : [];
+            const restored = Array.isArray(parsed)
+                ? parsed.filter((item): item is ResumeAssistantMemoryFact => (
+                    item
+                    && typeof item.id === 'string'
+                    && ['technology', 'work_context', 'achievement', 'target_role', 'preference'].includes(item.category)
+                    && typeof item.fact === 'string'
+                    && item.fact.trim().length > 0
+                )).slice(-30)
+                : [];
+            setConfirmedFacts(restored);
+        } catch (storageError) {
+            console.warn('Could not restore confirmed resume facts.', storageError);
+            setConfirmedFacts([]);
+        }
+        loadedMemoryKeyRef.current = memoryStorageKey;
+        previousMemoryKeyRef.current = memoryStorageKey;
+    }, [memoryStorageKey]);
+
+    useEffect(() => {
+        if (loadedMemoryKeyRef.current !== memoryStorageKey) return;
+        try {
+            localStorage.setItem(memoryStorageKey, JSON.stringify(confirmedFacts.slice(-30)));
+        } catch (storageError) {
+            console.warn('Could not save confirmed resume facts.', storageError);
+        }
+    }, [confirmedFacts, memoryStorageKey]);
 
     const history = useMemo(() => messages
         .filter((item) => item.id !== 'welcome')
@@ -237,19 +292,56 @@ export function AssistantPanel({
         scrollToLatest();
 
         try {
+            const authToken = localStorage.getItem('auth_token');
+            if (!authToken) {
+                onRequireAuth();
+                return false;
+            }
+            const requestId = `resume-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             const response = await fetch('/api/resume-assistant', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, history, resume: data }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Token ${authToken}`,
+                    'X-Request-ID': requestId,
+                },
+                body: JSON.stringify({
+                    message,
+                    history,
+                    resume: data,
+                    memory: confirmedFacts.map(({ category, fact }) => ({ category, fact })),
+                }),
             });
             const result = await response.json();
+            if (response.status === 402) setShowUpgradeModal(true);
+            if (response.status === 401) onRequireAuth();
             if (!response.ok || !result.success) throw new Error(result.error || 'The assistant could not respond.');
 
             const suggestions = Array.isArray(result.suggestions) ? result.suggestions as AssistantSuggestion[] : [];
             const questions = Array.isArray(result.questions) ? result.questions as AssistantQuestion[] : [];
+            const newFacts = Array.isArray(result.confirmedFacts)
+                ? result.confirmedFacts as ResumeAssistantMemoryFact[]
+                : [];
+            if (result.tokens_charged) await fetchTokenData();
+            if (newFacts.length > 0) {
+                setConfirmedFacts((current) => {
+                    const next = [...current];
+                    const seen = new Set(current.map((fact) => fact.fact.trim().toLocaleLowerCase()));
+                    newFacts.forEach((fact) => {
+                        const normalized = fact.fact?.trim().toLocaleLowerCase();
+                        if (!normalized || seen.has(normalized)) return;
+                        seen.add(normalized);
+                        next.push(fact);
+                    });
+                    return next.slice(-30);
+                });
+            }
             if (suggestions.length > 0) {
-                const charged = await chargeTokensAfterSuccess('inline_edit', RESUME_ASSISTANT_PRICE, 'resumevibe');
-                if (!charged) return false;
+                setSelectedSuggestionIds((current) => {
+                    const next = new Set(current);
+                    suggestions.forEach((suggestion) => next.add(suggestion.id));
+                    return next;
+                });
             }
 
             setMessages((current) => [...current, {
@@ -283,26 +375,71 @@ export function AssistantPanel({
         }
     };
 
-    const applySuggestion = (suggestion: AssistantSuggestion) => {
-        onApplySuggestion(suggestion);
+    const applySuggestion = async (suggestion: AssistantSuggestion) => {
+        if (isApplying) return;
+        setIsApplying(true);
+        let applied = false;
+        try {
+            applied = await onApplySuggestions([suggestion]);
+        } finally {
+            setIsApplying(false);
+        }
+        if (!applied) return;
         setAppliedSuggestionIds((current) => new Set(current).add(suggestion.id));
-        setLastAppliedSuggestionId(suggestion.id);
+        setSelectedSuggestionIds((current) => {
+            const next = new Set(current);
+            next.delete(suggestion.id);
+            return next;
+        });
+        setLastAppliedBatchIds([suggestion.id]);
     };
 
-    const undoSuggestion = (suggestionId: string) => {
-        if (lastAppliedSuggestionId !== suggestionId) return;
+    const applySelectedSuggestions = async (suggestions: AssistantSuggestion[]) => {
+        if (isApplying) return;
+        const selected = suggestions.filter((suggestion) => (
+            selectedSuggestionIds.has(suggestion.id)
+            && !appliedSuggestionIds.has(suggestion.id)
+            && !rejectedSuggestionIds.has(suggestion.id)
+        ));
+        if (selected.length === 0) return;
+        setIsApplying(true);
+        let applied = false;
+        try {
+            applied = await onApplySuggestions(selected);
+        } finally {
+            setIsApplying(false);
+        }
+        if (!applied) return;
+        const selectedIds = selected.map((suggestion) => suggestion.id);
+        setAppliedSuggestionIds((current) => new Set([...current, ...selectedIds]));
+        setSelectedSuggestionIds((current) => {
+            const next = new Set(current);
+            selectedIds.forEach((id) => next.delete(id));
+            return next;
+        });
+        setLastAppliedBatchIds(selectedIds);
+    };
+
+    const undoLastBatch = () => {
+        if (lastAppliedBatchIds.length === 0) return;
         onUndo();
         setAppliedSuggestionIds((current) => {
             const next = new Set(current);
-            next.delete(suggestionId);
+            lastAppliedBatchIds.forEach((id) => next.delete(id));
             return next;
         });
-        setLastAppliedSuggestionId(null);
+        setSelectedSuggestionIds((current) => new Set([...current, ...lastAppliedBatchIds]));
+        setLastAppliedBatchIds([]);
     };
 
     const rejectSuggestion = (suggestion: AssistantSuggestion) => {
         onRejectSuggestion(suggestion);
         setRejectedSuggestionIds((current) => new Set(current).add(suggestion.id));
+        setSelectedSuggestionIds((current) => {
+            const next = new Set(current);
+            next.delete(suggestion.id);
+            return next;
+        });
     };
 
     const reopenSuggestion = (suggestion: AssistantSuggestion) => {
@@ -311,7 +448,29 @@ export function AssistantPanel({
             next.delete(suggestion.id);
             return next;
         });
+        setSelectedSuggestionIds((current) => new Set(current).add(suggestion.id));
         onPreviewSuggestion(suggestion);
+    };
+
+    const toggleSuggestionSelection = (suggestionId: string) => {
+        setSelectedSuggestionIds((current) => {
+            const next = new Set(current);
+            if (next.has(suggestionId)) next.delete(suggestionId);
+            else next.add(suggestionId);
+            return next;
+        });
+    };
+
+    const setSuggestionGroupSelection = (suggestions: AssistantSuggestion[], selected: boolean) => {
+        setSelectedSuggestionIds((current) => {
+            const next = new Set(current);
+            suggestions.forEach((suggestion) => {
+                if (appliedSuggestionIds.has(suggestion.id) || rejectedSuggestionIds.has(suggestion.id)) return;
+                if (selected) next.add(suggestion.id);
+                else next.delete(suggestion.id);
+            });
+            return next;
+        });
     };
 
     const answerKey = (messageId: string, questionId: string) => `${messageId}:${questionId}`;
@@ -363,10 +522,11 @@ export function AssistantPanel({
                     <h2 className="text-sm font-semibold">Resume Copilot</h2>
                     <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Resume context connected
+                        {confirmedFacts.length > 0 && <span>· {confirmedFacts.length} facts</span>}
                     </p>
                 </div>
                 <span className="hidden items-center gap-1 rounded-lg border border-[var(--border-color)] px-2 py-1 text-[9px] font-semibold text-[var(--text-muted)] sm:flex">
-                    <Zap size={10} /> {RESUME_ASSISTANT_PRICE} / suggestion
+                    <Zap size={10} /> {RESUME_ASSISTANT_PRICE} / change set
                 </span>
                 <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]" aria-label="Close Resume Copilot">
                     <X size={17} />
@@ -374,6 +534,39 @@ export function AssistantPanel({
             </header>
 
             <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-5">
+                {confirmedFacts.length > 0 && (
+                    <details className="group rounded-2xl border border-[var(--border-color)] bg-[var(--bg-main)]">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[10px] font-semibold text-[var(--text-main)]">
+                            <Sparkles size={12} className="text-[var(--accent)]" />
+                            Confirmed memory
+                            <span className="ml-auto rounded-full bg-[var(--accent-subtle)] px-2 py-0.5 text-[9px] text-[var(--accent)]">{confirmedFacts.length}</span>
+                        </summary>
+                        <div className="space-y-2 border-t border-[var(--border-color)] px-3 py-3">
+                            <p className="px-1 text-[9px] leading-4 text-[var(--text-muted)]">Saved for this resume in this browser. Remove anything that is no longer accurate.</p>
+                            {confirmedFacts.map((fact) => (
+                                <div key={fact.id} className="flex items-start gap-2 rounded-xl bg-[var(--bg-card)] px-3 py-2">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">{MEMORY_CATEGORY_LABELS[fact.category]}</p>
+                                        <p className="mt-1 text-[10px] leading-4 text-[var(--text-main)]">{fact.fact}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setConfirmedFacts((current) => current.filter((item) => item.id !== fact.id))}
+                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-red-500/10 hover:text-red-500"
+                                        aria-label={`Forget: ${fact.fact}`}
+                                        title="Forget this fact"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => setConfirmedFacts([])} className="px-1 pt-1 text-[9px] font-semibold text-[var(--text-muted)] hover:text-red-500">
+                                Forget all confirmed facts
+                            </button>
+                        </div>
+                    </details>
+                )}
+
                 {messages.map((message) => (
                     <div key={message.id} className={message.role === 'user' ? 'ml-8' : 'mr-3'}>
                         <div className={`rounded-2xl px-4 py-3 text-xs leading-5 ${message.role === 'user' ? 'bg-[var(--text-main)] text-[var(--bg-main)]' : 'border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-main)]'}`}>
@@ -453,16 +646,70 @@ export function AssistantPanel({
                             </article>
                         )}
 
+                        {message.suggestions && message.suggestions.length > 1 && (() => {
+                            const actionable = message.suggestions.filter((suggestion) => (
+                                !appliedSuggestionIds.has(suggestion.id) && !rejectedSuggestionIds.has(suggestion.id)
+                            ));
+                            const selectedCount = actionable.filter((suggestion) => selectedSuggestionIds.has(suggestion.id)).length;
+                            const allSelected = actionable.length > 0 && selectedCount === actionable.length;
+                            const messageSuggestionIds = new Set(message.suggestions.map((suggestion) => suggestion.id));
+                            const canUndoBatch = lastAppliedBatchIds.length > 1
+                                && lastAppliedBatchIds.every((id) => messageSuggestionIds.has(id));
+                            return (
+                                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5">
+                                    <span className="mr-auto text-[10px] font-semibold text-[var(--text-main)]">
+                                        {actionable.length > 0 ? `${selectedCount} of ${actionable.length} selected` : 'Changes reviewed'}
+                                    </span>
+                                    {actionable.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSuggestionGroupSelection(message.suggestions || [], !allSelected)}
+                                            className="h-7 rounded-lg px-2 text-[9px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-main)]"
+                                        >
+                                            {allSelected ? 'Clear' : 'Select all'}
+                                        </button>
+                                    )}
+                                    {canUndoBatch && (
+                                        <button type="button" onClick={undoLastBatch} className="inline-flex h-7 items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[9px] font-semibold">
+                                            <RotateCcw size={11} /> Undo batch
+                                        </button>
+                                    )}
+                                    {actionable.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => void applySelectedSuggestions(message.suggestions || [])}
+                                            disabled={selectedCount === 0 || isApplying}
+                                            className="inline-flex h-7 items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 text-[9px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            {isApplying ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Apply selected
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         {message.suggestions?.map((suggestion) => {
                             const isApplied = appliedSuggestionIds.has(suggestion.id);
                             const isRejected = rejectedSuggestionIds.has(suggestion.id);
+                            const isSelected = selectedSuggestionIds.has(suggestion.id);
                             const evidence = EVIDENCE_PRESENTATION[suggestion.evidence || 'resume'];
                             const EvidenceIcon = evidence.Icon;
                             return (
-                                <article key={suggestion.id} className="mt-3 overflow-hidden rounded-2xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)]">
+                                <article key={suggestion.id} className={`mt-3 overflow-hidden rounded-2xl border bg-[var(--accent-subtle)] transition ${isSelected && !isApplied && !isRejected ? 'border-[var(--accent)]/55 ring-1 ring-[var(--accent)]/15' : 'border-[var(--accent)]/25'}`}>
                                     <div className="border-b border-[var(--accent)]/15 px-4 py-3">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">{suggestion.section} suggestion</p>
+                                            <div className="flex items-center gap-2">
+                                                {!isApplied && !isRejected && message.suggestions && message.suggestions.length > 1 && (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSuggestionSelection(suggestion.id)}
+                                                        aria-label={`Select ${suggestion.section} suggestion`}
+                                                        className="h-3.5 w-3.5 rounded border-[var(--border-color)] accent-[var(--accent)]"
+                                                    />
+                                                )}
+                                                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">{suggestion.section} suggestion</p>
+                                            </div>
                                             <span title={evidence.title} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-semibold ${evidence.className}`}>
                                                 <EvidenceIcon size={10} /> {evidence.label}
                                             </span>
@@ -487,13 +734,13 @@ export function AssistantPanel({
                                             ) : isApplied ? (
                                                 <>
                                                     <span className="flex flex-1 items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"><Check size={13} /> Applied</span>
-                                                    {lastAppliedSuggestionId === suggestion.id && <button type="button" onClick={() => undoSuggestion(suggestion.id)} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-[var(--text-main)]"><RotateCcw size={12} /> Undo</button>}
+                                                    {lastAppliedBatchIds.length === 1 && lastAppliedBatchIds[0] === suggestion.id && <button type="button" onClick={undoLastBatch} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-[var(--text-main)]"><RotateCcw size={12} /> Undo</button>}
                                                 </>
                                             ) : (
                                                 <>
                                                     <button type="button" onClick={() => rejectSuggestion(suggestion)} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-red-500"><X size={12} /> Reject</button>
                                                     <button type="button" onClick={() => onPreviewSuggestion(suggestion)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[10px] font-semibold hover:border-[var(--accent)]/40"><Eye size={12} /> Preview</button>
-                                                    <button type="button" onClick={() => applySuggestion(suggestion)} className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[10px] font-semibold text-white hover:opacity-90"><Check size={12} /> Apply change</button>
+                                                    <button type="button" disabled={isApplying} onClick={() => void applySuggestion(suggestion)} className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[10px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">{isApplying ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Apply change</button>
                                                 </>
                                             )}
                                         </div>

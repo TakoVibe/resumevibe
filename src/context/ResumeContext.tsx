@@ -51,7 +51,7 @@ interface ResumeContextType {
     undo: () => void;
     redo: () => void;
     saveToBackend: (dataOverride?: ResumeSchema) => Promise<ResumeMetadata | null>;
-    saveVersionToBackend: (slugOverride?: string) => Promise<boolean>;
+    saveVersionToBackend: (slugOverride?: string, options?: { silent?: boolean }) => Promise<boolean>;
     canUndo: boolean;
     canRedo: boolean;
     isSaving: boolean;
@@ -230,10 +230,10 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
         return queuedSave;
     }, [history.present, isAuthenticated, setResumeMetadata]);
 
-    const saveVersionToBackend = useCallback(async (slugOverride?: string) => {
+    const saveVersionToBackend = useCallback(async (slugOverride?: string, options: { silent?: boolean } = {}) => {
         const targetSlug = slugOverride || resumeMetadataRef.current?.slug;
         if (!isAuthenticated || !targetSlug) {
-            toast.error("Please save the resume first before creating a version.");
+            if (!options.silent) toast.error("Please save the resume first before creating a version.");
             return false;
         }
 
@@ -241,15 +241,15 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
         try {
             const response = await api.post(`/api/resumes/${targetSlug}/create_version/`, {});
             if (response.ok) {
-                toast.success("Version saved successfully!");
+                if (!options.silent) toast.success("Version saved successfully!");
                 return true;
             } else {
-                toast.error("Failed to save version.");
+                if (!options.silent) toast.error("Failed to save version.");
                 return false;
             }
         } catch (error) {
             console.error("Error creating version:", error);
-            toast.error("Error creating version.");
+            if (!options.silent) toast.error("Error creating version.");
             return false;
         } finally {
             setIsSaving(false);
