@@ -1,0 +1,17 @@
+---
+export const prerender = true;
+import { ResumeBuilder } from "../components/ResumeBuilder";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+    title="Resume Editor | ResumeVibe by TakoVibe"
+    description="Edit, format, preview, and export your ResumeVibe resume."
+    includeResumeStyles
+    noindex
+>
+    <main id="builder" aria-label="Resume editor" class="h-[100dvh] overflow-hidden">
+        <h1 class="sr-only">Resume editor</h1>
+        <ResumeBuilder client:load />
+    </main>
+</Layout>

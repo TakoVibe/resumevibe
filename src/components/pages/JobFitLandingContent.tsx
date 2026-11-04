@@ -358,8 +358,8 @@ function JobFitLanding() {
 
                                 <div className="mt-7 grid max-w-xl gap-3 sm:flex">
                                     <a
-                                        href="/#builder"
-                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_resume', destination: '/#builder' })}
+                                        href="/editor"
+                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_resume', destination: '/editor' })}
                                         className="rv-button-primary min-h-12 flex-1 gap-2 rounded-2xl px-4 py-3 text-xs"
                                     >
                                         <FileText size={16} /> Build my resume free <ArrowRight size={15} />
@@ -522,8 +522,8 @@ function JobFitLanding() {
                                         {isProcessing ? <><Loader2 size={16} className="animate-spin" /> Reading and comparing…</> : <><Target size={16} /> Check my fit <ArrowRight size={16} /></>}
                                     </button>
                                     <a
-                                        href="/#builder"
-                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_without_job_description', destination: '/#builder' })}
+                                        href="/editor"
+                                        onClick={() => trackCampaignEvent('landing_cta_clicked', { page: 'job_fit', action: 'build_without_job_description', destination: '/editor' })}
                                         className="rv-button-secondary mt-3 w-full gap-2 px-3 py-3 text-center text-xs"
                                     >
                                         <FileText size={15} className="shrink-0" /> Open the editor without a job description <ArrowRight size={15} className="shrink-0" />

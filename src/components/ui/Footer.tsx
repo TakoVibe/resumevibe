@@ -17,7 +17,7 @@ export function Footer() {
                 <div className="flex flex-wrap items-center justify-center gap-7 md:gap-9">
                     <a href="/resume-examples" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Resume examples</a>
                     <a href="/job-fit" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Check job fit</a>
-                    <a href="/#builder" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Free editor</a>
+                    <a href="/editor" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Free editor</a>
                     <a href="/ats-resume-guide" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Expert Guide</a>
                     <a href="/why-resumevibe" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">Features</a>
                     <a href="https://takovibe.com" target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]">TakoVibe</a>

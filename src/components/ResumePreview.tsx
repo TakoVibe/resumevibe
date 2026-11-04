@@ -12,7 +12,7 @@ import { Certifications } from './resume/Certifications';
 import { CustomSection } from './resume/CustomSection';
 import { SectionControls } from './ui/SectionControls';
 import { EditableField } from './ui/EditableField';
-import { Plus, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Eye, AlertTriangle, Sparkles } from 'lucide-react';
 import { THEME_PRESETS } from '../styles/themes';
 import { useTheme } from '../context/ThemeContext';
 import { MOBILE_RESUME_PADDING, RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
@@ -26,9 +26,19 @@ interface Props {
     viewMode?: 'desktop' | 'mobile';
 
     auditResult?: any;
+    assistantHighlight?: {
+        section: string;
+        phase: 'preview' | 'applied';
+    } | null;
+    assistantThinking?: boolean;
+    assistantActivity?: {
+        label: string;
+        step: number;
+        total: number;
+    } | null;
 }
 
-export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHeader, viewMode = 'desktop', auditResult }: Props) {
+export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHeader, viewMode = 'desktop', auditResult, assistantHighlight, assistantThinking = false, assistantActivity }: Props) {
     const isMobile = viewMode === 'mobile'; // Define isMobile derived from viewMode
     const resumeRef = useRef<HTMLDivElement>(null);
     const [isSinglePageOverflowing, setIsSinglePageOverflowing] = useState(false);
@@ -331,6 +341,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                 onDuplicate={customSection ? () => duplicateSection(key) : undefined}
                 isEditable={isEditable}
                 forceMobileControls={isMobile}
+                assistantState={assistantHighlight?.section === key ? assistantHighlight.phase : undefined}
             >
                 {content}
             </SectionControls>
@@ -625,13 +636,30 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
     };
 
     return (
-        <div className="relative">
+        <div
+            className={`relative mx-auto ${isEditable && assistantThinking ? 'rv-assistant-aura-shell' : ''}`}
+            style={{ width: isMobile ? '100%' : 'min(100%, 210mm)' }}
+        >
             {/* Old inline toolbar removed - now using EditorToolbar */}
+
+            {isEditable && assistantThinking && (
+                <>
+                    <div className="rv-assistant-aura-glow print:hidden" aria-hidden="true" />
+                    <div className="rv-assistant-aura-border print:hidden" aria-hidden="true" />
+                    {assistantActivity && (
+                        <div className="rv-assistant-activity-pill print:hidden" role="status" aria-live="polite">
+                            <span className="rv-assistant-activity-icon"><Sparkles size={12} /></span>
+                            <span className="min-w-0 flex-1 truncate">{assistantActivity.label}</span>
+                            <span className="rv-assistant-activity-step">{assistantActivity.step}/{assistantActivity.total}</span>
+                        </div>
+                    )}
+                </>
+            )}
 
             <div
                 ref={resumeRef}
                 id={id}
-                className={`mx-auto print:shadow-none print:m-0 resume-root ${isSinglePage ? 'resume-mode-single-page' : 'resume-mode-standard'} ${isEditable ? 'rounded-b-lg rounded-t-none' : ''} ${viewMode === 'mobile' ? '!shadow-none !w-full !max-w-none' : ''} ${applyDarkMode ? 'dark-mode-editor' : ''}`}
+                className={`mx-auto print:shadow-none print:m-0 resume-root ${isSinglePage ? 'resume-mode-single-page' : 'resume-mode-standard'} ${isEditable ? 'rounded-b-lg rounded-t-none' : ''} ${viewMode === 'mobile' ? '!shadow-none !w-full !max-w-none' : ''} ${applyDarkMode ? 'dark-mode-editor' : ''} ${isEditable && assistantThinking ? 'rv-assistant-resume-thinking' : ''}`}
                 style={{
                     boxShadow: theme.styles['--resume-card-shadow'] || '0 25px 50px -12px rgb(0 0 0 / 0.25)',
                     backdropFilter: theme.styles['--resume-glass-blur'] ? `blur(${theme.styles['--resume-glass-blur']})` : 'none',
@@ -756,6 +784,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             onDuplicate={customSection ? () => duplicateSection(key) : undefined}
                             isEditable={isEditable}
                             forceMobileControls={isMobile}
+                            assistantState={assistantHighlight?.section === key ? assistantHighlight.phase : undefined}
                         >
                             {content}
                         </SectionControls>

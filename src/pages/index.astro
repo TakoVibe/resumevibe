@@ -12,7 +12,7 @@ import { Footer } from "../components/ui/Footer";
     includeResumeStyles
 >
     <HomeLanding />
-    <!-- Keep the editor on its original URL so saved documents and old links work. -->
+    <!-- Keep blank-resume entry on the homepage; saved documents use /editor. -->
     <section id="builder" aria-label="Free resume builder" class="relative h-[100dvh] overflow-hidden border-t border-[var(--border-color)]" style="contain: layout paint; isolation: isolate;">
         <ResumeBuilder client:visible />
     </section>
@@ -32,8 +32,13 @@ import { Footer } from "../components/ui/Footer";
 </style>
 
 <script>
-    // Shared document/tool links keep opening the editor directly.
+    // Preserve old saved-resume links while moving document editing into its
+    // own workspace route. Blank-resume and tool links can still use #builder.
     const params = new URLSearchParams(window.location.search);
+    if (params.has('edit')) {
+        window.location.replace(`/editor?${params.toString()}`);
+    }
+
     const isEditorLink = ['edit', 'new', 'ai', 'view', 'application'].some((key) => params.has(key));
     if (isEditorLink && !window.location.hash) {
         document.getElementById('builder')?.scrollIntoView();

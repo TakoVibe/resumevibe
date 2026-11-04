@@ -108,7 +108,7 @@ function ProfileDashboardInner() {
         <>
             <Navbar>
                 <a
-                    href="/#builder"
+                    href="/editor"
                     className="flex items-center gap-2 px-2 md:px-4 py-2 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors whitespace-nowrap"
                 >
                     <ChevronLeft size={16} />
@@ -323,7 +323,7 @@ function ProfileDashboardInner() {
                                 <div className="mb-5 flex items-center justify-between">
                                     <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My Resumes</h2>
                                     <a
-                                        href="/#builder"
+                                        href="/editor"
                                         className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[var(--bg-main)] transition-all hover:opacity-90"
                                     >
                                         <Plus size={12} /> Create New

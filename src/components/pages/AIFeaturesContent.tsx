@@ -50,7 +50,7 @@ const aiFeatures = [
         value: 'Catch weak positioning and missing proof while you can still fix it.',
         outputs: ['Recruiter-style diagnostic', 'Prioritized risks and strengths', 'Actionable improvement guidance'],
         price: '30 tokens',
-        href: '/?ai=audit#builder',
+        href: '/editor?ai=audit',
         action: 'Open AI audit',
     },
     {
@@ -61,7 +61,7 @@ const aiFeatures = [
         value: 'Improve one weak sentence without rewriting or replacing the rest of your resume.',
         outputs: ['Before-and-after comparison', 'ATS-aware phrasing', 'Accept or discard control'],
         price: '5 tokens / suggestion',
-        href: '/?ai=writing#builder',
+        href: '/editor?ai=writing',
         action: 'Improve resume text',
     },
     {
@@ -72,7 +72,7 @@ const aiFeatures = [
         value: 'Start from a grounded first draft instead of a blank page.',
         outputs: ['Resume-grounded draft', 'Role-specific positioning', 'Editable and ready to copy'],
         price: '30 tokens',
-        href: '/?ai=cover-letter#builder',
+        href: '/editor?ai=cover-letter',
         action: 'Create cover letter',
     },
     {
@@ -83,7 +83,7 @@ const aiFeatures = [
         value: 'Get from an old resume to a clean, editable workspace in minutes.',
         outputs: ['Structured resume sections', 'Editable imported content', 'Immediate template preview'],
         price: 'Available now',
-        href: '/?ai=import#builder',
+        href: '/editor?ai=import',
         action: 'Import a resume',
     },
 ];
@@ -100,7 +100,7 @@ export function AIFeaturesContent() {
         <AuthOnlyProviders>
             <Navbar>
                 <div className="flex min-w-0 flex-1 items-center justify-end">
-                    <a href="/#builder" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
+                    <a href="/editor" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]">
                         Back to resume <ArrowRight size={13} />
                     </a>
                 </div>
@@ -124,7 +124,7 @@ export function AIFeaturesContent() {
                                 </p>
                                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                                     <a href="/job-fit" className="rv-button-primary px-5 py-3"><FileSearch size={16} /> Check a job fit</a>
-                                    <a href="/?ai=audit" className="rv-button-secondary px-5 py-3"><BarChart3 size={16} /> Audit my resume</a>
+                                    <a href="/editor?ai=audit" className="rv-button-secondary px-5 py-3"><BarChart3 size={16} /> Audit my resume</a>
                                 </div>
                             </div>
                             <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-sm">

@@ -74,7 +74,7 @@ export function WhyResumeVibeContent() {
             <Navbar>
                 <div className="flex items-center gap-4">
                     <a
-                        href="/#builder"
+                        href="/editor"
                         className="flex items-center gap-2 px-2 md:px-4 py-2 text-[10px] md:text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors whitespace-nowrap"
                     >
                         <ChevronLeft size={16} />
@@ -336,7 +336,7 @@ export function WhyResumeVibeContent() {
                 {/* Call to Action Footer */}
                 <footer className="text-center pb-20 mb-20">
                     <a
-                        href="/#builder"
+                        href="/editor"
                         className="inline-flex items-center gap-4 px-10 py-5 bg-[var(--text-main)] text-[var(--bg-main)] rounded-lg text-sm font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all"
                     >
                         Build Your Edge <ArrowRight size={24} />

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
 import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2, Maximize2, Minimize2 } from 'lucide-react';
@@ -18,7 +18,7 @@ import { SuccessModal } from './brand/SuccessModal';
 import OptimizeResumeModal from './OptimizeResumeModal';
 import { ImportResumeModal } from './ImportResumeModal';
 import { SectionTypeDialog } from './ui/SectionTypeDialog';
-import { RecruiterPanel } from './RecruiterPanel';
+import { AssistantPanel, type AssistantActivity, type AssistantSuggestion } from './editor/AssistantPanel';
 import { ShareModal } from './ShareModal';
 import { CareerGuidanceModal } from './editor/CareerGuidanceModal';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -34,6 +34,7 @@ import { guestDraftEditorUrl } from '../lib/guestDraft';
 import { ProductTour, replayProductTour, type ProductTourStep } from './ui/ProductTour';
 import { trackCampaignEvent } from '../lib/campaign';
 import type { JobApplicationRecord } from '../types/application';
+import type { ResumeSchema } from '../types/resume';
 import { buildResumePdfPayload } from '../lib/pdfExport';
 import { ResumeErrorBoundary } from './ui/ResumeErrorBoundary';
 import { normalizeResumeData } from '../lib/normalizeResume';
@@ -43,6 +44,57 @@ import { prepareExampleForProfile } from '../lib/exampleImport';
 const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
 const JOB_MATCH_HELPER_DISMISSED_KEY = 'resume-job-match-helper-dismissed-v1';
 const GUEST_SAVE_NOTICE_DISMISSED_KEY = 'resumevibe:guest-save-notice-dismissed:v1';
+
+function previewAssistantChange(data: ResumeSchema, suggestion: AssistantSuggestion): ResumeSchema {
+    if (suggestion.section === 'summary') {
+        return data.summary === suggestion.after ? data : { ...data, summary: suggestion.after };
+    }
+
+    if (suggestion.section === 'experience') {
+        let changed = false;
+        const experience = data.experience.map((entry) => {
+            if (entry.id !== suggestion.targetId) return entry;
+            const current = entry.metrics[suggestion.targetIndex];
+            if (current === undefined) return entry;
+            const metrics = [...entry.metrics];
+            metrics[suggestion.targetIndex] = typeof current === 'string'
+                ? suggestion.after
+                : { ...current, text: suggestion.after };
+            changed = true;
+            return { ...entry, metrics };
+        });
+        return changed ? { ...data, experience } : data;
+    }
+
+    if (suggestion.section === 'projects') {
+        let changed = false;
+        const projects = data.projects.map((project) => {
+            if (project.id !== suggestion.targetId) return project;
+            changed = true;
+            return { ...project, description: suggestion.after };
+        });
+        return changed ? { ...data, projects } : data;
+    }
+
+    if (suggestion.section === 'skills') {
+        const items = suggestion.after.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
+        let changed = false;
+        const skills = data.skills.map((group) => {
+            if (group.id !== suggestion.targetId) return group;
+            changed = true;
+            return { ...group, items };
+        });
+        return changed ? { ...data, skills } : data;
+    }
+
+    const current = data.achievements[suggestion.targetIndex];
+    if (current === undefined) return data;
+    const achievements = [...data.achievements];
+    achievements[suggestion.targetIndex] = typeof current === 'string'
+        ? suggestion.after
+        : { ...current, text: suggestion.after };
+    return { ...data, achievements };
+}
 
 const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
     {
@@ -127,6 +179,9 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     const [showImportModal, setShowImportModal] = useState(false);
     const [showSectionTypeModal, setShowSectionTypeModal] = useState(false);
     const [showRecruiterAI, setShowRecruiterAI] = useState(false);
+    const [assistantHighlight, setAssistantHighlight] = useState<{ section: string; phase: 'preview' | 'applied' } | null>(null);
+    const [assistantPreviewSuggestion, setAssistantPreviewSuggestion] = useState<AssistantSuggestion | null>(null);
+    const [assistantActivity, setAssistantActivity] = useState<AssistantActivity | null>(null);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showGuidanceModal, setShowGuidanceModal] = useState(false);
     const [showAutoOptimize, setShowAutoOptimize] = useState(false);
@@ -156,6 +211,10 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     const pdfPreviewRequestRef = useRef(0);
     const pdfPreviewAbortRef = useRef<AbortController | null>(null);
     const workspaceRef = useRef<HTMLDivElement | null>(null);
+    const assistantPreviewData = useMemo(
+        () => assistantPreviewSuggestion ? previewAssistantChange(data, assistantPreviewSuggestion) : data,
+        [assistantPreviewSuggestion, data],
+    );
 
     const toggleFocusMode = useCallback(async () => {
         if (isFocusMode) {
@@ -213,12 +272,56 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
     const hideJobMatchHelper = useCallback(() => {
         setShowRecruiterAI(false);
+        setAssistantPreviewSuggestion(null);
+        setAssistantHighlight(null);
+        setAssistantActivity(null);
         try {
             localStorage.setItem(JOB_MATCH_HELPER_DISMISSED_KEY, 'true');
         } catch (error) {
             console.warn('Could not save the Job Match Helper visibility.', error);
         }
     }, []);
+
+    const focusAssistantSection = useCallback((section: AssistantSuggestion['section'], phase: 'preview' | 'applied') => {
+        setActiveTab('editor');
+        setAssistantHighlight(null);
+        window.setTimeout(() => {
+            setAssistantHighlight({ section, phase });
+            const targets = Array.from(document.querySelectorAll<HTMLElement>(`[data-resume-section="${section}"]`));
+            const visibleTarget = targets.find((target) => target.getClientRects().length > 0);
+            visibleTarget?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 30);
+    }, []);
+
+    const previewAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
+        setAssistantPreviewSuggestion(suggestion);
+        focusAssistantSection(suggestion.section, 'preview');
+    }, [focusAssistantSection]);
+
+    const rejectAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
+        setAssistantPreviewSuggestion((current) => current?.id === suggestion.id ? null : current);
+        setAssistantHighlight((current) => current?.section === suggestion.section ? null : current);
+    }, []);
+
+    const applyAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
+        const nextData = previewAssistantChange(data, suggestion);
+
+        if (nextData === data) return;
+        setAssistantPreviewSuggestion(null);
+        updateResume(nextData);
+        focusAssistantSection(suggestion.section, 'applied');
+        toast.success('AI change applied', { icon: '✨' });
+        window.setTimeout(() => {
+            setAssistantHighlight((current) => current?.phase === 'applied' ? null : current);
+        }, 1800);
+    }, [data, focusAssistantSection, updateResume]);
+
+    const undoAssistantSuggestion = useCallback(() => {
+        setAssistantPreviewSuggestion(null);
+        undo();
+        setAssistantHighlight(null);
+        toast.success('AI change undone');
+    }, [undo]);
 
     useEffect(() => {
         try {
@@ -327,7 +430,9 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
             }
 
             const isExplicitNewDocument = params.has('new');
-            if (isAuthenticated && !isExplicitNewDocument && window.location.pathname === '/') {
+            const workspacePath = window.location.pathname.replace(/\/+$/, '') || '/';
+            const shouldResumeLatestDocument = workspacePath === '/' || workspacePath === '/editor';
+            if (isAuthenticated && !isExplicitNewDocument && shouldResumeLatestDocument) {
                 try {
                     const latestResume = await fetchLatestResume();
                     if (latestResume?.slug && !cancelled) {
@@ -1070,13 +1175,13 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                 {!isFocusMode && !showRecruiterAI && (
                     <button
                         type="button"
-                        data-action="open-recruiter-panel"
+                        data-action="open-resume-copilot"
                         onClick={openJobMatchHelper}
                         className={`absolute right-3 z-[59] inline-flex items-center gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--bg-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-main)] shadow-lg transition hover:-translate-y-0.5 hover:border-[var(--accent)]/55 hover:bg-[var(--accent-subtle)] ${activeTab === 'editor' ? 'top-24' : 'top-4'}`}
-                        aria-label="Open Job Match Helper"
+                        aria-label="Open Resume Copilot"
                     >
-                        <Target size={14} className="text-[var(--accent)]" />
-                        Job Match
+                        <Sparkles size={14} className="text-[var(--accent)]" />
+                        AI Copilot
                     </button>
                 )}
 
@@ -1122,24 +1227,30 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                                 {/* Only apply transform scale on non-mobile, on mobile we use CSS Zoom or Width constraints */}
                                 <div className="hidden origin-top scale-[0.88] transition-transform duration-300 md:block lg:scale-[0.9] xl:scale-[0.98] 2xl:scale-[1.04]">
                                     <ResumePreview
-                                        data={data}
+                                        data={assistantPreviewData}
                                         id="resume-preview-content"
                                         isEditable={true}
                                         onUpdate={updateResume}
                                         onEditHeader={() => setShowInfoModal(true)}
                                         auditResult={guidanceAuditResult}
+                                        assistantHighlight={assistantHighlight}
+                                        assistantThinking={Boolean(assistantActivity)}
+                                        assistantActivity={assistantActivity}
                                     />
                                 </div>
                                 {/* Mobile Specific View - Force Width to 100% and Scale via Style */}
                                 <div className="block md:hidden w-full">
                                     <ResumePreview
-                                        data={data}
+                                        data={assistantPreviewData}
                                         id="resume-preview-content-mobile"
                                         isEditable={true}
                                         onUpdate={updateResume}
                                         onEditHeader={() => setShowInfoModal(true)}
                                         viewMode="mobile"
                                         auditResult={guidanceAuditResult}
+                                        assistantHighlight={assistantHighlight}
+                                        assistantThinking={Boolean(assistantActivity)}
+                                        assistantActivity={assistantActivity}
                                     />
                                 </div>
                             </div>
@@ -1272,35 +1383,30 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                     )}
                 </div>
 
-                {/* One responsive helper instance: docked on desktop, drawer on smaller screens. */}
+                {/* One responsive copilot instance: docked on desktop, drawer on smaller screens. */}
                 {!isFocusMode && showRecruiterAI && (
                     <div
-                        data-layout="recruiter-panel"
+                        data-layout="assistant-panel"
                         className="fixed inset-0 z-[70] xl:static xl:z-auto xl:h-full xl:w-[400px] xl:shrink-0 2xl:w-[420px]"
                     >
                         <button
                             type="button"
                             className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300 xl:hidden"
                             onClick={hideJobMatchHelper}
-                            aria-label="Hide Job Match Helper"
+                            aria-label="Hide Resume Copilot"
                         />
                         <div className="absolute inset-y-0 right-0 w-[90%] max-w-sm border-l border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl xl:relative xl:inset-auto xl:h-full xl:w-full xl:max-w-none">
-                            <RecruiterPanel
+                            <AssistantPanel
                                 data={data}
-                                onUpdateJD={(jd) => updateResume({ ...data, targetJD: jd })}
-                                onClose={hideJobMatchHelper}
-                                onOpenGuidance={(insights, auditResult) => {
-                                    setGuidanceInsights(insights);
-                                    setGuidanceAuditResult(auditResult);
-                                    setShowGuidanceModal(true);
-                                }}
-                                onOpenOptimizer={() => {
-                                    setShowAutoOptimize(true);
-                                    setShowOptimizeModal(true);
-                                }}
-                                onAuditResult={(result) => setGuidanceAuditResult(result)}
+                                conversationId={`${user?.email || 'guest'}:${resumeMetadata?.slug || (example ? `example-${example}` : 'draft')}`}
                                 isAuthenticated={isAuthenticated}
                                 onRequireAuth={() => window.dispatchEvent(new CustomEvent('show-login-modal'))}
+                                onClose={hideJobMatchHelper}
+                                onPreviewSuggestion={previewAssistantSuggestion}
+                                onApplySuggestion={applyAssistantSuggestion}
+                                onRejectSuggestion={rejectAssistantSuggestion}
+                                onUndo={undoAssistantSuggestion}
+                                onActivityChange={setAssistantActivity}
                             />
                         </div>
                     </div>

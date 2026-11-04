@@ -266,7 +266,7 @@ function ApplicationCopilotWorkspace() {
             <main className="relative overflow-hidden">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(circle_at_58%_0%,var(--accent-glow),transparent_43%)] opacity-80" />
                 <div className="relative mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-                    <a href="/#builder" className="mb-7 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] transition hover:text-[var(--text-main)]">
+                    <a href="/editor" className="mb-7 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] transition hover:text-[var(--text-main)]">
                         <ArrowLeft size={13} /> Back to resume
                     </a>
 
@@ -381,7 +381,7 @@ function InputStep({
                             <h2 className="mt-1 truncate font-serif-ed text-3xl">{resumeName}</h2>
                             <p className="mt-1 text-xs text-[var(--text-muted)]">{resumeTitle} · {resumeEvidenceCount} evidence points available</p>
                         </div>
-                        <a href="/#builder" className="ml-auto shrink-0 text-[10px] font-semibold text-[var(--accent)] hover:underline">Edit resume</a>
+                        <a href="/editor" className="ml-auto shrink-0 text-[10px] font-semibold text-[var(--accent)] hover:underline">Edit resume</a>
                     </div>
                     {isSampleResume && (
                         <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">

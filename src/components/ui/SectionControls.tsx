@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowUp, ArrowDown, EyeOff, Trash2, Copy, ChevronDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, EyeOff, Trash2, Copy, ChevronDown, Check } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
     children: React.ReactNode;
     isEditable: boolean;
     forceMobileControls?: boolean;
+    assistantState?: 'preview' | 'applied';
 }
 
 export function SectionControls({
@@ -29,7 +30,8 @@ export function SectionControls({
     onDuplicate,
     children,
     isEditable,
-    forceMobileControls = false
+    forceMobileControls = false,
+    assistantState,
 }: Props) {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -103,7 +105,16 @@ export function SectionControls({
     );
 
     return (
-        <div className="group/section relative mb-2 sm:mb-4">
+        <div
+            data-resume-section={id}
+            className={`group/section relative mb-2 rounded-lg transition-[outline,box-shadow,background-color] duration-300 sm:mb-4 ${assistantState ? `rv-assistant-target rv-assistant-target-${assistantState}` : ''}`}
+        >
+            {assistantState && (
+                <span className={`pointer-events-none absolute -right-2 -top-2 z-[75] flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-bold shadow-lg print:hidden ${assistantState === 'applied' ? 'rv-assistant-applied-badge' : 'rv-assistant-preview-badge'}`}>
+                    {assistantState === 'applied' ? <Check size={10} /> : 'AI'}
+                    {assistantState === 'applied' ? 'Updated' : 'Preview'}
+                </span>
+            )}
             {/* Desktop Controls (Hover) or Mobile Header (Always visible) */}
             <div className={`
                 ${forceMobileControls
