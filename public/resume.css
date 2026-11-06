@@ -1,6 +1,6 @@
-/* Resume CSS - Simple styles for PDF export */
-@import "/print.css";
-@import "/single-page-resume.css";
+/* Resume CSS - Simple styles for PDF export.
+   print.css and single-page-resume.css are linked alongside it (src/lib/resumeStyles.ts), not
+   @imported, so every file gets a versioned URL that changes on deploy. */
 
 /* Variables */
 :root {

@@ -1,6 +1,7 @@
 ---
 import SEO from "../components/SEO.astro";
 import Analytics from "../components/Analytics.astro";
+import { RESUME_STYLESHEETS } from "../lib/resumeStyles";
 import "../styles/global.css";
 import { AuthProvider } from "../context/AuthContext";
 import { TokenProvider } from "../context/TokenContext";
@@ -51,8 +52,7 @@ const { title, description, image, keywords, includeResumeStyles = false, noinde
                 rel="stylesheet"
             />
         </noscript>
-        {includeResumeStyles && <link rel="preload" href="/resume.css" as="style" />}
-        {includeResumeStyles && <link rel="stylesheet" href="/resume.css" />}
+        {includeResumeStyles && RESUME_STYLESHEETS.map((href) => <link rel="stylesheet" href={href} />)}
         <script is:inline>
             // Immediate theme application to prevent flash
             // This local session hint only selects the homepage view; it never

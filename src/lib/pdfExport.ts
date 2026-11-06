@@ -1,5 +1,6 @@
 import type { ResumeSchema } from '../types/resume';
 import { RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from './resumeLayout';
+import { versionedStylesheet } from './resumeStyles';
 
 export interface ResumePdfPayload {
     html: string;
@@ -18,9 +19,9 @@ function removeImports(css: string) {
 
 export async function buildResumePdfPayload(element: HTMLElement, data: ResumeSchema): Promise<ResumePdfPayload> {
     const [resumeCss, printCss, singlePageCss] = await Promise.all([
-        fetchStylesheet('/resume.css'),
-        fetchStylesheet('/print.css'),
-        fetchStylesheet('/single-page-resume.css')
+        fetchStylesheet(versionedStylesheet('/resume.css')),
+        fetchStylesheet(versionedStylesheet('/print.css')),
+        fetchStylesheet(versionedStylesheet('/single-page-resume.css'))
     ]);
 
     const isSinglePageMode = data.config?.documentMode === 'singlePage';
