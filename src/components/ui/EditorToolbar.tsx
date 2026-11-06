@@ -43,6 +43,7 @@ export function EditorToolbar({
     const fontOptions = [
         { value: 'Inter', label: 'Sans (Inter)' },
         { value: 'Merriweather', label: 'Serif' },
+        { value: 'Tinos', label: 'Times' },
         { value: 'Roboto Mono', label: 'Mono' },
         { value: 'Outfit', label: 'Premium (Outfit)' },
         { value: 'Plus Jakarta Sans', label: 'Jakarta' },
@@ -61,6 +62,7 @@ export function EditorToolbar({
     const documentModeOptions = [
         { value: 'standard', label: 'Conventional' },
         { value: 'singlePage', label: 'One-page columns' },
+        { value: 'campus', label: 'Campus placement' },
     ];
 
     const containerClasses = isMobile

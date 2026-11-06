@@ -1,4 +1,4 @@
-import type { ResumeSchema } from '../../types/resume';
+import type { ResumeLayout, ResumeSchema } from '../../types/resume';
 import { SectionTitle } from './SectionTitle';
 import { EditableField } from '../ui/EditableField';
 import { ItemControls } from '../ui/ItemControls';
@@ -17,9 +17,10 @@ interface Props {
     showSeparator?: boolean;
     onToggleSeparator?: (show: boolean) => void;
     viewMode?: 'desktop' | 'mobile';
+    layout?: ResumeLayout;
 }
 
-export function Certifications({ certifications, isEditable = false, onUpdate, title = "Certifications", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop' }: Props) {
+export function Certifications({ certifications, isEditable = false, onUpdate, title = "Certifications", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop', layout = 'standard' }: Props) {
     if (!certifications) return null;
     const isMobile = viewMode === 'mobile';
     const stripHtml = (value: string) => value
@@ -109,6 +110,34 @@ export function Certifications({ certifications, isEditable = false, onUpdate, t
                         isEditable={isEditable}
                         forceMobileControls={viewMode === 'mobile'}
                     >
+                        {layout === 'campus' ? (
+                            // Campus placement format: name and date on one line, issuer underneath, no bullet.
+                            <li className="resume-certification-item resume-campus-certification group/item-content resume-relative resume-break-avoid">
+                                <div className={`resume-flex ${isMobile ? 'resume-flex-col resume-gap-0.5' : 'resume-justify-between resume-items-baseline'}`}>
+                                    <EditableField
+                                        value={cert.name}
+                                        onSave={(val) => updateCert(cert.id, 'name', val)}
+                                        isEditable={isEditable}
+                                        className="resume-certification-name"
+                                        placeholder="Certificate name"
+                                    />
+                                    <DatePicker
+                                        value={cert.date || ''}
+                                        onSave={(val) => updateCert(cert.id, 'date', val)}
+                                        isEditable={isEditable}
+                                        className="resume-duration-gray resume-certification-date"
+                                        mode="single"
+                                    />
+                                </div>
+                                <EditableField
+                                    value={cert.issuer}
+                                    onSave={(val) => updateCert(cert.id, 'issuer', val)}
+                                    isEditable={isEditable}
+                                    className="resume-certification-issuer"
+                                    placeholder="Issuer"
+                                />
+                            </li>
+                        ) : (
                         <li className="resume-list-item resume-certification-item group/item-content resume-relative">
                             <span className="resume-bullet">•</span>
                             <div className="resume-flex-1 resume-break-avoid resume-certification-content">
@@ -179,6 +208,7 @@ export function Certifications({ certifications, isEditable = false, onUpdate, t
                                 </div>
                             </div>
                         </li>
+                        )}
                     </ItemControls>
                 ))}
             </ul>

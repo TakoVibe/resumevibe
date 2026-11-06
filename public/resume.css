@@ -612,3 +612,106 @@
 }
 
 /* Edit Buttons usually handled by Tailwind in editor or ignored in print */
+
+/* Campus placement layout (config.documentMode = 'campus'): the Indian campus-placement format.
+   Title-case headings over a thin rule, the name in title case, and every contact on one line. */
+.resume-layout-campus .resume-header {
+    margin-bottom: 0.9em;
+}
+
+.resume-layout-campus .resume-name {
+    font-size: 2em;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-bottom: 0.1em;
+}
+
+.resume-layout-campus .resume-title-box {
+    margin-bottom: 0.35em;
+}
+
+.resume-layout-campus .resume-campus-location {
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-header-contact-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 1.1em;
+    row-gap: 0.3em;
+}
+
+.resume-layout-campus .resume-contact-row,
+.resume-layout-campus .resume-social-row {
+    column-gap: 1.1em;
+    row-gap: 0.3em;
+    font-size: 0.95em;
+}
+
+.resume-layout-campus .resume-contact-icon {
+    margin-right: 0.35em;
+    flex-shrink: 0;
+}
+
+.resume-layout-campus .resume-section-title-box {
+    margin-bottom: 0.45em;
+}
+
+.resume-layout-campus .resume-section-title {
+    font-size: 1.3em;
+    text-transform: none;
+    margin-bottom: 0.15em;
+}
+
+.resume-layout-campus .resume-separator {
+    height: 1px;
+}
+
+.resume-layout-campus .resume-education-secondary-row .resume-company {
+    font-size: 1em;
+    font-weight: 400;
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-campus-certification {
+    list-style: none;
+    margin-bottom: 0.35em;
+}
+
+.resume-layout-campus .resume-certification-name {
+    font-weight: 700;
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-certification-issuer {
+    display: block;
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-tech-stack {
+    font-size: 0.95em;
+    color: var(--resume-dark);
+    margin-top: 0.15em;
+    padding-left: 1.6ch;
+}
+
+/* Campus placement formats print in plain black: bold dates, black links and body text, no bullets on skill rows. */
+.resume-layout-campus .resume-header .resume-link,
+.resume-layout-campus .resume-list-item,
+.resume-layout-campus .resume-skill-group {
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-duration-gray {
+    font-size: 0.95em;
+    font-weight: 700;
+    color: var(--resume-dark);
+}
+
+.resume-layout-campus .resume-skill-bullet {
+    display: none;
+}

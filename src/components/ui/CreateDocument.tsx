@@ -1,12 +1,13 @@
 import { useEffect, type MouseEvent } from 'react';
 import { X } from 'lucide-react';
 
-type Preview = 'standard' | 'columns' | 'cv';
+type Preview = 'standard' | 'columns' | 'cv' | 'campus';
 
 const FORMATS: Array<{ href: string; label: string; title: string; blurb: string; preview: Preview }> = [
     { href: '/editor?fresh=1', label: 'Most common', title: 'Resume / CV', blurb: 'One or two pages for job applications. What most employers in India, the UK, and Europe call a CV.', preview: 'standard' },
     { href: '/editor?fresh=1&start=one-page', label: 'One page', title: 'One-page resume', blurb: 'A two-column layout that keeps everything on a single page.', preview: 'columns' },
     { href: '/editor?fresh=1&start=academic-cv', label: 'Research & academia', title: 'Academic CV', blurb: 'Research, publications, teaching, and references, across as many pages as you need.', preview: 'cv' },
+    { href: '/editor?fresh=1&start=campus', label: 'Students & freshers', title: 'Campus placement', blurb: 'The format placement cells ask for: projects and certificates first, education with CGPA, plain serif print.', preview: 'campus' },
 ];
 
 const EXAMPLES = [
@@ -33,6 +34,21 @@ function FormatPreview({ kind }: { kind: Preview }) {
                     <span className={heading} />
                     <span className={`${line} w-full`} /><span className={`${line} w-5/6`} />
                 </div>
+            </div>
+        );
+    }
+    if (kind === 'campus') {
+        return (
+            <div className="flex h-full w-28 flex-col gap-1 rounded-md bg-[var(--bg-card)] p-3 shadow-sm">
+                <span className="mx-auto block h-1.5 w-12 rounded-full bg-[var(--text-main)]/60" />
+                <span className={`${line} mx-auto w-16`} />
+                {['w-9', 'w-11', 'w-8'].map((width) => (
+                    <div key={width} className="flex flex-col gap-1 pt-1">
+                        <span className={`block h-1 ${width} rounded-full bg-[var(--text-main)]/45`} />
+                        <span className="block h-px w-full bg-[var(--text-muted)]/40" />
+                        <div className="flex justify-between"><span className={`${line} w-12`} /><span className="block h-1 w-4 rounded-full bg-[var(--text-main)]/35" /></div>
+                    </div>
+                ))}
             </div>
         );
     }
@@ -78,7 +94,7 @@ export function CreateOptions({ onChoose }: { onChoose?: (href: string) => void 
         <div className="flex flex-col gap-10">
             <section aria-labelledby="create-formats" className="flex flex-col gap-4">
                 <h3 id="create-formats" className="rv-kicker">Start with a format</h3>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {FORMATS.map((format) => (
                         <a key={format.href} href={format.href} onClick={choose(format.href)} className="group flex flex-col gap-5 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 transition hover:-translate-y-1 hover:border-[var(--accent)]/50 hover:shadow-xl sm:p-6">
                             <div aria-hidden="true" className="hidden h-36 items-center justify-center rounded-2xl bg-[var(--bg-input)] p-4 sm:flex">
@@ -86,7 +102,7 @@ export function CreateOptions({ onChoose }: { onChoose?: (href: string) => void 
                             </div>
                             <div className="flex flex-1 flex-col gap-2">
                                 <span className="w-fit rounded-full bg-[var(--accent-subtle)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--accent)]">{format.label}</span>
-                                <span className="font-serif-ed text-3xl leading-tight text-[var(--text-main)]">{format.title}</span>
+                                <span className="font-serif-ed text-2xl leading-tight text-[var(--text-main)] lg:text-[1.7rem]">{format.title}</span>
                                 <span className="text-sm leading-6 text-[var(--text-muted)]">{format.blurb}</span>
                             </div>
                             <span className="text-xs font-bold text-[var(--accent)]">Start →</span>

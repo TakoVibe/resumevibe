@@ -25,7 +25,7 @@ export function SectionTitle({ title, isEditable, onChange, showSeparator = true
                         className="resume-section-title"
                     />
                     {isEditable && !(() => {
-                        const standardKeywords = ['experience', 'education', 'skills', 'projects', 'summary', 'certifications', 'achievements', 'open source', 'publications', 'languages', 'interests'];
+                        const standardKeywords = ['experience', 'education', 'skills', 'projects', 'summary', 'certifications', 'achievements', 'open source', 'publications', 'languages', 'interests', 'certificate', 'activities'];
                         const lowerTitle = title.toLowerCase();
                         return standardKeywords.some(keyword => lowerTitle.includes(keyword));
                     })() && (

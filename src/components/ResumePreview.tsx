@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ResumeSchema } from '../types/resume';
+import type { ResumeLayout, ResumeSchema } from '../types/resume';
 import { Header } from './resume/Header';
 import { Summary } from './resume/Summary';
 import { Skills } from './resume/Skills';
@@ -147,6 +147,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
     const baseFontSize = data.config?.baseFontSize || 10;
     const fontFamily = data.config?.fontFamily || 'Inter';
     const isSinglePage = data.config?.documentMode === 'singlePage';
+    const layout: ResumeLayout = data.config?.documentMode === 'campus' ? 'campus' : 'standard';
     const lineHeight = data.config?.lineHeight || (isSinglePage ? 1.18 : 1.35);
 
     // Mobile specific overrides
@@ -173,6 +174,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
         padding: !isMobile && isSinglePage ? '0' : padding,
         fontFamily: fontFamily === 'Inter' ? '"Inter", sans-serif' :
             fontFamily === 'Merriweather' ? '"Merriweather", serif' :
+            fontFamily === 'Tinos' ? '"Tinos", "Times New Roman", serif' :
                 fontFamily === 'Roboto Mono' ? '"Roboto Mono", monospace' :
                     fontFamily === 'Outfit' ? '"Outfit", sans-serif' :
                         fontFamily === 'Plus Jakarta Sans' ? '"Plus Jakarta Sans", sans-serif' :
@@ -244,6 +246,15 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
 
         [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
         onUpdate({ ...data, sectionOrder: newOrder });
+    };
+
+    const dropSection = (draggedKey: string, targetKey: string, place: 'before' | 'after') => {
+        if (!onUpdate || draggedKey === targetKey || !data.sectionOrder.includes(draggedKey)) return;
+        const order = data.sectionOrder.filter((key) => key !== draggedKey);
+        const targetIndex = order.indexOf(targetKey);
+        if (targetIndex === -1) return;
+        order.splice(place === 'before' ? targetIndex : targetIndex + 1, 0, draggedKey);
+        if (order.join('|') !== data.sectionOrder.join('|')) onUpdate({ ...data, sectionOrder: order });
     };
 
     const hideSection = (key: string) => {
@@ -337,6 +348,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                 onHide={() => hideSection(key)}
                 onDelete={handleDelete}
                 onDuplicate={customSection ? () => duplicateSection(key) : undefined}
+                onDropSection={(draggedKey, place) => dropSection(draggedKey, key, place)}
                 isEditable={isEditable}
                 forceMobileControls={isMobile}
                 assistantState={assistantHighlight?.section === key ? assistantHighlight.phase : undefined}
@@ -479,6 +491,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                     showSeparator={getSeparator('projects')}
                     onToggleSeparator={(val) => handleSeparatorUpdate('projects', val)}
                     viewMode={viewMode}
+                    layout={layout}
                 />;
             case 'openSource':
                 return <OpenSource
@@ -512,6 +525,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                     showSeparator={getSeparator('certifications')}
                     onToggleSeparator={(val) => handleSeparatorUpdate('certifications', val)}
                     viewMode={viewMode}
+                    layout={layout}
                 />;
             case 'education':
                 return <Education
@@ -523,6 +537,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                     showSeparator={getSeparator('education')}
                     onToggleSeparator={(val) => handleSeparatorUpdate('education', val)}
                     viewMode={viewMode}
+                    layout={layout}
                 />;
             default:
                 // Check if it's a custom section
@@ -575,6 +590,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             showSeparator={getSeparator(key)}
                             onToggleSeparator={(val) => handleSeparatorUpdate(key, val)}
                             viewMode={viewMode}
+                            layout={layout}
                         />;
                     }
                     if (customSection.type === 'education') {
@@ -587,6 +603,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             showSeparator={getSeparator(key)}
                             onToggleSeparator={(val) => handleSeparatorUpdate(key, val)}
                             viewMode={viewMode}
+                            layout={layout}
                         />;
                     }
                     if (customSection.type === 'certifications') {
@@ -599,6 +616,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             showSeparator={getSeparator(key)}
                             onToggleSeparator={(val) => handleSeparatorUpdate(key, val)}
                             viewMode={viewMode}
+                            layout={layout}
                         />;
                     }
                     if (customSection.type === 'openSource') {
@@ -652,7 +670,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
             <div
                 ref={resumeRef}
                 id={id}
-                className={`mx-auto print:shadow-none print:m-0 resume-root ${isSinglePage ? 'resume-mode-single-page' : 'resume-mode-standard'} ${isEditable ? 'rounded-b-lg rounded-t-none' : ''} ${viewMode === 'mobile' ? '!shadow-none !w-full !max-w-none' : ''} ${applyDarkMode ? 'dark-mode-editor' : ''} ${isEditable && assistantThinking ? 'rv-assistant-resume-thinking' : ''}`}
+                className={`mx-auto print:shadow-none print:m-0 resume-root ${isSinglePage ? 'resume-mode-single-page' : 'resume-mode-standard'} ${layout === 'campus' ? 'resume-layout-campus' : ''} ${isEditable ? 'rounded-b-lg rounded-t-none' : ''} ${viewMode === 'mobile' ? '!shadow-none !w-full !max-w-none' : ''} ${applyDarkMode ? 'dark-mode-editor' : ''} ${isEditable && assistantThinking ? 'rv-assistant-resume-thinking' : ''}`}
                 style={{
                     boxShadow: theme.styles['--resume-card-shadow'] || '0 25px 50px -12px rgb(0 0 0 / 0.25)',
                     backdropFilter: theme.styles['--resume-glass-blur'] ? `blur(${theme.styles['--resume-glass-blur']})` : 'none',
@@ -680,6 +698,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             isEditable={isEditable}
                             onUpdate={(newInfo) => handleUpdate('personalInfo', newInfo)}
                             onEdit={onEditHeader}
+                            layout={layout}
                         />
 
                         {data.sectionOrder.map((key, index) => {
@@ -775,6 +794,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                             onHide={() => hideSection(key)}
                             onDelete={handleDelete}
                             onDuplicate={customSection ? () => duplicateSection(key) : undefined}
+                            onDropSection={(draggedKey, place) => dropSection(draggedKey, key, place)}
                             isEditable={isEditable}
                             forceMobileControls={isMobile}
                             assistantState={assistantHighlight?.section === key ? assistantHighlight.phase : undefined}

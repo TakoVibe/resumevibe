@@ -1,6 +1,17 @@
-import type { PersonalInfo } from '../../types/resume';
+import { Github, Globe, Linkedin, Mail, Phone } from 'lucide-react';
+import type { PersonalInfo, ResumeLayout } from '../../types/resume';
 import { EditableField } from '../ui/EditableField';
 import { formatProfileUrl } from '../../lib/resumeSanitizer';
+
+/** Campus layout labels each contact with an icon, as campus-placement formats do; ATS parsers skip the icon and read the text. */
+function ContactIcon({ kind }: { kind: string }) {
+    const Icon = kind === 'phone' ? Phone
+        : kind === 'email' ? Mail
+            : /linkedin/i.test(kind) ? Linkedin
+                : /github/i.test(kind) ? Github
+                    : Globe;
+    return <Icon size={12} strokeWidth={2.2} className="resume-contact-icon" aria-hidden="true" />;
+}
 
 interface Props {
     personalInfo: PersonalInfo;
@@ -8,10 +19,13 @@ interface Props {
     onUpdate?: (info: PersonalInfo) => void;
     onEdit?: () => void;
     viewMode?: 'desktop' | 'mobile';
+    layout?: ResumeLayout;
 }
 
-export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, viewMode = 'desktop' }: Props) {
+export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, viewMode = 'desktop', layout = 'standard' }: Props) {
     const isMobile = viewMode === 'mobile';
+    // Campus: the location sits under the name instead of a job title, and every contact shares one line.
+    const isCampus = layout === 'campus';
 
     const updateField = (field: keyof PersonalInfo, value: string) => {
         onUpdate?.({ ...personalInfo, [field]: value });
@@ -19,7 +33,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
 
     // Filter available contact fields
     const contactFields = [
-        { id: 'location', value: personalInfo.location },
+        ...(isCampus ? [] : [{ id: 'location', value: personalInfo.location }]),
         { id: 'phone', value: personalInfo.phone },
         { id: 'email', value: personalInfo.email }
     ].filter(field => field.value?.trim());
@@ -48,8 +62,21 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                 />
             </div>
 
+            {isCampus && (personalInfo.location?.trim() || isEditable) && (
+                <div className="resume-title-box">
+                    <EditableField
+                        tagName="p"
+                        value={personalInfo.location || ''}
+                        onSave={(val) => updateField('location', val)}
+                        isEditable={isEditable}
+                        className="resume-campus-location"
+                        placeholder="City, State"
+                    />
+                </div>
+            )}
+
             {/* Title Bar - Stack tightly on mobile */}
-            {(personalInfo.title?.trim() || isEditable) && (
+            {!isCampus && (personalInfo.title?.trim() || isEditable) && (
                 <div className={`resume-title-box ${isMobile ? 'mt-0 mb-1' : ''}`}>
                     <EditableField
                         tagName="p"
@@ -63,7 +90,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
             )}
 
             {/* Horizontal Separator - Hide on mobile to save space as requested */}
-            {!isMobile && <div className="resume-header-separator"></div>}
+            {!isMobile && !isCampus && <div className="resume-header-separator"></div>}
 
             {/* Contact Info - Tiered Layout on Desktop, Vertical/Wrap on Mobile */}
             <div className={`resume-header-contact-section ${isMobile ? '!mt-1 flex flex-col gap-1 items-start !text-sm' : ''}`}>
@@ -72,7 +99,8 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                     <div className={`${isMobile ? 'flex flex-col gap-0.5 items-start' : 'resume-contact-row resume-text-dark'}`}>
                         {contactFields.map((field, idx) => (
                             <div key={field.id} className="resume-flex resume-items-center">
-                                {!isMobile && idx > 0 && <span className="resume-header-bullet">•</span>}
+                                {!isMobile && !isCampus && idx > 0 && <span className="resume-header-bullet">•</span>}
+                                {isCampus && <ContactIcon kind={field.id} />}
                                 {field.id === 'email' ? (
                                     <a href={`mailto:${field.value}`} className="resume-link hover:underline">
                                         <EditableField
@@ -100,7 +128,8 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                     <div className={`${isMobile ? 'flex flex-wrap gap-2 mt-2' : 'resume-social-row resume-text-dark'}`}>
                         {personalInfo.profiles.filter(p => p.url?.trim()).map((profile, idx) => (
                             <div key={idx} className="resume-flex resume-items-center">
-                                {!isMobile && idx > 0 && <span className="resume-header-bullet">•</span>}
+                                {!isMobile && !isCampus && idx > 0 && <span className="resume-header-bullet">•</span>}
+                                {isCampus && <ContactIcon kind={`${profile.network} ${profile.url}`} />}
                                 <a href={profile.url} target="_blank" rel="noreferrer" className="resume-link hover:underline">
                                     <span>{formatProfileUrl(profile.url)}</span>
                                 </a>

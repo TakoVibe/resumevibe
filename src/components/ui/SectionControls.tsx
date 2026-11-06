@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowUp, ArrowDown, EyeOff, Trash2, Copy, ChevronDown, Check } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowUp, ArrowDown, EyeOff, Trash2, Copy, ChevronDown, Check, GripVertical } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
@@ -12,11 +12,15 @@ interface Props {
     onHide: () => void;
     onDelete?: () => void;
     onDuplicate?: () => void;
+    /** Drag and drop: place the dragged section before or after this one. */
+    onDropSection?: (draggedId: string, place: 'before' | 'after') => void;
     children: React.ReactNode;
     isEditable: boolean;
     forceMobileControls?: boolean;
     assistantState?: 'preview' | 'applied';
 }
+
+const SECTION_DRAG_TYPE = 'application/x-resume-section';
 
 export function SectionControls({
     id,
@@ -28,6 +32,7 @@ export function SectionControls({
     onHide,
     onDelete,
     onDuplicate,
+    onDropSection,
     children,
     isEditable,
     forceMobileControls = false,
@@ -35,8 +40,35 @@ export function SectionControls({
 }: Props) {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dropPlace, setDropPlace] = useState<'before' | 'after' | null>(null);
+    const sectionRef = useRef<HTMLDivElement>(null);
 
     if (!isEditable) return <>{children}</>;
+
+    // Touch screens have no native drag and drop, so the arrows stay the way to reorder there.
+    const canDrag = Boolean(onDropSection) && !forceMobileControls;
+    // Only section drags carry this type; bullet drags (text/plain) pass through untouched.
+    const isSectionDrag = (event: React.DragEvent) => event.dataTransfer.types.includes(SECTION_DRAG_TYPE);
+    const dropHandlers = canDrag ? {
+        onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
+            if (!isSectionDrag(event)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const rect = event.currentTarget.getBoundingClientRect();
+            setDropPlace(event.clientY < rect.top + rect.height / 2 ? 'before' : 'after');
+        },
+        onDragLeave: (event: React.DragEvent<HTMLDivElement>) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPlace(null);
+        },
+        onDrop: (event: React.DragEvent<HTMLDivElement>) => {
+            if (!isSectionDrag(event)) return;
+            event.preventDefault();
+            const draggedId = event.dataTransfer.getData(SECTION_DRAG_TYPE);
+            if (draggedId && draggedId !== id && dropPlace) onDropSection?.(draggedId, dropPlace);
+            setDropPlace(null);
+        },
+    } : {};
 
     const ControlsContent = () => (
         <>
@@ -106,9 +138,35 @@ export function SectionControls({
 
     return (
         <div
+            ref={sectionRef}
             data-resume-section={id}
-            className={`group/section relative mb-2 rounded-lg transition-[outline,box-shadow,background-color] duration-300 sm:mb-4 ${assistantState ? `rv-assistant-target rv-assistant-target-${assistantState}` : ''}`}
+            {...dropHandlers}
+            className={`group/section relative mb-2 rounded-lg transition-[outline,box-shadow,background-color,opacity] duration-300 sm:mb-4 ${assistantState ? `rv-assistant-target rv-assistant-target-${assistantState}` : ''} ${isDragging ? 'opacity-40' : ''}`}
         >
+            {dropPlace && (
+                <span className={`pointer-events-none absolute left-0 right-0 z-[80] h-[3px] rounded-full bg-[var(--accent)] print:hidden ${dropPlace === 'before' ? '-top-1.5' : '-bottom-1.5'}`} />
+            )}
+            {canDrag && (
+                <div
+                    draggable
+                    data-section-drag-handle={id}
+                    onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData(SECTION_DRAG_TYPE, id);
+                        if (sectionRef.current) event.dataTransfer.setDragImage(sectionRef.current, 24, 16);
+                        setIsDragging(true);
+                    }}
+                    onDragEnd={() => {
+                        setIsDragging(false);
+                        setDropPlace(null);
+                    }}
+                    className="absolute -left-7 top-1 z-[75] flex h-7 w-6 cursor-grab items-center justify-center rounded-md text-[var(--text-muted)] opacity-0 transition-opacity hover:bg-[var(--bg-input)] hover:!opacity-100 active:cursor-grabbing group-hover/section:opacity-60 print:hidden"
+                    title={`Drag to move ${title || 'this section'}`}
+                    aria-label={`Drag to move ${title || 'this section'}`}
+                >
+                    <GripVertical size={16} />
+                </div>
+            )}
             {assistantState && (
                 <span className={`pointer-events-none absolute -right-2 -top-2 z-[75] flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-bold shadow-lg print:hidden ${assistantState === 'applied' ? 'rv-assistant-applied-badge' : 'rv-assistant-preview-badge'}`}>
                     {assistantState === 'applied' ? <Check size={10} /> : 'AI'}

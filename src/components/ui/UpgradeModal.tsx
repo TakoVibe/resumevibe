@@ -49,25 +49,25 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                         <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--border-color)]">
                             <div>
                                 <h3 className="text-sm font-semibold text-[var(--text-main)]">Starter pack</h3>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">200 VibeTokens</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">100 VibeTokens</p>
                             </div>
                             <div className="text-right">
-                                <span className="font-serif-ed text-3xl text-[var(--text-main)]">$1</span>
-                                <span className="text-[var(--text-muted)] text-xs ml-1">USD</span>
+                                <span className="font-serif-ed text-3xl text-[var(--text-main)]">₹99</span>
+                                <span className="text-[var(--text-muted)] text-xs ml-1">~$1.18</span>
                             </div>
                         </div>
                         <ul className="space-y-3">
                             <li className="flex items-center gap-2 text-sm text-[var(--text-main)]">
                                 <Check size={16} className="text-green-500 shrink-0" />
-                                <span>Access to Deep Audit (30 tokens)</span>
+                                <span>3 tailored applications (30 tokens each)</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm text-[var(--text-main)]">
                                 <Check size={16} className="text-green-500 shrink-0" />
-                                <span>Access to Pilot Mode (30 tokens)</span>
+                                <span>Resume Copilot edits (5 tokens each)</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm text-[var(--text-main)]">
                                 <Check size={16} className="text-green-500 shrink-0" />
-                                <span>No expiration date</span>
+                                <span>Never expires · bigger packs save up to 39%</span>
                             </li>
                         </ul>
                     </div>
@@ -79,7 +79,7 @@ export function UpgradeModal({ isOpen, onClose }: UpgradeModalProps) {
                     >
                         {loading ? 'Processing...' : (
                             <>
-                                Buy 200 Tokens <ExternalLink size={16} />
+                                See token packs <ExternalLink size={16} />
                             </>
                         )}
                     </button>

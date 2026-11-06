@@ -4,13 +4,14 @@ export const initialResume: ResumeSchema = {
     personalInfo: {
         fullName: "Johnathan Doe",
         email: "johnathan.doe@example.com",
-        phone: "+1 (555) 123-4567",
-        location: "San Francisco, CA",
+        phone: "+1 (555) 010-0100",
+        location: "City, State",
         title: "Staff Software Engineer",
+        // Placeholders only (Rule 1): these must never point at a real person's profile or site.
         profiles: [
-            { network: "LinkedIn", username: "johndoe", url: "https://linkedin.com/in/johndoe" },
-            { network: "GitHub", username: "johndoe", url: "https://github.com/johndoe" },
-            { network: "Portfolio", username: "johndoe.dev", url: "https://johndoe.dev" }
+            { network: "LinkedIn", username: "your-profile", url: "https://linkedin.com/in/your-profile" },
+            { network: "GitHub", username: "your-username", url: "https://github.com/your-username" },
+            { network: "Portfolio", username: "example.com", url: "https://example.com" }
         ]
     },
     summary: "Strategic and results-driven Staff Software Engineer with over 10 years of experience in architecting distributed systems and high-scale web applications. Expert in Cloud Infrastructure, Microservices Architecture, and AI/ML integration. Proven track record of leading cross-functional teams to deliver mission-critical software solutions that serve millions of active users worldwide. Passionate about engineering excellence, performance optimization, and mentoring the next generation of technical talent.",
@@ -92,7 +93,7 @@ export const initialResume: ResumeSchema = {
             id: "proj-1",
             name: "PulseEngine: real-time analytics for IoT",
             description: "",
-            link: "https://github.com/johndoe/pulse",
+            link: "https://github.com/your-username/pulse",
             date: "2023 - Present",
             techStack: ["Rust", "ClickHouse", "Wasm", "React"],
             metrics: [
@@ -104,7 +105,7 @@ export const initialResume: ResumeSchema = {
             id: "proj-2",
             name: "Sentinel: Self-Healing CI/CD Pipeline",
             description: "",
-            link: "https://sentinel.dev",
+            link: "https://example.com/sentinel",
             date: "2022",
             techStack: ["Python", "Docker", "Kubernetes Operator SDK", "Redis"],
             metrics: [
@@ -116,7 +117,7 @@ export const initialResume: ResumeSchema = {
             id: "proj-3",
             name: "CloudGraph: Infrastructure Visualization Tool",
             description: "",
-            link: "https://cloudgraph.tech",
+            link: "https://example.com/cloudgraph",
             date: "2021",
             techStack: ["TypeScript", "D3.js", "AWS SDK", "Serverless"],
             metrics: [

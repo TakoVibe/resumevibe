@@ -23,10 +23,11 @@ import {
     Zap,
 } from 'lucide-react';
 
+// Must match VALID_PACKS in the backend (user/views/tokens.py), which sets the real price.
 const PACKS = [
-    { tokens: 200,  price: '₹85',   usd: '~$1',   savings: null,      popular: false },
-    { tokens: 1000, price: '₹399',  usd: '~$4.75', savings: '~5% off', popular: true  },
-    { tokens: 2000, price: '₹699',  usd: '~$8.32', savings: '~17% off', popular: false },
+    { tokens: 100,  name: 'Starter',          price: '₹99',  usd: '~$1.18',  savings: null,       popular: false },
+    { tokens: 500,  name: 'Job hunt',         price: '₹349', usd: '~$4.15',  savings: 'Save 29%', popular: true  },
+    { tokens: 1500, name: 'Placement season', price: '₹899', usd: '~$10.70', savings: 'Save 39%', popular: false },
 ];
 
 const TOKEN_FORMATTER = new Intl.NumberFormat('en-US');
@@ -283,12 +284,12 @@ function BuyTokensInner() {
                         >
                             {pack.popular && (
                                 <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--bg-main)]">
-                                    <Sparkles size={11} /> More room
+                                    <Sparkles size={11} /> Most popular
                                 </div>
                             )}
                             <div className="flex items-start justify-between gap-3 border-b border-[var(--border-color)] pb-5">
                                 <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">Pack {PACKS.indexOf(pack) + 1}</p>
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{pack.name}</p>
                                     <h3 className="mt-2 font-sans-ed text-3xl font-semibold tracking-tight text-[var(--text-main)] tabular-nums">
                                         {TOKEN_FORMATTER.format(pack.tokens)} tokens
                                     </h3>
@@ -320,7 +321,7 @@ function BuyTokensInner() {
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <Check size={15} className="shrink-0 text-[var(--accent)]" />
-                                    <span>Up to {Math.floor(pack.tokens / 30)} tailored application packages</span>
+                                    <span>Up to {Math.floor(pack.tokens / 30)} tailored applications</span>
                                 </li>
                             </ul>
 

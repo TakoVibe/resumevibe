@@ -13,6 +13,9 @@ export interface PersonalInfo {
 
 export type BulletItem = string | { text: string; hasBullet?: boolean };
 
+/** How a single-column document is laid out: the default, or the Indian campus-placement format. */
+export type ResumeLayout = 'standard' | 'campus';
+
 export interface ResumeSchema {
     personalInfo: PersonalInfo;
     summary: string;
@@ -81,7 +84,7 @@ export interface ResumeSchema {
 
         margins?: 'compact' | 'narrow' | 'standard' | 'wide' | 'relaxed';
         lineHeight?: number; // 1.0 to 2.0
-        documentMode?: 'standard' | 'singlePage';
+        documentMode?: 'standard' | 'singlePage' | 'campus';
     };
 
     // Layout Configuration

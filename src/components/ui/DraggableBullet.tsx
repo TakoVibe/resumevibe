@@ -43,6 +43,8 @@ export function DraggableBullet({
     };
 
     const handleDragOver = (e: React.DragEvent) => {
+        // Section drags carry their own type; let them through to the section underneath.
+        if (!e.dataTransfer.types.includes('text/plain')) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
 

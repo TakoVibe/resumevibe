@@ -1,4 +1,4 @@
-import type { ResumeSchema } from '../../types/resume';
+import type { ResumeLayout, ResumeSchema } from '../../types/resume';
 import { SectionTitle } from './SectionTitle';
 import { EditableField } from '../ui/EditableField';
 import { ItemControls } from '../ui/ItemControls';
@@ -21,9 +21,10 @@ interface Props {
     showSeparator?: boolean;
     onToggleSeparator?: (show: boolean) => void;
     viewMode?: 'desktop' | 'mobile';
+    layout?: ResumeLayout;
 }
 
-export function Projects({ projects, isEditable = false, onUpdate, title = "Projects", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop' }: Props) {
+export function Projects({ projects, isEditable = false, onUpdate, title = "Projects", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop', layout = 'standard' }: Props) {
     const isMobile = viewMode === 'mobile';
 
     const updateProject = (id: string, field: keyof ProjectItem, value: any) => {
@@ -143,6 +144,58 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
         onUpdate(newProj);
     }, [projects, onUpdate]);
 
+    // The tech line sits above the bullets by default; campus placement formats put it last.
+    const renderTechStack = (project: ProjectItem) => (project.techStack && project.techStack.length > 0) && (
+                                <div className={`resume-tech-stack ${isMobile ? 'flex flex-wrap gap-2 mt-2 mb-2' : ''}`}>
+                                    {!isMobile && (
+                                        <span className="resume-font-bold resume-text-dark resume-mr-1">
+                                            <EditableField
+                                                value={project.techStackLabel !== undefined ? project.techStackLabel : 'Stack:'}
+                                                onSave={(val) => updateProject(project.id, 'techStackLabel', val)}
+                                                isEditable={isEditable}
+                                                tagName="span"
+                                                placeholder="Label"
+                                            />
+                                        </span>
+                                    )}
+
+                                    {isMobile ? (
+                                        <>
+                                            {project.techStack.map((tech, i) => (
+                                                <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--resume-bg-sub,rgba(128,128,128,0.1))] text-[var(--resume-gray)] border border-[var(--resume-border)]">
+                                                    {isEditable ? (
+                                                        <EditableField
+                                                            value={tech}
+                                                            onSave={(val) => {
+                                                                const newStack = [...(project.techStack || [])];
+                                                                newStack[i] = val;
+                                                                updateProject(project.id, 'techStack', newStack);
+                                                            }}
+                                                            isEditable={true}
+                                                            tagName="span"
+                                                        />
+                                                    ) : tech}
+                                                </span>
+                                            ))}
+                                            {isEditable && (
+                                                <button
+                                                    onClick={() => updateProject(project.id, 'techStack', [...(project.techStack || []), 'New'])}
+                                                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-100"
+                                                >
+                                                    +
+                                                </button>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <EditableField
+                                            value={project.techStack.join(', ')}
+                                            onSave={(val) => updateProject(project.id, 'techStack', val.split(',').map(s => s.trim()).filter(Boolean))}
+                                            isEditable={isEditable}
+                                        />
+                                    )}
+                                </div>
+                            );
+
     return (
         <section className="resume-section">
             <SectionTitle
@@ -238,56 +291,7 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
 
 
 
-                            {(project.techStack && project.techStack.length > 0) && (
-                                <div className={`resume-tech-stack ${isMobile ? 'flex flex-wrap gap-2 mt-2 mb-2' : ''}`}>
-                                    {!isMobile && (
-                                        <span className="resume-font-bold resume-text-dark resume-mr-1">
-                                            <EditableField
-                                                value={project.techStackLabel !== undefined ? project.techStackLabel : 'Stack:'}
-                                                onSave={(val) => updateProject(project.id, 'techStackLabel', val)}
-                                                isEditable={isEditable}
-                                                tagName="span"
-                                                placeholder="Label"
-                                            />
-                                        </span>
-                                    )}
-
-                                    {isMobile ? (
-                                        <>
-                                            {project.techStack.map((tech, i) => (
-                                                <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--resume-bg-sub,rgba(128,128,128,0.1))] text-[var(--resume-gray)] border border-[var(--resume-border)]">
-                                                    {isEditable ? (
-                                                        <EditableField
-                                                            value={tech}
-                                                            onSave={(val) => {
-                                                                const newStack = [...(project.techStack || [])];
-                                                                newStack[i] = val;
-                                                                updateProject(project.id, 'techStack', newStack);
-                                                            }}
-                                                            isEditable={true}
-                                                            tagName="span"
-                                                        />
-                                                    ) : tech}
-                                                </span>
-                                            ))}
-                                            {isEditable && (
-                                                <button
-                                                    onClick={() => updateProject(project.id, 'techStack', [...(project.techStack || []), 'New'])}
-                                                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-100"
-                                                >
-                                                    +
-                                                </button>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <EditableField
-                                            value={project.techStack.join(', ')}
-                                            onSave={(val) => updateProject(project.id, 'techStack', val.split(',').map(s => s.trim()).filter(Boolean))}
-                                            isEditable={isEditable}
-                                        />
-                                    )}
-                                </div>
-                            )}
+                            {layout !== 'campus' && renderTechStack(project)}
 
                             {(project.metrics || isEditable) && (
                                 <ul className="resume-details-list">
@@ -387,6 +391,7 @@ export function Projects({ projects, isEditable = false, onUpdate, title = "Proj
                                     )}
                                 </ul>
                             )}
+                            {layout === 'campus' && renderTechStack(project)}
                         </div>
                     </ItemControls>
                 ))}

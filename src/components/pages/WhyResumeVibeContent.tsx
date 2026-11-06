@@ -276,10 +276,10 @@ export function WhyResumeVibeContent() {
                         <div className="p-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
                             <h3 className="text-lg font-black mb-2 text-[var(--text-main)]">Free Tier</h3>
                             <div className="text-3xl font-black text-[var(--accent)] mb-6">
-                                200 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
+                                100 Tokens <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">on signup</span>
                             </div>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed mb-6">
-                                Every new user gets 200 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
+                                Every new user gets 100 free VibeTokens to explore the platform. Building, formatting, and exporting your resume remains 100% free always.
                             </p>
                             <ul className="space-y-3">
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
@@ -288,7 +288,7 @@ export function WhyResumeVibeContent() {
                                 </li>
                                 <li className="flex items-center gap-2 text-sm text-[var(--text-main)] font-medium">
                                     <Sparkles size={16} className="text-[var(--accent)] shrink-0" />
-                                    <span>200 tokens for AI Actions</span>
+                                    <span>100 tokens for AI Actions</span>
                                 </li>
                             </ul>
                         </div>
@@ -297,12 +297,12 @@ export function WhyResumeVibeContent() {
                             <div className="absolute top-4 right-4 bg-[var(--accent-subtle)] text-[var(--accent)] text-[9px] uppercase tracking-widest font-black px-2.5 py-1 rounded border border-[var(--accent)]/20">
                                 Pay as you go
                             </div>
-                            <h3 className="text-lg font-black mb-2 pr-28 text-[var(--text-main)]">Starter Pack</h3>
+                            <h3 className="text-lg font-black mb-2 pr-28 text-[var(--text-main)]">Token Packs</h3>
                             <div className="text-3xl font-black text-[var(--text-main)] mb-6">
-                                $1 <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">/ 200 Tokens</span>
+                                ₹99 <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">/ 100 Tokens</span>
                             </div>
                             <p className="text-sm text-[var(--text-muted)] font-medium leading-relaxed mb-6">
-                                Run out of tokens? No monthly subscriptions. Refill only when you need ResumeVibe to review, tailor, or improve your resume.
+                                Run out of tokens? No monthly subscriptions. Refill only when you need ResumeVibe to review, tailor, or improve your resume. Bigger packs save more: 500 tokens for ₹349, or 1,500 for ₹899.
                             </p>
                             <a href="/buy-tokens" className="block text-center w-full py-3 bg-[var(--text-main)] text-[var(--bg-main)] rounded-lg text-[10px] font-black uppercase tracking-[.25em] transition-all hover:opacity-90 active:scale-95 mb-4">
                                 Buy Tokens
@@ -313,19 +313,19 @@ export function WhyResumeVibeContent() {
                             <h3 className="text-lg font-black mb-5 text-[var(--text-main)]">Action Costs</h3>
                             <ul className="divide-y divide-[var(--border-color)]">
                                 <li className="flex justify-between gap-4 items-center py-3 first:pt-0">
-                                    <span className="font-bold text-[var(--text-main)]">Pilot Mode</span>
+                                    <span className="font-bold text-[var(--text-main)]">Tailored Application</span>
                                     <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">30 Tokens</span>
                                 </li>
                                 <li className="flex justify-between gap-4 items-center py-3">
-                                    <span className="font-bold text-[var(--text-main)]">Deep AI Audit</span>
-                                    <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">30 Tokens</span>
+                                    <span className="font-bold text-[var(--text-main)]">Resume Import</span>
+                                    <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">50 Tokens</span>
                                 </li>
                                 <li className="flex justify-between gap-4 items-center py-3">
                                     <span className="font-bold text-[var(--text-main)]">Cover Letter</span>
                                     <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">30 Tokens</span>
                                 </li>
                                 <li className="flex justify-between gap-4 items-center py-3 last:pb-0">
-                                    <span className="font-bold text-[var(--text-main)]">Inline Enhancements</span>
+                                    <span className="font-bold text-[var(--text-main)]">Copilot &amp; Inline Edits</span>
                                     <span className="text-xs font-black bg-[var(--accent-subtle)] text-[var(--accent)] px-2 py-1 rounded border border-[var(--accent)]/20">5 Tokens</span>
                                 </li>
                             </ul>

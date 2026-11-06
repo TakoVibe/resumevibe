@@ -1,4 +1,4 @@
-import type { ResumeSchema } from '../../types/resume';
+import type { ResumeLayout, ResumeSchema } from '../../types/resume';
 import { SectionTitle } from './SectionTitle';
 import { EditableField } from '../ui/EditableField';
 import { ItemControls } from '../ui/ItemControls';
@@ -20,10 +20,14 @@ interface Props {
     showSeparator?: boolean;
     onToggleSeparator?: (show: boolean) => void;
     viewMode?: 'desktop' | 'mobile';
+    layout?: ResumeLayout;
 }
 
-export function Education({ education, isEditable = false, onUpdate, title = "Education", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop' }: Props) {
+export function Education({ education, isEditable = false, onUpdate, title = "Education", onTitleChange, showSeparator, onToggleSeparator, viewMode = 'desktop', layout = 'standard' }: Props) {
     const isMobile = viewMode === 'mobile';
+    // Campus placement formats lead with the institution, then the degree and score.
+    const primaryField: 'degree' | 'institution' = layout === 'campus' ? 'institution' : 'degree';
+    const secondaryField: 'degree' | 'institution' = layout === 'campus' ? 'degree' : 'institution';
     const updateEdu = (id: string, field: keyof Props['education'][0], value: any) => {
         if (!onUpdate) return;
         const newEdu = education.map(e =>
@@ -186,8 +190,8 @@ export function Education({ education, isEditable = false, onUpdate, title = "Ed
                             <div className={`resume-flex resume-education-primary-row resume-items-baseline resume-mb-1 ${isMobile ? 'resume-flex-col resume-items-start resume-gap-0.5' : 'resume-justify-between'}`}>
                                 <EditableField
                                     tagName="h3"
-                                    value={edu.degree}
-                                    onSave={(val) => updateEdu(edu.id, 'degree', val)}
+                                    value={edu[primaryField]}
+                                    onSave={(val) => updateEdu(edu.id, primaryField, val)}
                                     isEditable={isEditable}
                                     className="resume-role"
                                 />
@@ -204,8 +208,8 @@ export function Education({ education, isEditable = false, onUpdate, title = "Ed
                                 <div className="resume-flex-1">
                                     <EditableField
                                         tagName="h4"
-                                        value={edu.institution}
-                                        onSave={(val) => updateEdu(edu.id, 'institution', val)}
+                                        value={edu[secondaryField]}
+                                        onSave={(val) => updateEdu(edu.id, secondaryField, val)}
                                         isEditable={isEditable}
                                         className="resume-company"
                                     />

@@ -6,7 +6,8 @@ const STANDARD_SECTION_ORDER = [
     'education', 'achievements', 'certifications'
 ];
 const MARGINS = new Set(['compact', 'narrow', 'standard', 'wide', 'relaxed']);
-const FONTS = new Set(['Inter', 'Merriweather', 'Roboto Mono', 'Outfit', 'Plus Jakarta Sans']);
+const FONTS = new Set(['Inter', 'Merriweather', 'Tinos', 'Roboto Mono', 'Outfit', 'Plus Jakarta Sans']);
+const DOCUMENT_MODES = new Set(['standard', 'singlePage', 'campus']);
 const CUSTOM_TYPES = new Set(['custom', 'summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'openSource']);
 
 function record(value: unknown): Record<string, any> {
@@ -278,7 +279,7 @@ export function normalizeResumeData(value: unknown): ResumeSchema {
             fontFamily: FONTS.has(config.fontFamily) ? config.fontFamily : 'Inter',
             margins: MARGINS.has(config.margins) ? config.margins : 'standard',
             lineHeight: finiteNumber(config.lineHeight, 1.35, 1, 2),
-            documentMode: config.documentMode === 'singlePage' ? 'singlePage' : 'standard',
+            documentMode: DOCUMENT_MODES.has(config.documentMode) ? config.documentMode : 'standard',
             ...(typeof config.accentColor === 'string' ? { accentColor: config.accentColor } : {})
         },
         sectionOrder,
