@@ -23,6 +23,12 @@ function decodeUrlEntities(value: string) {
         .replace(/&amp;/gi, '&');
 }
 
+// Printed resumes show links without the scheme, but the rest must stay intact
+// (e.g. LinkedIn's /in/) so the text still works when someone types it.
+export function formatProfileUrl(url: string): string {
+    return url.trim().replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+}
+
 export function sanitizeLinkUrl(value: unknown): string {
     const raw = typeof value === 'string' ? value.trim() : '';
     if (!raw) return '';

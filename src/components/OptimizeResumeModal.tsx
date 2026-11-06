@@ -124,8 +124,7 @@ export default function OptimizeResumeModal({ isOpen, onClose, autoOptimize, aud
             const response = await fetch('/api/optimize-resume', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                },
+                    'Content-Type': 'application/json', Authorization: `Token ${localStorage.getItem('auth_token') || ''}` },
                 body: JSON.stringify({
                     resume,
                     jobDescription: jobDescription.trim(),

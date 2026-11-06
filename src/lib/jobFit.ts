@@ -67,7 +67,7 @@ function resumeEvidenceChunks(resume: ResumeSchema) {
     return chunks.filter((chunk) => chunk.text.length > 2);
 }
 
-function splitJobDescription(jobDescription: string) {
+export function splitJobDescription(jobDescription: string) {
     const normalized = jobDescription
         .replace(/\r/g, '')
         .replace(/[•●▪◦]/g, '\n- ')

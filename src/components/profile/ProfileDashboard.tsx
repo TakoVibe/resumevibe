@@ -7,6 +7,7 @@ import { TokenRequests } from './TokenRequests';
 import { CampaignInsights } from './CampaignInsights';
 import { RecommendedJobs } from './RecommendedJobs';
 import { LoginModal } from '../ui/LoginModal';
+import { CreateDocumentModal } from '../ui/CreateDocument';
 import { Footer } from '../ui/Footer';
 import {
     ArrowRight,
@@ -49,6 +50,8 @@ function ProfileDashboardInner() {
     const { tokenBalance, totalConsumed, history, isLoading: tokenLoading, fetchTokenData } = useToken();
     const [paymentMessage, setPaymentMessage] = React.useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
     const [activeTab, setActiveTab] = React.useState<Tab>('resumes');
+    const [showCreateModal, setShowCreateModal] = React.useState(false);
+    const closeCreateModal = React.useCallback(() => setShowCreateModal(false), []);
 
     React.useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -321,15 +324,17 @@ function ProfileDashboardInner() {
 
                             <div className="min-w-0">
                                 <div className="mb-5 flex items-center justify-between">
-                                    <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My Resumes</h2>
-                                    <a
-                                        href="/editor"
+                                    <h2 className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">My resumes &amp; CVs</h2>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreateModal(true)}
                                         className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--text-main)] px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[var(--bg-main)] transition-all hover:opacity-90"
                                     >
                                         <Plus size={12} /> Create New
-                                    </a>
+                                    </button>
                                 </div>
-                                <UserResumes />
+                                <UserResumes onCreate={() => setShowCreateModal(true)} />
+                                <CreateDocumentModal isOpen={showCreateModal} onClose={closeCreateModal} />
                             </div>
                         </section>
                     )}

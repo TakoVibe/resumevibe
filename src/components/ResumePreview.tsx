@@ -16,6 +16,7 @@ import { Plus, Eye, AlertTriangle, Sparkles } from 'lucide-react';
 import { THEME_PRESETS } from '../styles/themes';
 import { useTheme } from '../context/ThemeContext';
 import { MOBILE_RESUME_PADDING, RESUME_MARGIN_PADDING, SINGLE_PAGE_PADDING, resolveResumeMarginKey } from '../lib/resumeLayout';
+import { formatProfileUrl } from '../lib/resumeSanitizer';
 
 interface Props {
     data: ResumeSchema;
@@ -165,7 +166,9 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
     const applyDarkMode = isEditable && isDarkMode;
 
     const resumeStyle = {
-        width: isMobile ? '100%' : 'min(100%, 210mm)',
+        // A definite A4 width: inside the shrink-to-fit canvas wrapper a percentage width collapsed short documents to a narrow strip.
+        width: isMobile ? '100%' : '210mm',
+        maxWidth: '100%',
         minHeight: isMobile ? 'auto' : '297mm',
         padding: !isMobile && isSinglePage ? '0' : padding,
         fontFamily: fontFamily === 'Inter' ? '"Inter", sans-serif' :
@@ -221,21 +224,16 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
             return;
         }
 
-        const checkOverflow = () => {
-            const node = resumeRef.current;
-            if (!node) return;
-            const a4HeightInCssPixels = (297 / 25.4) * 96;
-            setIsSinglePageOverflowing(node.scrollHeight > a4HeightInCssPixels + 4);
-        };
-
-        const frame = window.requestAnimationFrame(checkOverflow);
-        window.addEventListener('resize', checkOverflow);
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-            window.removeEventListener('resize', checkOverflow);
-        };
-    }, [data, isMobile, isSinglePage]);
+        // In the editor, measure the read-only copy the PDF is exported from: this copy also holds
+        // edit-only controls (add buttons, empty-field placeholders) that never reach the PDF.
+        const target = (isEditable && document.getElementById('resume-preview-for-generation')) || resumeRef.current;
+        const a4HeightInCssPixels = (297 / 25.4) * 96;
+        const observer = new ResizeObserver(() => {
+            setIsSinglePageOverflowing(target.scrollHeight > a4HeightInCssPixels + 4);
+        });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [data, isEditable, isMobile, isSinglePage]);
 
     const moveSection = (index: number, direction: 'up' | 'down') => {
         if (!onUpdate) return;
@@ -355,17 +353,12 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
             { label: 'Email', value: data.personalInfo.email }
         ].filter(field => field.value?.trim());
 
-        const formatUrl = (url: string) => url
-            .replace(/^https?:\/\/(www\.)?/, '')
-            .replace(/\/$/, '')
-            .replace(/^linkedin\.com\/in\//, 'linkedin.com/')
-            .replace(/^github\.com\//, 'github.com/');
-
         return (
             <section className="resume-single-contact">
                 <div className="resume-single-sidebar-title">Contact</div>
                 {isEditable && (
                     <button
+                        data-tour="personal-details"
                         onClick={onEditHeader}
                         className="resume-single-edit-contact print:hidden"
                         title="Edit Contact Info"
@@ -388,7 +381,7 @@ export function ResumePreview({ data, id, isEditable = false, onUpdate, onEditHe
                         <div key={`${profile.network}-${index}`} className="resume-single-contact-item">
                             <span className="resume-single-contact-label">{profile.network || 'Profile'}</span>
                             <a href={profile.url} target="_blank" rel="noreferrer" className="resume-link">
-                                {formatUrl(profile.url)}
+                                {formatProfileUrl(profile.url)}
                             </a>
                         </div>
                     ))}

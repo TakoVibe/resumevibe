@@ -1,5 +1,6 @@
 import type { PersonalInfo } from '../../types/resume';
 import { EditableField } from '../ui/EditableField';
+import { formatProfileUrl } from '../../lib/resumeSanitizer';
 
 interface Props {
     personalInfo: PersonalInfo;
@@ -16,14 +17,6 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
         onUpdate?.({ ...personalInfo, [field]: value });
     };
 
-    const formatUrl = (url: string) => {
-        return url
-            .replace(/^https?:\/\/(www\.)?/, '')
-            .replace(/\/$/, '')
-            .replace(/^linkedin\.com\/in\//, 'linkedin.com/')
-            .replace(/^github\.com\//, 'github.com/');
-    };
-
     // Filter available contact fields
     const contactFields = [
         { id: 'location', value: personalInfo.location },
@@ -35,6 +28,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
         <header className={`resume-header group/header ${isMobile ? 'flex flex-col gap-1 items-start text-left mb-6' : ''}`}>
             {isEditable && (
                 <button
+                    data-tour="personal-details"
                     onClick={onEdit}
                     className="absolute right-0 top-0 p-2 text-gray-400 hover:text-blue-600 z-10"
                     title="Edit Contact Info"
@@ -108,7 +102,7 @@ export function Header({ personalInfo, isEditable = false, onUpdate, onEdit, vie
                             <div key={idx} className="resume-flex resume-items-center">
                                 {!isMobile && idx > 0 && <span className="resume-header-bullet">•</span>}
                                 <a href={profile.url} target="_blank" rel="noreferrer" className="resume-link hover:underline">
-                                    <span>{formatUrl(profile.url)}</span>
+                                    <span>{formatProfileUrl(profile.url)}</span>
                                 </a>
                             </div>
                         ))}

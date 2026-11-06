@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Upload, FileText, Sparkles, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useToken } from '../context/TokenContext';
+import { MAX_IMPORT_PDF_BYTES, MAX_IMPORT_TEXT_CHARS, RESUME_IMPORT_TOKEN_COST } from '../lib/resumeImport';
 
 interface Props {
     isOpen: boolean;
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
-    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
+    const { canAffordTokens, fetchTokenData, setShowUpgradeModal } = useToken();
     const [activeTab, setActiveTab] = useState<'text' | 'pdf'>('text');
     const [textInput, setTextInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -26,84 +27,70 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
 
     if (!isOpen) return null;
 
-    const handleTextImport = async () => {
-        if (!textInput.trim()) {
-            setError('Please paste your resume text');
-            return;
-        }
-
-        if (!canAffordTokens(50)) return;
-
+    // The server checks the balance and charges only after a successful parse.
+    const importDocument = async (endpoint: string, init: RequestInit) => {
         setIsProcessing(true);
         setError('');
-
         try {
-            const response = await fetch('/api/parse-resume', {
+            const response = await fetch(endpoint, {
+                ...init,
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: textInput })
+                headers: { ...init.headers, Authorization: `Token ${localStorage.getItem('auth_token') || ''}` },
             });
-
-            if (!response.ok) throw new Error('Failed to parse resume');
-
-            const parsedData = await response.json();
-            const charged = await chargeTokensAfterSuccess('import_resume_text', 50);
-            if (!charged) return;
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 402) setShowUpgradeModal(true);
+                throw new Error(data?.error || 'We could not import this document. Please try again.');
+            }
+            void fetchTokenData();
             setIsSuccess(true);
             setTimeout(() => {
-                onImport(parsedData);
+                onImport(data);
                 handleClose();
             }, 1500);
         } catch (err) {
-            setError('Failed to parse resume. Please check your internet or try again.');
+            setError(err instanceof Error ? err.message : 'We could not import this document. Please try again.');
             console.error(err);
         } finally {
             setIsProcessing(false);
         }
     };
 
+    const handleTextImport = async () => {
+        if (!textInput.trim()) {
+            setError('Please paste your resume or CV text');
+            return;
+        }
+        if (textInput.length > MAX_IMPORT_TEXT_CHARS) {
+            setError('This text is too long to import. Remove anything that is not part of your resume or CV.');
+            return;
+        }
+        if (!canAffordTokens(RESUME_IMPORT_TOKEN_COST)) return;
+
+        await importDocument('/api/parse-resume', {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: textInput }),
+        });
+    };
+
     const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        e.target.value = '';
         if (file.type !== 'application/pdf') {
             setError('Please upload a PDF file');
             return;
         }
-
-        if (!canAffordTokens(50)) {
-            e.target.value = '';
+        if (file.size > MAX_IMPORT_PDF_BYTES) {
+            setError('Choose a PDF smaller than 5 MB.');
             return;
         }
+        if (!canAffordTokens(RESUME_IMPORT_TOKEN_COST)) return;
 
-        setIsProcessing(true);
-        setError('');
-
-        try {
-            const formData = new FormData();
-            formData.append('pdf', file);
-
-            const response = await fetch('/api/parse-resume-pdf', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Failed to parse PDF');
-
-            const parsedData = await response.json();
-            const charged = await chargeTokensAfterSuccess('import_resume_pdf', 50);
-            if (!charged) return;
-            setIsSuccess(true);
-            setTimeout(() => {
-                onImport(parsedData);
-                handleClose();
-            }, 1500);
-        } catch (err) {
-            setError('Failed to parse PDF. The file might be protected or malformed.');
-            console.error(err);
-        } finally {
-            setIsProcessing(false);
-        }
+        const formData = new FormData();
+        formData.append('pdf', file);
+        await importDocument('/api/parse-resume-pdf', { body: formData });
     };
 
     return createPortal(
@@ -124,8 +111,8 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
                             <CheckCircle2 size={30} className="text-green-600" />
                         </div>
                         <p className="rv-kicker">Import complete</p>
-                        <h3 className="mt-2 font-serif-ed text-3xl text-[var(--text-main)]">Your resume is ready</h3>
-                        <p className="mt-2 text-sm text-[var(--text-muted)]">Review the structured sections before exporting.</p>
+                        <h3 className="mt-2 font-serif-ed text-3xl text-[var(--text-main)]">Your document is ready</h3>
+                        <p className="mt-2 text-sm text-[var(--text-muted)]">It opens as a new document. Check each section before exporting.</p>
                     </div>
                 )}
 
@@ -137,8 +124,8 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
                             </span>
                             <div>
                                 <p className="rv-kicker">Start from existing work</p>
-                                <h2 id="import-resume-title" className="mt-1 font-serif-ed text-3xl leading-none text-[var(--text-main)]">Import resume</h2>
-                                <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">Paste text or upload a PDF. We’ll convert it into editable sections.</p>
+                                <h2 id="import-resume-title" className="mt-1 font-serif-ed text-3xl leading-none text-[var(--text-main)]">Import resume or CV</h2>
+                                <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">Paste text or upload a PDF. Every section comes across, including research, publications, and teaching. It opens as a new document.</p>
                             </div>
                         </div>
                     <button
@@ -177,7 +164,7 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
                                 <textarea
                                     value={textInput}
                                     onChange={(e) => setTextInput(e.target.value)}
-                                    placeholder="Paste your resume text here…"
+                                    placeholder="Paste your resume or CV text here…"
                                     className="rv-field h-72 w-full resize-none px-4 py-4 text-sm leading-relaxed placeholder:text-[var(--text-muted)]/55"
                                 />
                                 <div className="absolute bottom-3 right-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2 py-1 text-[10px] font-medium text-[var(--text-muted)]">
@@ -209,7 +196,7 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
                                             <div className="absolute top-4 right-4 pointer-events-none z-20 flex flex-col items-end">
                                                 <div className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-1.5 text-[10px] font-semibold text-[var(--text-main)] shadow-sm">
                                                     <Sparkles size={12} className="text-[var(--accent)]" />
-                                                    50 Tokens
+                                                    {RESUME_IMPORT_TOKEN_COST} Tokens
                                                 </div>
                                             </div>
                                             <div className="rv-icon-tile mb-4 h-12 w-12">
@@ -271,8 +258,8 @@ export function ImportResumeModal({ isOpen, onClose, onImport }: Props) {
                                 ) : (
                                     <>
                                         <Sparkles size={18} />
-                                        Import resume
-                                        <span className="ml-1 rounded bg-white/15 px-1.5 py-0.5 text-[10px]">50 tokens</span>
+                                        Import
+                                        <span className="ml-1 rounded bg-white/15 px-1.5 py-0.5 text-[10px]">{RESUME_IMPORT_TOKEN_COST} tokens</span>
                                     </>
                                 )}
                             </button>

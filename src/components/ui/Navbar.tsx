@@ -23,14 +23,15 @@ export function Navbar({ children, focusMode = false }: NavbarProps) {
 
             {/* ── Zone 1: Brand (fixed left) ── */}
             {!focusMode && <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                <div className="hidden md:block"><BrandSwitcher /></div>
-                <div className="md:hidden"><BrandSwitcher compact /></div>
+                {/* Pages with their own toolbar (the editor) need the room, so they keep the compact brand longer. */}
+                <div className={children ? 'hidden lg:block' : 'hidden md:block'}><BrandSwitcher /></div>
+                <div className={children ? 'lg:hidden' : 'md:hidden'}><BrandSwitcher compact /></div>
                 <div className="hidden h-5 w-px bg-[var(--border-color)] 2xl:block"></div>
                 <div className="hidden 2xl:block"><WhyMenu /></div>
                 <a
                     href="/ai-tools"
                     data-tour="ai-tools"
-                    className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)] px-2 text-[10px] font-semibold text-[var(--accent)] transition hover:-translate-y-px hover:border-[var(--accent)]/45 sm:px-3"
+                    className={`${children ? 'hidden sm:inline-flex' : 'inline-flex'} h-8 items-center gap-1.5 rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-subtle)] px-2 text-[10px] font-semibold text-[var(--accent)] transition hover:-translate-y-px hover:border-[var(--accent)]/45 sm:px-3`}
                     aria-label="Explore all AI tools"
                 >
                     <Sparkles size={13} />

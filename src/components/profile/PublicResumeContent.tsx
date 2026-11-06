@@ -6,6 +6,7 @@ import { Logo } from '../ui/Logo';
 import { Download, Loader2, ArrowRight } from 'lucide-react';
 import { normalizeResumeData } from '../../lib/normalizeResume';
 import { buildResumePdfPayload } from '../../lib/pdfExport';
+import { documentTypeOf } from '../../lib/documentType';
 
 interface PublicResumeContentProps {
     resumeData: any;
@@ -47,7 +48,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const filename = `Resume_${safeResumeData.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
+            const filename = `${documentTypeOf(safeResumeData) === 'cv' ? 'CV' : 'Resume'}_${safeResumeData.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
@@ -109,7 +110,7 @@ export function PublicResumeContent({ resumeData }: PublicResumeContentProps) {
 
                         <div className="flex flex-col items-center gap-5 mb-10">
                             <a
-                                href="/"
+                                href="/create"
                                 className="group relative inline-flex items-center gap-3 px-8 py-3.5 bg-[var(--text-main)] text-[var(--bg-main)] rounded-lg font-bold uppercase tracking-[0.2em] text-[10px] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm border border-[var(--border-color)]"
                             >
                                 <span>Create My Resume</span>

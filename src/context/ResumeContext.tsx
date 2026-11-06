@@ -6,6 +6,8 @@ import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { normalizeResumeData } from '../lib/normalizeResume';
 import { addOpenSourceToOlderExampleDraft } from '../lib/exampleDraft';
+import { isUntouchedStarter } from '../data/startTemplates';
+import { documentTypeOf } from '../lib/documentType';
 
 const STORAGE_KEY = 'resume-data-v3';
 const METADATA_STORAGE_KEY = 'resume-metadata-v1';
@@ -40,6 +42,7 @@ export interface ResumeMetadata {
     slug: string;
     name: string;
     isPublic: boolean;
+    revision: number;
 }
 
 interface ResumeContextType {
@@ -47,6 +50,7 @@ interface ResumeContextType {
     updateResume: (newData: ResumeSchema) => void;
     updateSection: <K extends keyof ResumeSchema>(section: K, value: ResumeSchema[K]) => void;
     resetToDefault: () => void;
+    startNewDocument: (template?: ResumeSchema) => void;
     isLoaded: boolean;
     undo: () => void;
     redo: () => void;
@@ -183,8 +187,7 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
 
     const saveToBackend = useCallback((dataOverride?: ResumeSchema): Promise<ResumeMetadata | null> => {
         const dataToSave = dataOverride || history.present;
-        const isTestingResume = dataToSave.personalInfo?.email === 'johnathan.doe@example.com';
-        if (!isAuthenticated || !dataToSave || isTestingResume) return Promise.resolve(null);
+        if (!isAuthenticated || !dataToSave) return Promise.resolve(null);
 
         const saveOperation = async (): Promise<ResumeMetadata | null> => {
             const currentDataString = JSON.stringify(dataToSave);
@@ -199,9 +202,15 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
                 const endpoint = currentMetadata?.id ? `/api/resumes/${currentMetadata.slug}/` : '/api/resumes/';
                 const response = await api[method](endpoint, {
                     resume_data: dataToSave,
+                    document_type: documentTypeOf(dataToSave),
+                    ...(currentMetadata?.revision ? { revision: currentMetadata.revision } : {}),
                     is_public: currentMetadata?.isPublic || false
                 });
 
+                if (response.status === 409) {
+                    toast.error('This document changed in another tab. Reload it before saving again.');
+                    return null;
+                }
                 if (!response.ok) return null;
 
                 const responseData = await response.json();
@@ -211,7 +220,8 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
                     id: responseData.id ?? currentMetadata?.id,
                     slug: savedSlug,
                     name: responseData.resume_name || currentMetadata?.name || dataToSave.personalInfo.fullName || 'Untitled resume',
-                    isPublic: typeof responseData.is_public === 'boolean' ? responseData.is_public : Boolean(currentMetadata?.isPublic)
+                    isPublic: typeof responseData.is_public === 'boolean' ? responseData.is_public : Boolean(currentMetadata?.isPublic),
+                    revision: responseData.revision || currentMetadata?.revision || 1,
                 };
                 lastSavedDataRef.current = currentDataString;
                 setResumeMetadata(savedMetadata);
@@ -258,9 +268,7 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
 
     // Auto-save effect with dirty check
     useEffect(() => {
-        const isTestingResume = history.present.personalInfo?.email === 'johnathan.doe@example.com';
-
-        if (autoSave && isAuthenticated && isLoaded && !isTestingResume) {
+        if (autoSave && isAuthenticated && isLoaded && !isUntouchedStarter(history.present)) {
             // Compare current with last saved
             const currentDataString = JSON.stringify(history.present);
             if (currentDataString === lastSavedDataRef.current) {
@@ -287,12 +295,22 @@ export function ResumeProvider({ children, initialData = initialResume, storageN
         updateResume(initialData);
     };
 
+    // Drops the stored draft and its server link so the next autosave creates a new document.
+    const startNewDocument = useCallback((template?: ResumeSchema) => {
+        const fresh = normalizeResumeData(template ?? initialData);
+        lastSavedDataRef.current = null;
+        setResumeMetadata(null);
+        setHistory({ past: [], present: fresh, future: [] });
+        writeStorage(storageKey, fresh);
+    }, [initialData, setResumeMetadata, storageKey]);
+
     return (
         <ResumeContext.Provider value={{
             data: history.present,
             updateResume,
             updateSection,
             resetToDefault,
+            startNewDocument,
             isLoaded,
             undo,
             redo,

@@ -31,7 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToken } from '../../context/TokenContext';
 import { useResume } from '../../hooks/useResume';
 import { initialResume } from '../../data/sample-resume';
-import { analyzeJobFit } from '../../lib/jobFit';
+import { analyzeJobFit, splitJobDescription } from '../../lib/jobFit';
 import { captureCampaignAttribution, trackCampaignEvent } from '../../lib/campaign';
 import type { EvidenceReport, FitDecision, FitStatus } from '../../types/application';
 import type { ResumeSchema } from '../../types/resume';
@@ -97,7 +97,7 @@ export function JobFitLandingContent() {
 function JobFitLanding() {
     const { data: savedResume, updateResume, isLoaded, resumeMetadata, setResumeMetadata } = useResume();
     const { user, isAuthenticated } = useAuth();
-    const { canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, showUpgradeModal, setShowUpgradeModal } = useToken();
+    const { canAffordTokens, fetchTokenData, freeJobFitAvailable, showUpgradeModal, setShowUpgradeModal } = useToken();
     const [resumeSource, setResumeSource] = useState<ResumeSource>('pdf');
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [resumeText, setResumeText] = useState('');
@@ -149,23 +149,27 @@ function JobFitLanding() {
         trackCampaignEvent('resume_input_started', { source: 'pdf', file_size_bucket: file.size < 1_000_000 ? 'under_1mb' : '1mb_to_5mb' });
     };
 
+    // The server checks the balance (or the free first check) and charges after a successful parse.
     const parseResume = async () => {
+        const authorization = { Authorization: `Token ${localStorage.getItem('auth_token') || ''}` };
         let response: Response;
         if (resumeSource === 'pdf' && resumeFile) {
             const formData = new FormData();
             formData.append('pdf', resumeFile);
-            response = await fetch('/api/parse-resume-pdf', { method: 'POST', body: formData });
+            response = await fetch('/api/parse-resume-pdf?purpose=job_fit', { method: 'POST', headers: authorization, body: formData });
         } else {
-            response = await fetch('/api/parse-resume', {
+            response = await fetch('/api/parse-resume?purpose=job_fit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { ...authorization, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: resumeText.trim() }),
             });
         }
 
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
-            throw new Error(data?.details || data?.error || 'We could not read this resume.');
+            if (response.status === 401) window.dispatchEvent(new CustomEvent('show-login-modal'));
+            if (response.status === 402) setShowUpgradeModal(true);
+            throw new Error(data?.error || 'We could not read this resume.');
         }
         return response.json() as Promise<ResumeSchema>;
     };
@@ -173,6 +177,11 @@ function JobFitLanding() {
     const runAnalysis = useCallback(async () => {
         if (jobDescription.trim().length < 350) {
             setError('A role title alone is not enough for a job-fit comparison. Paste the full responsibilities and qualifications, or open the resume editor below—no job description is needed there.');
+            return;
+        }
+        // Checked before parsing, because a successful import is charged on the server.
+        if (splitJobDescription(jobDescription.trim()).length < 3) {
+            setError('We could not identify enough concrete requirements. Include the qualifications section and try again.');
             return;
         }
         if (!selectedResumeReady) {
@@ -207,10 +216,7 @@ function JobFitLanding() {
                 throw new Error('We could not identify enough concrete requirements. Include the qualifications section and try again.');
             }
 
-            if (resumeSource === 'pdf' || resumeSource === 'text') {
-                const charged = await chargeTokensAfterSuccess(`job_fit_import_${resumeSource}`, 50);
-                if (!charged) return;
-            }
+            if (resumeSource === 'pdf' || resumeSource === 'text') void fetchTokenData();
 
             if (resumeSource === 'pdf' || resumeSource === 'text') {
                 updateResume({ ...resumeToAnalyze, targetJD: jobDescription.trim() });
@@ -235,7 +241,7 @@ function JobFitLanding() {
         } finally {
             setIsProcessing(false);
         }
-    }, [canAffordTokens, chargeTokensAfterSuccess, freeJobFitAvailable, jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, setResumeMetadata, updateResume]);
+    }, [canAffordTokens, fetchTokenData, freeJobFitAvailable, jobDescription, resumeFile, resumeSource, resumeText, savedResume, selectedResumeReady, setResumeMetadata, updateResume]);
 
     const handleAnalyze = () => {
         if (jobDescription.trim().length < 350 || !selectedResumeReady) {

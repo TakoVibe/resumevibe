@@ -2,20 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { AlertTriangle, Check, Eye, FileCheck2, Loader2, MessageCircle, RotateCcw, Send, Sparkles, UserCheck, X, Zap } from 'lucide-react';
 import type { ResumeSchema } from '../../types/resume';
 import { useToken } from '../../context/TokenContext';
-import { RESUME_ASSISTANT_TOKEN_COST, type ResumeAssistantMemoryFact } from '../../lib/resumeAssistant';
+import { RESUME_ASSISTANT_TOKEN_COST, type AssistantSuggestion, type ResumeAssistantMemoryFact } from '../../lib/resumeAssistant';
+import { documentTypeOf } from '../../lib/documentType';
 
 export const RESUME_ASSISTANT_PRICE = RESUME_ASSISTANT_TOKEN_COST;
 
-export interface AssistantSuggestion {
-    id: string;
-    section: 'summary' | 'experience' | 'projects' | 'skills' | 'achievements';
-    targetId: string;
-    targetIndex: number;
-    before: string;
-    after: string;
-    reason: string;
-    evidence: 'resume' | 'user' | 'confirmation';
-}
+export type { AssistantSuggestion };
 
 export interface AssistantActivity {
     id: 'reading' | 'reviewing' | 'preparing' | 'checking';
@@ -88,6 +80,14 @@ const STARTERS = [
     'Help me tailor this resume to the job description.',
 ];
 
+const CV_STARTERS = [
+    'Review my CV and suggest the most important improvement.',
+    'Tighten my research experience bullets.',
+    'Check that my publications are formatted consistently.',
+    'Make my summary clearer and more specific.',
+];
+
+
 const WELCOME_MESSAGE: AssistantMessage = {
     id: 'welcome',
     role: 'assistant',
@@ -116,6 +116,7 @@ export function AssistantPanel({
     onUndo,
     onActivityChange,
 }: Props) {
+    const starters = documentTypeOf(data) === 'cv' ? CV_STARTERS : STARTERS;
     const [messages, setMessages] = useState<AssistantMessage[]>([WELCOME_MESSAGE]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -694,6 +695,15 @@ export function AssistantPanel({
                             const isSelected = selectedSuggestionIds.has(suggestion.id);
                             const evidence = EVIDENCE_PRESENTATION[suggestion.evidence || 'resume'];
                             const EvidenceIcon = evidence.Icon;
+                            if (isRejected) {
+                                return (
+                                    <div key={suggestion.id} className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-[var(--border-color)] px-3 py-2 text-[10px] text-[var(--text-muted)]">
+                                        <X size={12} className="shrink-0" />
+                                        <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{suggestion.label || suggestion.section} suggestion dismissed</span> · {suggestion.after || suggestion.before}</span>
+                                        <button type="button" onClick={() => reopenSuggestion(suggestion)} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 font-semibold hover:bg-[var(--bg-input)] hover:text-[var(--text-main)]"><RotateCcw size={12} /> Reopen</button>
+                                    </div>
+                                );
+                            }
                             return (
                                 <article key={suggestion.id} className={`mt-3 overflow-hidden rounded-2xl border bg-[var(--accent-subtle)] transition ${isSelected && !isApplied && !isRejected ? 'border-[var(--accent)]/55 ring-1 ring-[var(--accent)]/15' : 'border-[var(--accent)]/25'}`}>
                                     <div className="border-b border-[var(--accent)]/15 px-4 py-3">
@@ -704,11 +714,11 @@ export function AssistantPanel({
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         onChange={() => toggleSuggestionSelection(suggestion.id)}
-                                                        aria-label={`Select ${suggestion.section} suggestion`}
+                                                        aria-label={`Select ${suggestion.label || suggestion.section} suggestion`}
                                                         className="h-3.5 w-3.5 rounded border-[var(--border-color)] accent-[var(--accent)]"
                                                     />
                                                 )}
-                                                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">{suggestion.section} suggestion</p>
+                                                <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">{suggestion.label || suggestion.section} suggestion</p>
                                             </div>
                                             <span title={evidence.title} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-semibold ${evidence.className}`}>
                                                 <EvidenceIcon size={10} /> {evidence.label}
@@ -721,17 +731,19 @@ export function AssistantPanel({
                                             <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Current</p>
                                             <p className="mt-1 line-clamp-3 text-[11px] leading-4 text-[var(--text-muted)] line-through decoration-red-400/60">{suggestion.before || 'Empty'}</p>
                                         </div>
-                                        <div>
-                                            <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--accent)]">Suggested</p>
-                                            <p className="mt-1 text-[11px] font-medium leading-4">{suggestion.after}</p>
-                                        </div>
+                                        {suggestion.action === 'remove' ? (
+                                            <div>
+                                                <p className="text-[9px] font-semibold uppercase tracking-wider text-red-500">Remove</p>
+                                                <p className="mt-1 text-[11px] font-medium leading-4">{suggestion.after}</p>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--accent)]">Suggested</p>
+                                                <p className="mt-1 text-[11px] font-medium leading-4">{suggestion.after}</p>
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-2 pt-1">
-                                            {isRejected ? (
-                                                <>
-                                                    <span className="flex flex-1 items-center gap-1.5 text-[10px] font-semibold text-[var(--text-muted)]"><X size={13} /> Dismissed</span>
-                                                    <button type="button" onClick={() => reopenSuggestion(suggestion)} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-[var(--text-main)]"><RotateCcw size={12} /> Reopen</button>
-                                                </>
-                                            ) : isApplied ? (
+                                            {isApplied ? (
                                                 <>
                                                     <span className="flex flex-1 items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"><Check size={13} /> Applied</span>
                                                     {lastAppliedBatchIds.length === 1 && lastAppliedBatchIds[0] === suggestion.id && <button type="button" onClick={undoLastBatch} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-[var(--text-main)]"><RotateCcw size={12} /> Undo</button>}
@@ -740,7 +752,7 @@ export function AssistantPanel({
                                                 <>
                                                     <button type="button" onClick={() => rejectSuggestion(suggestion)} className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-[var(--text-muted)] hover:bg-[var(--bg-card)] hover:text-red-500"><X size={12} /> Reject</button>
                                                     <button type="button" onClick={() => onPreviewSuggestion(suggestion)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[10px] font-semibold hover:border-[var(--accent)]/40"><Eye size={12} /> Preview</button>
-                                                    <button type="button" disabled={isApplying} onClick={() => void applySuggestion(suggestion)} className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[10px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">{isApplying ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Apply change</button>
+                                                    <button type="button" disabled={isApplying} onClick={() => void applySuggestion(suggestion)} className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-[10px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">{isApplying ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {suggestion.action === 'remove' ? 'Remove' : 'Apply change'}</button>
                                                 </>
                                             )}
                                         </div>
@@ -754,7 +766,7 @@ export function AssistantPanel({
                 {messages.length === 1 && (
                     <div className="space-y-2">
                         <p className="px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Try asking</p>
-                        {STARTERS.map((starter) => (
+                        {starters.map((starter) => (
                             <button key={starter} type="button" onClick={() => void sendMessage(starter)} className="flex w-full items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5 text-left text-[11px] leading-4 transition hover:border-[var(--accent)]/35 hover:bg-[var(--accent-subtle)]">
                                 <MessageCircle size={13} className="shrink-0 text-[var(--accent)]" /> {starter}
                             </button>

@@ -185,6 +185,46 @@ function cacheApplication(id: string, result: TailoredApplicationResult) {
     }
 }
 
+const PACKAGE_STREAM_TYPE = 'application/x-ndjson';
+
+type PackagePart = 'rewrite' | 'review' | 'coverLetter';
+type PackagePartEvent = { type: string; [key: string]: any };
+
+/**
+ * Reads the package response. A streamed response sends finished parts as JSON lines,
+ * then a `done` line with the status and body a plain JSON response would have had.
+ * A stream that breaks off before `done` reads as a 503 with no body, so the charge
+ * status is treated as unknown and the balance is refreshed.
+ */
+async function readApplicationResponse(response: Response, onPart: (event: PackagePartEvent) => void): Promise<{ status: number; data: any }> {
+    if (!response.body || !response.headers.get('content-type')?.includes(PACKAGE_STREAM_TYPE)) {
+        return { status: response.status, data: await response.json().catch(() => null) };
+    }
+    try {
+        const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffered = '';
+        for (;;) {
+            const { value, done } = await reader.read();
+            if (done) return { status: 503, data: null };
+            buffered += value;
+            const lines = buffered.split('\n');
+            buffered = lines.pop() ?? '';
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const event: PackagePartEvent = JSON.parse(line);
+                if (event.type === 'done') {
+                    const { type: _type, status, ...data } = event;
+                    return { status: Number(status) || 503, data };
+                }
+                onPart(event);
+            }
+        }
+    } catch (streamError) {
+        console.warn('The application stream broke off:', streamError);
+        return { status: 503, data: null };
+    }
+}
+
 export function TailoredApplicationReview({ isOpen, onClose, initialJobDescription, onApplied }: TailoredApplicationReviewProps) {
     const { data: resume, updateResume, saveToBackend } = useResume();
     const { isAuthenticated } = useAuth();
@@ -205,6 +245,10 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     const [error, setError] = useState<string | null>(null);
     const [failureChargeStatus, setFailureChargeStatus] = useState<ChargeStatus | null>(null);
     const [isApplying, setIsApplying] = useState(false);
+    const [pendingParts, setPendingParts] = useState<PackagePart[]>([]);
+    const rewritePending = pendingParts.includes('rewrite');
+    const reviewPending = pendingParts.includes('review');
+    const coverLetterPending = pendingParts.includes('coverLetter');
 
     useEffect(() => {
         if (isOpen && view === 'input') setJobDescription(initialJobDescription || resume.targetJD || '');
@@ -268,7 +312,28 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
 
         setError(null);
         setFailureChargeStatus(null);
+        setSaveCoverLetter(true);
         setView('generating');
+
+        // The first finished part opens the review on its own tab; later parts never move the reader.
+        let opened = false;
+        const showPart = (event: PackagePartEvent) => {
+            if (event.type === 'coverLetter' && typeof event.coverLetter === 'string') {
+                setCoverLetter(event.coverLetter);
+            } else if (event.type === 'review') {
+                setRequirements(Array.isArray(event.requirements) ? event.requirements : []);
+                setMissingSkills(Array.isArray(event.missingSkills) ? event.missingSkills : []);
+                setSectionFeedback(Array.isArray(event.sectionFeedback) ? event.sectionFeedback : []);
+            } else {
+                return;
+            }
+            setPendingParts((parts) => parts.filter((part) => part !== event.type));
+            if (!opened) {
+                opened = true;
+                setActiveTab(event.type === 'coverLetter' ? 'coverLetter' : 'feedback');
+                setView('review');
+            }
+        };
 
         try {
             const trimmedJobDescription = jobDescription.trim();
@@ -276,12 +341,14 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             const cachedResult = getCachedApplication(cacheId);
             const applicationData = cachedResult || await (async () => {
                 const authToken = localStorage.getItem('auth_token');
+                setPendingParts(['rewrite', 'review', 'coverLetter']);
                 let response: Response;
                 try {
                     response = await fetch('/api/tailor-application', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            Accept: PACKAGE_STREAM_TYPE,
                             ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
                             'X-Request-ID': `application-package-${cacheId}`,
                         },
@@ -294,15 +361,15 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                     );
                 }
 
-                const data = await response.json().catch(() => null);
-                if (response.status === 401) {
+                const { status, data } = await readApplicationResponse(response, showPart);
+                if (status === 401) {
                     window.dispatchEvent(new CustomEvent('show-login-modal'));
                 }
-                if (response.status === 402) {
+                if (status === 402) {
                     setShowUpgradeModal(true);
                 }
-                if (!response.ok || !data?.success || !Array.isArray(data?.proposals) || !data?.coverLetter) {
-                    const fallbackMessage = response.status >= 500
+                if (status !== 200 || !data?.success || !Array.isArray(data?.proposals) || !data?.coverLetter) {
+                    const fallbackMessage = status >= 500
                         ? 'The application service could not finish this review. Please try again.'
                         : 'Could not create the application package.';
                     throw new ApplicationGenerationError(
@@ -333,8 +400,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             setMissingSkills(applicationData.missingSkills || []);
             setSectionFeedback(applicationData.sectionFeedback || []);
             setCoverLetter(applicationData.coverLetter);
-            setSaveCoverLetter(true);
-            setActiveTab('resume');
+            if (!opened) setActiveTab('resume');
             setView('review');
         } catch (generationError) {
             const knownError = generationError instanceof ApplicationGenerationError ? generationError : null;
@@ -342,14 +408,16 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
             setFailureChargeStatus(knownError?.chargeStatus || 'unknown');
             if (!knownError || knownError.chargeStatus === 'unknown') void fetchTokenData();
             setView('input');
+        } finally {
+            setPendingParts([]);
         }
     };
 
     /*
-     * The full-resume rewrite, the requirement scoring, the coaching feedback and
-     * the cover letter intentionally share one request. Besides removing model
-     * round trips, it keeps every artifact grounded in the same evidence snapshot
-     * so the letter cannot drift from the resume proposal beside it.
+     * The rewrite, the requirement scoring and feedback, and the cover letter share
+     * one request and one charge, all from the same resume snapshot. The server runs
+     * them in parallel and streams the faster parts so they can be read while the
+     * rewrite finishes.
      */
 
     const toggleOne = (id: string) => {
@@ -441,7 +509,7 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                             <p className="mt-0.5 text-xs text-[var(--text-muted)]">Pick the changes you want, line by line. Nothing is applied until you say so.</p>
                         </div>
                     </div>
-                    <button onClick={resetAndClose} disabled={view === 'generating'} className="rounded-xl p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-30" aria-label="Close"><X size={18} /></button>
+                    <button onClick={resetAndClose} disabled={view === 'generating' || pendingParts.length > 0} className="rounded-xl p-2 text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-30" aria-label="Close"><X size={18} /></button>
                 </header>
 
                 {view === 'input' && (
@@ -548,7 +616,11 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                     <>
                         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-input)] px-5 py-3 sm:px-7">
                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold">
-                                <span className="rounded-full bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-main)]">{selectedCount} of {proposals.length} suggestions selected</span>
+                                {rewritePending ? (
+                                    <span className="flex items-center gap-1.5 rounded-full bg-[var(--accent-subtle)] px-3 py-1.5 text-[var(--accent)]" aria-live="polite"><Loader2 size={12} className="animate-spin" /> Writing your resume suggestions…</span>
+                                ) : (
+                                    <span className="rounded-full bg-[var(--bg-card)] px-3 py-1.5 text-[var(--text-main)]">{selectedCount} of {proposals.length} suggestions selected</span>
+                                )}
                                 {riskFlagCount > 0 && <span className="rounded-full bg-amber-500/10 px-3 py-1.5 text-amber-600">{riskFlagCount} risk flag{riskFlagCount === 1 ? '' : 's'}</span>}
                                 {missingSkills.length > 0 && <span className="rounded-full bg-sky-500/10 px-3 py-1.5 text-sky-600">{missingSkills.length} skill gap{missingSkills.length === 1 ? '' : 's'} reported</span>}
                             </div>
@@ -560,10 +632,10 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                             )}
                         </div>
 
-                        <div className="flex gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 pt-3 sm:px-7" role="tablist" aria-label="Application package review">
-                            <TabButton icon={<FileText size={15} />} label="Resume changes" badge={String(proposals.length)} active={activeTab === 'resume'} onClick={() => setActiveTab('resume')} />
-                            <TabButton icon={<Lightbulb size={15} />} label="Feedback" badge={String(feedbackCount)} active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
-                            <TabButton icon={<Mail size={15} />} label="Cover letter" badge={saveCoverLetter ? 'on' : 'off'} active={activeTab === 'coverLetter'} onClick={() => setActiveTab('coverLetter')} />
+                        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 pt-3 sm:px-7" role="tablist" aria-label="Application package review">
+                            <TabButton icon={<FileText size={15} />} label="Resume changes" badge={rewritePending ? <TabSpinner /> : String(proposals.length)} active={activeTab === 'resume'} onClick={() => setActiveTab('resume')} />
+                            <TabButton icon={<Lightbulb size={15} />} label="Feedback" badge={reviewPending ? <TabSpinner /> : String(feedbackCount)} active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
+                            <TabButton icon={<Mail size={15} />} label="Cover letter" badge={coverLetterPending ? <TabSpinner /> : saveCoverLetter ? 'on' : 'off'} active={activeTab === 'coverLetter'} onClick={() => setActiveTab('coverLetter')} />
                         </div>
 
                         <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--bg-main)] p-4 sm:p-6">
@@ -611,7 +683,11 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 </div>
                             )}
 
-                            {activeTab === 'resume' && proposals.length === 0 && (
+                            {activeTab === 'resume' && rewritePending && (
+                                <PendingPart title="Writing your resume suggestions" detail="Each bullet is being rewritten against this job and fact-checked. You can read the feedback and cover letter while you wait." />
+                            )}
+
+                            {activeTab === 'resume' && !rewritePending && proposals.length === 0 && (
                                 <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5 text-center">
                                     <p className="text-sm font-semibold text-[var(--text-main)]">No resume rewrite was needed</p>
                                     <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[var(--text-muted)]">Your sections already read well against this job description. Check the Feedback tab for what a recruiter will still notice, and review the cover letter.</p>
@@ -691,7 +767,11 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 );
                             })}
 
-                            {activeTab === 'feedback' && (
+                            {activeTab === 'feedback' && reviewPending && (
+                                <PendingPart title="Checking your resume against the job" detail="Skill gaps and section-by-section feedback will appear here." />
+                            )}
+
+                            {activeTab === 'feedback' && !reviewPending && (
                                 <>
                                     <section className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 sm:p-5">
                                         <div className="flex items-start gap-3">
@@ -745,7 +825,11 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
                                 </>
                             )}
 
-                            {activeTab === 'coverLetter' && (
+                            {activeTab === 'coverLetter' && coverLetterPending && (
+                                <PendingPart title="Drafting your cover letter" detail="It will appear here in a few seconds." />
+                            )}
+
+                            {activeTab === 'coverLetter' && !coverLetterPending && (
                                 <section className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                                     <label className="flex cursor-pointer items-center justify-between gap-3 border-b border-[var(--border-color)] px-4 py-3 sm:px-5">
                                         <div className="flex items-center gap-2">
@@ -772,14 +856,14 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
 
                         <footer className="flex flex-col gap-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
                             <div>
-                                <p className="text-xs font-semibold text-[var(--text-main)]">{selectedCount} of {proposals.length} suggestions selected{saveCoverLetter ? ' · cover letter on' : ''}</p>
+                                <p className="text-xs font-semibold text-[var(--text-main)]">{rewritePending ? 'Resume suggestions are still being written' : `${selectedCount} of ${proposals.length} suggestions selected`}{saveCoverLetter ? ' · cover letter on' : ''}</p>
                                 <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Only the suggestions you tick are written to your resume, and it is saved as a new version. Everything you skip is discarded; feedback notes change nothing.</p>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setView('input')} className="rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)]">Start over</button>
-                                <button onClick={() => void applySelected()} disabled={isApplying} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
-                                    {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                                    {isApplying ? 'Saving resume…' : selectedCount > 0 ? `Apply ${selectedCount} selected` : 'Save without resume changes'}
+                                <button onClick={() => setView('input')} disabled={pendingParts.length > 0} className="rounded-xl border border-[var(--border-color)] px-4 py-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-40">Start over</button>
+                                <button onClick={() => void applySelected()} disabled={isApplying || pendingParts.length > 0} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                                    {isApplying || pendingParts.length > 0 ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                    {isApplying ? 'Saving resume…' : pendingParts.length > 0 ? 'Finishing…' : selectedCount > 0 ? `Apply ${selectedCount} selected` : 'Save without resume changes'}
                                 </button>
                             </div>
                         </footer>
@@ -790,10 +874,31 @@ export function TailoredApplicationReview({ isOpen, onClose, initialJobDescripti
     );
 }
 
+function TabSpinner() {
+    return <Loader2 size={10} className="animate-spin" aria-label="Still working" />;
+}
+
+function PendingPart({ title, detail }: { title: string; detail: string }) {
+    return (
+        <div className="flex items-start gap-3 rounded-2xl border border-dashed border-[var(--accent)]/35 bg-[var(--bg-card)] p-5" aria-live="polite">
+            <Loader2 size={18} className="mt-0.5 shrink-0 animate-spin text-[var(--accent)]" />
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[var(--text-main)]">{title}…</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{detail}</p>
+                <div className="mt-4 space-y-2" aria-hidden="true">
+                    <div className="h-2.5 w-11/12 animate-pulse rounded-full bg-[var(--bg-input)]" />
+                    <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-[var(--bg-input)]" />
+                    <div className="h-2.5 w-2/3 animate-pulse rounded-full bg-[var(--bg-input)]" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function TabButton({ icon, label, badge, active, onClick }: {
     icon: React.ReactNode;
     label: string;
-    badge: string;
+    badge: React.ReactNode;
     active: boolean;
     onClick: () => void;
 }) {

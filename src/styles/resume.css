@@ -79,17 +79,19 @@
     text-align: justify;
 }
 
-/* Basic Reset since we are not using Tailwind Preflight */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-p,
-ul,
-ol,
-li {
+/* Basic reset for resume content (the PDF export has no Tailwind Preflight).
+   Scoped to the resume so it no longer cancels Tailwind margins in the editor UI;
+   :where() keeps the old element-level specificity, so resume spacing classes still win. */
+:where(.resume-root) h1,
+:where(.resume-root) h2,
+:where(.resume-root) h3,
+:where(.resume-root) h4,
+:where(.resume-root) h5,
+:where(.resume-root) h6,
+:where(.resume-root) p,
+:where(.resume-root) ul,
+:where(.resume-root) ol,
+:where(.resume-root) li {
     margin: 0;
     padding: 0;
 }

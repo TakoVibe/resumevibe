@@ -86,195 +86,186 @@ const bulletRewriteSchema = {
     },
 } as const;
 
-export const TAILORED_RESUME_RESPONSE_FORMAT = {
-    type: 'json_schema' as const,
-    json_schema: {
-        name: 'tailored_application_package',
-        strict: true,
-        schema: {
+function strictFormat(name: string, properties: Record<string, unknown>) {
+    return {
+        type: 'json_schema' as const,
+        json_schema: {
+            name,
+            strict: true,
+            schema: { type: 'object', additionalProperties: false, required: Object.keys(properties), properties },
+        },
+    };
+}
+
+/**
+ * Tailoring runs as parallel calls so the wait is the slowest call, not the sum:
+ * the rewrite (resume text by id plus its change log), the review (scored against
+ * the resume as submitted, so it never needs the rewrite), and the cover letter.
+ */
+export const TAILORING_REWRITE_RESPONSE_FORMAT = strictFormat('tailored_resume_rewrite', {
+    optimizedSummary: { type: 'string' },
+    optimizedSkills: {
+        type: 'array',
+        items: {
             type: 'object',
             additionalProperties: false,
-            required: [
-                'optimizedSummary',
-                'optimizedSkills',
-                'optimizedExperience',
-                'optimizedProjects',
-                'optimizedOpenSource',
-                'optimizedAchievements',
-                'optimizedEducation',
-                'optimizedCustomSections',
-                'requirements',
-                'missingSkills',
-                'sectionFeedback',
-                'issues',
-                'changeReviews',
-                'coverLetter',
-            ],
+            required: ['id', 'name', 'items'],
             properties: {
-                optimizedSummary: { type: 'string' },
-                optimizedSkills: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'name', 'items'],
-                        properties: {
-                            id: { type: 'string' },
-                            name: { type: 'string' },
-                            items: { type: 'array', items: { type: 'string' } },
-                        },
-                    },
-                },
-                optimizedExperience: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'metrics', 'techStack'],
-                        properties: {
-                            id: { type: 'string' },
-                            metrics: bulletRewriteSchema,
-                            techStack: { type: 'array', items: { type: 'string' } },
-                        },
-                    },
-                },
-                optimizedProjects: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'description', 'metrics', 'techStack'],
-                        properties: {
-                            id: { type: 'string' },
-                            description: { type: 'string' },
-                            metrics: bulletRewriteSchema,
-                            techStack: { type: 'array', items: { type: 'string' } },
-                        },
-                    },
-                },
-                optimizedOpenSource: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'description', 'metrics'],
-                        properties: {
-                            id: { type: 'string' },
-                            description: { type: 'string' },
-                            metrics: bulletRewriteSchema,
-                        },
-                    },
-                },
-                optimizedAchievements: bulletRewriteSchema,
-                optimizedEducation: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'details'],
-                        properties: {
-                            id: { type: 'string' },
-                            details: bulletRewriteSchema,
-                        },
-                    },
-                },
-                optimizedCustomSections: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['id', 'items'],
-                        properties: {
-                            id: { type: 'string' },
-                            items: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    additionalProperties: false,
-                                    required: ['id', 'content'],
-                                    properties: {
-                                        id: { type: 'string' },
-                                        content: { type: 'string' },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-                requirements: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['requirement', 'status', 'evidence'],
-                        properties: {
-                            requirement: { type: 'string' },
-                            status: { type: 'string', enum: ['matched', 'partial', 'gap'] },
-                            evidence: { type: 'string' },
-                        },
-                    },
-                },
-                missingSkills: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['skill', 'priority', 'jobEvidence', 'advice'],
-                        properties: {
-                            skill: { type: 'string' },
-                            priority: { type: 'string', enum: ['must-have', 'preferred'] },
-                            jobEvidence: { type: 'string' },
-                            advice: { type: 'string' },
-                        },
-                    },
-                },
-                sectionFeedback: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['section', 'verdict', 'observation', 'action'],
-                        properties: {
-                            section: { type: 'string', enum: [...FEEDBACK_SECTIONS] },
-                            verdict: { type: 'string', enum: ['strong', 'needs-work', 'missing'] },
-                            observation: { type: 'string' },
-                            action: { type: 'string' },
-                        },
-                    },
-                },
-                issues: { type: 'array', items: { type: 'string' } },
-                changeReviews: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        additionalProperties: false,
-                        required: ['section', 'whatChanged', 'why', 'jobRequirement', 'riskLevel', 'risk'],
-                        properties: {
-                            section: { type: 'string', enum: [...TAILORABLE_SECTIONS] },
-                            whatChanged: { type: 'string' },
-                            why: { type: 'string' },
-                            jobRequirement: { type: 'string' },
-                            riskLevel: { type: 'string', enum: ['none', 'low', 'high'] },
-                            risk: { type: 'string' },
-                        },
-                    },
-                },
-                coverLetter: { type: 'string' },
+                id: { type: 'string' },
+                name: { type: 'string' },
+                items: { type: 'array', items: { type: 'string' } },
             },
         },
     },
-};
+    optimizedExperience: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'metrics', 'techStack'],
+            properties: {
+                id: { type: 'string' },
+                metrics: bulletRewriteSchema,
+                techStack: { type: 'array', items: { type: 'string' } },
+            },
+        },
+    },
+    optimizedProjects: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'description', 'metrics', 'techStack'],
+            properties: {
+                id: { type: 'string' },
+                description: { type: 'string' },
+                metrics: bulletRewriteSchema,
+                techStack: { type: 'array', items: { type: 'string' } },
+            },
+        },
+    },
+    optimizedOpenSource: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'description', 'metrics'],
+            properties: {
+                id: { type: 'string' },
+                description: { type: 'string' },
+                metrics: bulletRewriteSchema,
+            },
+        },
+    },
+    optimizedAchievements: bulletRewriteSchema,
+    optimizedEducation: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'details'],
+            properties: {
+                id: { type: 'string' },
+                details: bulletRewriteSchema,
+            },
+        },
+    },
+    optimizedCustomSections: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'items'],
+            properties: {
+                id: { type: 'string' },
+                items: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['id', 'content'],
+                        properties: {
+                            id: { type: 'string' },
+                            content: { type: 'string' },
+                        },
+                    },
+                },
+            },
+        },
+    },
+    issues: { type: 'array', items: { type: 'string' } },
+    changeReviews: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['section', 'whatChanged', 'why', 'jobRequirement', 'riskLevel', 'risk'],
+            properties: {
+                section: { type: 'string', enum: [...TAILORABLE_SECTIONS] },
+                whatChanged: { type: 'string' },
+                why: { type: 'string' },
+                jobRequirement: { type: 'string' },
+                riskLevel: { type: 'string', enum: ['none', 'low', 'high'] },
+                risk: { type: 'string' },
+            },
+        },
+    },
+});
 
-export const TAILORING_SYSTEM_PROMPT = `You are a senior technical recruiter and resume editor. In one pass you tailor a complete resume to one job description, and you never invent a fact.
+export const TAILORING_REVIEW_RESPONSE_FORMAT = strictFormat('tailored_resume_review', {
+    requirements: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['requirement', 'status', 'evidence'],
+            properties: {
+                requirement: { type: 'string' },
+                status: { type: 'string', enum: ['matched', 'partial', 'gap'] },
+                evidence: { type: 'string' },
+            },
+        },
+    },
+    missingSkills: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['skill', 'priority', 'jobEvidence', 'advice'],
+            properties: {
+                skill: { type: 'string' },
+                priority: { type: 'string', enum: ['must-have', 'preferred'] },
+                jobEvidence: { type: 'string' },
+                advice: { type: 'string' },
+            },
+        },
+    },
+    sectionFeedback: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['section', 'verdict', 'observation', 'action'],
+            properties: {
+                section: { type: 'string', enum: [...FEEDBACK_SECTIONS] },
+                verdict: { type: 'string', enum: ['strong', 'needs-work', 'missing'] },
+                observation: { type: 'string' },
+                action: { type: 'string' },
+            },
+        },
+    },
+});
+
+export const TAILORING_REWRITE_PROMPT = `You are a senior technical recruiter and resume editor. You tailor a complete resume to one job description, and you never invent a fact.
 
 WHAT YOU REWRITE
-Rewrite the wording of every section that already has content: the summary, skill group names and grouping, experience bullets, project descriptions and bullets, open-source descriptions and bullets, achievements, education details, and custom section content. If a section is empty, leave it empty and report it in sectionFeedback.
+Rewrite the wording of every section that already has content: the summary, skill group names and grouping, experience bullets, project descriptions and bullets, open-source descriptions and bullets, achievements, education details, and custom section content. If a section is empty, leave it empty.
 
 WHAT YOU NEVER CHANGE
 - Any id.
 - Employer, role title, dates, durations, locations, institution, degree, score, certification name, issuer, project name, link, or custom item title and date.
 - Any number, percentage, currency amount, or scale. A rewritten line may only contain numbers that already appear in the exact line it replaces. If you cannot keep a metric where it belongs, leave that line as it is.
-- The set of skills. Regroup, rename groups, and reorder freely, but never add a skill the resume does not already list and never delete one.
+- The set of skills. Regroup, rename groups, and reorder freely, but never add a skill the resume does not already list and never delete one. A skill the job wants but the resume does not evidence is reported to the candidate separately; never write it in.
 - The number of bullets in an entry. Every source bullet appears exactly once in your output, addressed by its sourceIndex. You may change the order so the strongest evidence reads first.
 
 WRITING RULES (how recruiters actually screen)
@@ -287,14 +278,17 @@ WRITING RULES (how recruiters actually screen)
 7. Emphasis: <strong> on at most two genuinely high-weight terms per line, and only on an existing metric or a technology this job names. Never bold a whole clause. Inline tags only (<strong>, <em>) - never headings, lists, tables, or divs.
 8. Stay ATS-plain: no tables, columns, icons, emoji, or decorative characters.
 
-WHAT YOU REPORT INSTEAD OF WRITING
-- missingSkills: every skill, tool, or qualification this job requires that the resume does not evidence. Never add these to the resume. List them so the candidate decides: name where the job asks for it, and give one honest next step (cite adjacent evidence they already have, learn it before applying, or treat the role as a stretch).
-- sectionFeedback: one entry for each resume section plus one for "overall". Cover sections you did not change and sections that are empty or missing. Say what a recruiter will see, then the single most valuable next action.
-- requirements: 3-8 important job requirements scored against the CURRENT resume, not against your rewrite. For a gap, write "No supporting evidence found."
+WHAT YOU REPORT
 - issues: factual risks, unsupported requirements, and anything you refused to write.
 - changeReviews: one record for each section you actually changed.
 
-Finally, draft a cover letter of three short paragraphs, 180-220 words, from the same evidence. Plain text, no HTML, no invented facts.
+Return only valid JSON matching the provided schema.`;
+
+export const TAILORING_REVIEW_PROMPT = `You are a senior technical recruiter screening one resume against one job description. You do not rewrite the resume. You report what a recruiter will see, and you never invent a fact.
+
+- missingSkills: every skill, tool, or qualification this job requires that the resume does not evidence. List them so the candidate decides: name where the job asks for it, and give one honest next step (cite adjacent evidence they already have, learn it before applying, or treat the role as a stretch).
+- sectionFeedback: one entry for each resume section plus one for "overall", including sections that are empty or missing. Say what a recruiter will see, then the single most valuable next action.
+- requirements: 3-8 important job requirements scored against this resume. For a gap, write "No supporting evidence found."
 
 Return only valid JSON matching the provided schema.`;
 

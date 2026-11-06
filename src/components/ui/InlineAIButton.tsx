@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Loader2, Check, X } from 'lucide-react';
 import { useToken } from '../../context/TokenContext';
+import { OPTIMIZE_TEXT_TOKEN_COST } from '../../lib/optimizeText';
 
 interface InlineAIButtonProps {
     text: string;
@@ -27,12 +28,12 @@ export function InlineAIButton({
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [optimizedText, setOptimizedText] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
+    const { canAffordTokens, fetchTokenData, setShowUpgradeModal } = useToken();
 
     const handleOptimize = async () => {
         if (!text.trim()) return;
 
-        if (!canAffordTokens(5)) return;
+        if (!canAffordTokens(OPTIMIZE_TEXT_TOKEN_COST)) return;
 
         setIsOptimizing(true);
         setError(null);
@@ -41,6 +42,7 @@ export function InlineAIButton({
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    Authorization: `Token ${localStorage.getItem('auth_token') || ''}`,
                 },
                 body: JSON.stringify({
                     text: text.trim(),
@@ -52,12 +54,14 @@ export function InlineAIButton({
             const data = await response.json();
 
             if (!response.ok) {
+                if (response.status === 401) window.dispatchEvent(new CustomEvent('show-login-modal'));
+                if (response.status === 402) setShowUpgradeModal(true);
                 throw new Error(data.error || 'Failed to optimize text');
             }
 
             if (data.success && data.optimized) {
-                const charged = await chargeTokensAfterSuccess('inline_edit', 5, 'resumevibe');
-                if (!charged) return;
+                // Charged on the server after a successful rewrite.
+                void fetchTokenData();
                 setOptimizedText(data.optimized);
             } else {
                 throw new Error('Invalid response from server');

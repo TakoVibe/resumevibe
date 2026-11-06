@@ -29,7 +29,7 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
     // Explicitly track if we are in "General Mode" (no JD)
     const [isGeneralMode, setIsGeneralMode] = useState(false);
     const [isStartingAutopilot, setIsStartingAutopilot] = useState(false);
-    const { canAffordTokens, chargeTokensAfterSuccess } = useToken();
+    const { canAffordTokens, fetchTokenData } = useToken();
 
     const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const itemText = (item: any) => {
@@ -52,16 +52,17 @@ export function RecruiterPanel({ data, onUpdateJD, onOpenGuidance, onOpenOptimiz
         try {
             const response = await fetch('/api/deep-audit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Token ${localStorage.getItem('auth_token') || ''}` },
                 body: JSON.stringify({
+                    actionType,
                     resume: data,
                     jobDescription: data.targetJD || (isGeneralMode ? "General Industry Standards" : "")
                 })
             });
             const result = await response.json();
             if (response.ok && result.success) {
-                const charged = await chargeTokensAfterSuccess(actionType, 30, 'resumevibe');
-                if (!charged) return false;
+                // Charged on the server after a successful audit.
+                void fetchTokenData();
                 setAuditResult(result.audit);
                 onAuditResult?.(result.audit);
                 return true;

@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useResume } from '../hooks/useResume';
 import { ResumePreview } from './ResumePreview';
-import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2, Maximize2, Minimize2 } from 'lucide-react';
+import { Save, Download, FileText, Globe, History, Loader2, Edit, Check, Eye, Trash2, Zap, LogIn, RotateCcw, ChevronDown, User, LogOut, Sparkles, UserCheck, Lock, X, Moon, Sun, Mail, CircleHelp, Clipboard, BriefcaseBusiness, Target, CheckCircle2, Maximize2, Minimize2, FilePlus2 } from 'lucide-react';
 import { LoginModal } from './ui/LoginModal';
 import { Toaster, toast } from 'react-hot-toast';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -17,8 +17,14 @@ import { CareerInsights } from './brand/CareerInsights';
 import { SuccessModal } from './brand/SuccessModal';
 import OptimizeResumeModal from './OptimizeResumeModal';
 import { ImportResumeModal } from './ImportResumeModal';
-import { SectionTypeDialog } from './ui/SectionTypeDialog';
+import { ACADEMIC_SECTIONS, SectionTypeDialog } from './ui/SectionTypeDialog';
+import { CreateDocumentModal } from './ui/CreateDocument';
+import { initialResume } from '../data/sample-resume';
+import { START_TEMPLATES, isUntouchedStarter } from '../data/startTemplates';
+import { documentTypeOf } from '../lib/documentType';
+import { summarizeImport } from '../lib/resumeImport';
 import { AssistantPanel, type AssistantActivity, type AssistantSuggestion } from './editor/AssistantPanel';
+import { applyAssistantSuggestion, assistantHighlightKey } from '../lib/resumeAssistant';
 import { ShareModal } from './ShareModal';
 import { CareerGuidanceModal } from './editor/CareerGuidanceModal';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -45,57 +51,6 @@ const APPLICATIONS_STORAGE_KEY = 'application-copilot-records-v1';
 const JOB_MATCH_HELPER_DISMISSED_KEY = 'resume-job-match-helper-dismissed-v1';
 const GUEST_SAVE_NOTICE_DISMISSED_KEY = 'resumevibe:guest-save-notice-dismissed:v1';
 
-function previewAssistantChange(data: ResumeSchema, suggestion: AssistantSuggestion): ResumeSchema {
-    if (suggestion.section === 'summary') {
-        return data.summary === suggestion.after ? data : { ...data, summary: suggestion.after };
-    }
-
-    if (suggestion.section === 'experience') {
-        let changed = false;
-        const experience = data.experience.map((entry) => {
-            if (entry.id !== suggestion.targetId) return entry;
-            const current = entry.metrics[suggestion.targetIndex];
-            if (current === undefined) return entry;
-            const metrics = [...entry.metrics];
-            metrics[suggestion.targetIndex] = typeof current === 'string'
-                ? suggestion.after
-                : { ...current, text: suggestion.after };
-            changed = true;
-            return { ...entry, metrics };
-        });
-        return changed ? { ...data, experience } : data;
-    }
-
-    if (suggestion.section === 'projects') {
-        let changed = false;
-        const projects = data.projects.map((project) => {
-            if (project.id !== suggestion.targetId) return project;
-            changed = true;
-            return { ...project, description: suggestion.after };
-        });
-        return changed ? { ...data, projects } : data;
-    }
-
-    if (suggestion.section === 'skills') {
-        const items = suggestion.after.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
-        let changed = false;
-        const skills = data.skills.map((group) => {
-            if (group.id !== suggestion.targetId) return group;
-            changed = true;
-            return { ...group, items };
-        });
-        return changed ? { ...data, skills } : data;
-    }
-
-    const current = data.achievements[suggestion.targetIndex];
-    if (current === undefined) return data;
-    const achievements = [...data.achievements];
-    achievements[suggestion.targetIndex] = typeof current === 'string'
-        ? suggestion.after
-        : { ...current, text: suggestion.after };
-    return { ...data, achievements };
-}
-
 const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
     {
         id: 'welcome',
@@ -108,7 +63,7 @@ const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
         description: 'Your name, role, contact information, and professional links all live here.',
         target: '[data-tour="personal-details"]',
         advanceOn: 'target-click',
-        instruction: 'Click Personal details to open the editor.',
+        instruction: 'Click the highlighted button to open your details.',
     },
     {
         id: 'personal-details-done',
@@ -166,7 +121,9 @@ const RESUME_PRODUCT_TOUR_STEPS: ProductTourStep[] = [
 ];
 
 function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
-    const { data, updateResume, resetToDefault, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
+    const { data, updateResume, resetToDefault, startNewDocument, isLoaded, undo, redo, saveToBackend, saveVersionToBackend, isSaving, lastSaved, resumeMetadata, setResumeMetadata } = useResume();
+    const latestDataRef = useRef(data);
+    latestDataRef.current = data;
     const { user, isAuthenticated, logout, isLoading: isAuthLoading } = useAuth();
     const { showUpgradeModal, setShowUpgradeModal } = useToken();
     const [showMoreActions, setShowMoreActions] = useState(false);
@@ -178,6 +135,9 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     const [showOptimizeModal, setShowOptimizeModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showSectionTypeModal, setShowSectionTypeModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [importSummary, setImportSummary] = useState<ReturnType<typeof summarizeImport> | null>(null);
+    const closeCreateModal = useCallback(() => setShowCreateModal(false), []);
     const [showRecruiterAI, setShowRecruiterAI] = useState(false);
     const [assistantHighlight, setAssistantHighlight] = useState<{ section: string; phase: 'preview' | 'applied' } | null>(null);
     const [assistantPreviewSuggestion, setAssistantPreviewSuggestion] = useState<AssistantSuggestion | null>(null);
@@ -212,7 +172,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     const pdfPreviewAbortRef = useRef<AbortController | null>(null);
     const workspaceRef = useRef<HTMLDivElement | null>(null);
     const assistantPreviewData = useMemo(
-        () => assistantPreviewSuggestion ? previewAssistantChange(data, assistantPreviewSuggestion) : data,
+        () => assistantPreviewSuggestion ? applyAssistantSuggestion(data, assistantPreviewSuggestion) : data,
         [assistantPreviewSuggestion, data],
     );
 
@@ -282,7 +242,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         }
     }, []);
 
-    const focusAssistantSection = useCallback((section: AssistantSuggestion['section'], phase: 'preview' | 'applied') => {
+    const focusAssistantSection = useCallback((section: string, phase: 'preview' | 'applied') => {
         setActiveTab('editor');
         setAssistantHighlight(null);
         window.setTimeout(() => {
@@ -295,19 +255,19 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
     const previewAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
         setAssistantPreviewSuggestion(suggestion);
-        focusAssistantSection(suggestion.section, 'preview');
+        focusAssistantSection(assistantHighlightKey(suggestion), 'preview');
     }, [focusAssistantSection]);
 
     const rejectAssistantSuggestion = useCallback((suggestion: AssistantSuggestion) => {
         setAssistantPreviewSuggestion((current) => current?.id === suggestion.id ? null : current);
-        setAssistantHighlight((current) => current?.section === suggestion.section ? null : current);
+        setAssistantHighlight((current) => current?.section === assistantHighlightKey(suggestion) ? null : current);
     }, []);
 
     const applyAssistantSuggestions = useCallback(async (suggestions: AssistantSuggestion[]) => {
         let nextData = data;
         const appliedSuggestions: AssistantSuggestion[] = [];
         suggestions.forEach((suggestion) => {
-            const updatedData = previewAssistantChange(nextData, suggestion);
+            const updatedData = applyAssistantSuggestion(nextData, suggestion);
             if (updatedData !== nextData) appliedSuggestions.push(suggestion);
             nextData = updatedData;
         });
@@ -327,7 +287,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
         setAssistantPreviewSuggestion(null);
         updateResume(nextData);
-        focusAssistantSection(appliedSuggestions[0].section, 'applied');
+        focusAssistantSection(assistantHighlightKey(appliedSuggestions[0]), 'applied');
 
         const afterMetadata = await saveToBackend(nextData);
         const afterCheckpointSaved = afterMetadata?.slug
@@ -412,6 +372,17 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         window.history.replaceState(window.history.state, '', resumeEditorUrl(resumeMetadata.slug));
     }, [isAuthenticated, resumeMetadata]);
 
+    // Once a new document is saved, its address becomes its own link, so refresh and sharing reopen it.
+    useEffect(() => {
+        if (example || isResolvingInitialResume || !resumeMetadata?.slug) return;
+        if (window.location.pathname.replace(/\/+$/, '') !== '/editor') return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('edit') === resumeMetadata.slug || params.has('view')) return;
+        params.delete('new');
+        params.set('edit', resumeMetadata.slug);
+        window.history.replaceState(window.history.state, '', `/editor?${params.toString()}${window.location.hash}`);
+    }, [example, isResolvingInitialResume, resumeMetadata?.slug]);
+
     // Resolve a requested resume, or continue a returning user's most recently
     // updated resume when they arrive at the bare homepage.
     useEffect(() => {
@@ -448,6 +419,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                                 slug: resume.slug,
                                 name: resume.resume_name,
                                 isPublic: resume.is_public,
+                                revision: resume.revision || 1,
                             });
                         }
                     }
@@ -457,6 +429,19 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                     if (!cancelled) setIsResolvingInitialResume(false);
                 }
                 return;
+            }
+
+            if (params.has('fresh')) {
+                const isPristineSample = JSON.stringify(normalizeResumeData(latestDataRef.current)) === JSON.stringify(normalizeResumeData(initialResume));
+                const replaceDraft = isAuthenticated
+                    || isPristineSample
+                    || window.confirm('Start a new document? This replaces your current draft. Sign in first to keep it.');
+                if (replaceDraft) startNewDocument(START_TEMPLATES.get(params.get('start') ?? ''));
+                params.delete('fresh');
+                params.delete('start');
+                if (replaceDraft) params.set('new', '1');
+                const query = params.toString();
+                window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
             }
 
             const isExplicitNewDocument = params.has('new');
@@ -483,7 +468,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
         resolveInitialResume();
         return () => { cancelled = true; };
-    }, [isAuthLoading, isAuthenticated, isLoaded, setResumeMetadata, updateResume]);
+    }, [isAuthLoading, isAuthenticated, isLoaded, setResumeMetadata, startNewDocument, updateResume]);
 
     // A completed Job Fit flow deep-links the exact saved resume and keeps the
     // associated application assets available from the editor.
@@ -560,6 +545,20 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
     useEffect(() => () => {
         pdfPreviewAbortRef.current?.abort();
         if (pdfPreviewUrlRef.current) window.URL.revokeObjectURL(pdfPreviewUrlRef.current);
+    }, []);
+
+    const saveShortcutRef = useRef<() => void>(() => {});
+    useEffect(() => {
+        const handleSaveShortcut = (event: KeyboardEvent) => {
+            if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 's') return;
+            event.preventDefault();
+            // Fields commit their text on blur, so let the edit in progress land before saving it.
+            const active = document.activeElement;
+            if (active instanceof HTMLElement && active !== document.body) active.blur();
+            window.setTimeout(() => saveShortcutRef.current(), 0);
+        };
+        window.addEventListener('keydown', handleSaveShortcut);
+        return () => window.removeEventListener('keydown', handleSaveShortcut);
     }, []);
 
     // Handle Undo/Redo keyboard shortcuts
@@ -671,7 +670,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const filename = `Resume_${data.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
+            const filename = `${documentTypeOf(data) === 'cv' ? 'CV' : 'Resume'}_${data.personalInfo.fullName.replace(/\s+/g, '_')}.pdf`;
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
@@ -699,6 +698,36 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         }
     };
 
+    const openCreateModal = () => {
+        setShowMoreActions(false);
+        setShowCreateModal(true);
+    };
+
+    // Flushes the pending autosave before the editor switches documents.
+    const saveCurrentDocument = async () => {
+        return !isAuthenticated || isUntouchedStarter(data) || Boolean(await saveToBackend());
+    };
+
+    const leaveForNewDocument = async (href: string) => {
+        if (!(await saveCurrentDocument())) {
+            toast.error('Could not save this resume. Try again before starting a new one.');
+            return;
+        }
+        window.location.assign(href);
+    };
+
+    // A paid import is never discarded: it always opens, even if the previous document's last edits failed to save.
+    const openImportedDocument = async (imported: ResumeSchema) => {
+        setImportSummary(summarizeImport(imported));
+        if (example) {
+            updateResume(imported);
+            return;
+        }
+        if (!(await saveCurrentDocument())) toast.error('The latest edits to your previous document could not be saved.');
+        startNewDocument(imported);
+        window.history.replaceState(window.history.state, '', '/editor?new=1');
+    };
+
     const signInToSaveDraft = () => {
         // The visible guest draft may not be the document named by ?edit=.
         // Keep its content and save a new private copy after sign-in instead.
@@ -717,7 +746,14 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
             signInToSaveDraft();
             return;
         }
-        await saveToBackend();
+        if (isSaving) return;
+        // Creates the document on its first save and updates it after that.
+        const saved = await saveToBackend();
+        if (saved) toast.success('All changes saved', { id: 'resume-save' });
+        else toast.error('Could not save this resume. Check your connection and try again.', { id: 'resume-save' });
+    };
+    saveShortcutRef.current = () => {
+        if (!isImportingExample) void handleSave();
     };
 
     const handleSaveVersion = async () => {
@@ -786,6 +822,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         // Standard sections map to keys in visibleSections
         const standardSections = ['summary', 'experience', 'education', 'skills', 'projects', 'certifications', 'openSource', 'achievements'];
 
+        const academicSection = ACADEMIC_SECTIONS.find(section => section.id === type);
         let shouldCreateCustom = false;
         let sectionTitle = label || "New Section";
 
@@ -815,7 +852,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                 }, 100);
                 return;
             }
-        } else if (type === 'custom') {
+        } else if (type === 'custom' || academicSection) {
             shouldCreateCustom = true;
         }
 
@@ -824,7 +861,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
             const id = `custom-${Date.now()}`;
             // Determine type
             const supportedTypes = ['summary', 'experience', 'education', 'skills', 'projects', 'certifications', 'openSource'];
-            const sectionType = supportedTypes.includes(type) ? type : 'custom';
+            const sectionType = supportedTypes.includes(type) ? type : academicSection?.sectionType ?? 'custom';
 
             const newSection = {
                 id,
@@ -850,17 +887,6 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
         }
     };
 
-    const profileFields = [
-        data.personalInfo.fullName,
-        data.personalInfo.email,
-        data.personalInfo.phone,
-        data.personalInfo.location,
-        data.personalInfo.title,
-    ];
-    const profileCompletion = Math.round(
-        (profileFields.filter((field) => Boolean(field?.trim())).length / profileFields.length) * 100
-    );
-    const visibleSectionCount = Object.values(data.visibleSections || {}).filter(Boolean).length;
     const documentTitle = (isAuthenticated ? resumeMetadata?.name : null) || data.personalInfo.fullName || 'Untitled resume';
 
     return (
@@ -873,7 +899,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
             {/* Focused workspace header */}
             <Navbar focusMode={isFocusMode}>
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:justify-between">
-                    <div className={`${isFocusMode ? 'min-w-0 flex-1' : 'hidden min-w-0 2xl:block'}`}>
+                    <div className={`${isFocusMode ? 'min-w-0 flex-1' : 'hidden min-w-0 xl:block'}`}>
                         <p className="truncate text-sm font-semibold text-[var(--text-main)]">{documentTitle}</p>
                         <p className={`text-[10px] font-medium text-[var(--text-muted)] ${isFocusMode ? 'hidden sm:block' : ''}`}>
                             {isSaving ? 'Saving changes…' : lastSaved ? 'All changes saved' : 'Ready to edit'}
@@ -898,7 +924,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                             }}
                             className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'editor' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
-                            <Edit size={13} /> <span className="hidden sm:inline">Edit</span>
+                            <Edit size={13} /> <span className="hidden lg:inline">Edit</span>
                         </button>
                         <button
                             id="preview-view-tab"
@@ -918,11 +944,23 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                             }}
                             className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all sm:px-3 ${activeTab === 'preview' ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
                         >
-                            <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
+                            <Eye size={13} /> <span className="hidden lg:inline">Preview</span>
                         </button>
                     </div>}
 
                     <div className="flex shrink-0 items-center gap-1.5">
+                        {!isFocusMode && (
+                            <button
+                                type="button"
+                                onClick={openCreateModal}
+                                title="Create a new resume or CV"
+                                aria-label="Create a new resume or CV"
+                                className="hidden h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] xl:flex"
+                            >
+                                <FilePlus2 size={15} />
+                                <span>Create</span>
+                            </button>
+                        )}
                         {isFocusMode && <button type="button" onClick={() => setShowInfoModal(true)} title="Edit personal details" aria-label="Edit personal details" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:bg-[var(--accent-subtle)]"><User size={15} /></button>}
                         <button
                             type="button"
@@ -931,19 +969,19 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                             aria-label={isFocusMode ? 'Exit focus mode' : 'Enter focus mode'}
                             title={isFocusMode ? 'Exit focus mode (Esc)' : 'Focus mode: fullscreen editor'}
                             onClick={() => void toggleFocusMode()}
-                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                            className="hidden h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] md:flex md:px-3"
                         >
                             {isFocusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                            <span className="hidden sm:inline">{isFocusMode ? 'Exit focus' : 'Focus'}</span>
+                            <span className={isFocusMode ? 'hidden sm:inline' : 'hidden xl:inline'}>{isFocusMode ? 'Exit focus' : 'Focus'}</span>
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isSaving || isImportingExample}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] disabled:opacity-50 md:w-auto md:px-3"
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] disabled:opacity-50 xl:w-auto xl:px-3"
                             title={example ? 'Save a copy to my profile' : 'Save changes'}
                         >
                             {isSaving || isImportingExample ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                            <span className="ml-1.5 hidden text-[11px] font-semibold md:inline">{example ? 'Save copy' : 'Save'}</span>
+                            <span className="ml-1.5 hidden text-[11px] font-semibold xl:inline">{example ? 'Save copy' : 'Save'}</span>
                         </button>
 
                         <button
@@ -958,20 +996,20 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
 
                         {!isFocusMode && <button
                             onClick={() => setShowCoverLetterGenerator(true)}
-                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                            className="hidden h-9 md:flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
                             title="Generate cover letter (30 tokens)"
                         >
                             <Mail size={14} className="text-[var(--accent)]" />
-                            <span className="hidden sm:inline">Cover letter</span>
+                            <span className="hidden xl:inline">Cover letter</span>
                         </button>}
 
                         {!isFocusMode && <button
                             onClick={() => setShowShareModal(true)}
-                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
+                            className="hidden h-9 sm:flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 text-[11px] font-semibold text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-subtle)] sm:px-3"
                             title="Share resume"
                         >
                             <Globe size={14} className="text-[var(--accent)]" />
-                            <span className="hidden sm:inline">Share</span>
+                            <span className="hidden xl:inline">Share</span>
                         </button>}
 
                         {!isFocusMode && <div className="relative">
@@ -1041,6 +1079,32 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                                         >
                                             <CircleHelp size={15} className="text-[var(--accent)]" /> Replay walkthrough
                                         </button>
+                                        {/* Narrow screens have no room for these in the top bar. */}
+                                        <button
+                                            onClick={() => { setShowMoreActions(false); setShowShareModal(true); }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)] sm:hidden"
+                                        >
+                                            <Globe size={15} className="text-[var(--accent)]" /> Share
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowMoreActions(false); setShowCoverLetterGenerator(true); }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)] md:hidden"
+                                        >
+                                            <Mail size={15} className="text-[var(--accent)]" /> Cover letter
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowMoreActions(false); void toggleFocusMode(); }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)] md:hidden"
+                                        >
+                                            <Maximize2 size={15} className="text-[var(--accent)]" /> Focus mode
+                                        </button>
+                                        {/* The top-bar Create button only fits from xl up; below that it lives here. */}
+                                        <button
+                                            onClick={openCreateModal}
+                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-input)] xl:hidden"
+                                        >
+                                            <FilePlus2 size={15} className="text-[var(--accent)]" /> New resume or CV
+                                        </button>
                                         <div className="my-1 border-t border-[var(--border-color)]" />
                                         <button
                                             onClick={() => {
@@ -1063,7 +1127,7 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                 </div>
             </Navbar>
 
-            {example && !isFocusMode && <section aria-label="Example resume actions" className="shrink-0 border-b border-[var(--border-color)] bg-[var(--accent-subtle)] px-3 py-2 lg:hidden">
+            {example && !isFocusMode && <section aria-label="Example resume actions" className="shrink-0 border-b border-[var(--border-color)] bg-[var(--accent-subtle)] px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] leading-4 text-[var(--text-main)]">Edit this example, then add a private copy to your profile.</p>
                     <button type="button" data-action="import-example-mobile" onClick={handleExampleImport} disabled={isImportingExample} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[var(--accent)] px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-50">
@@ -1114,105 +1178,42 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                 </section>
             )}
 
+            {!isFocusMode && importSummary && (
+                <section aria-label="Import summary" className="relative z-[58] shrink-0 border-b border-[var(--accent)]/25 bg-[var(--accent-subtle)] px-3 py-2.5 sm:px-5">
+                    <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2">
+                        <CheckCircle2 size={16} className="shrink-0 text-[var(--accent)]" />
+                        <p className="min-w-0 flex-1 text-[11px] text-[var(--text-main)]">
+                            <span className="font-semibold">Imported {importSummary.length} section{importSummary.length === 1 ? '' : 's'}: </span>
+                            {importSummary.map((entry) => entry.count === null ? entry.title : `${entry.title} (${entry.count})`).join(' · ')}
+                        </p>
+                        <button type="button" onClick={() => { setImportSummary(null); openJobMatchHelper(); }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--text-main)] px-3 py-1.5 text-[11px] font-semibold text-[var(--bg-main)] transition hover:opacity-85">
+                            <Sparkles size={13} /> Review with Copilot
+                        </button>
+                        <button type="button" onClick={() => setImportSummary(null)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-card)]" aria-label="Dismiss import summary"><X size={14} /></button>
+                    </div>
+                </section>
+            )}
+
             <main className="relative flex min-h-0 flex-1 items-stretch overflow-hidden bg-[var(--bg-main)]">
-                {activeTab === 'editor' && !isFocusMode && (
-                    <aside
-                        data-layout="workspace-sidebar"
-                        className={`w-60 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-card)] xl:w-64 ${showRecruiterAI ? 'hidden' : 'hidden lg:flex'}`}
-                    >
-                        <div className="border-b border-[var(--border-color)] px-5 py-5">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{example ? 'Example workspace' : 'Your workspace'}</p>
-                            <h2 className="mt-1.5 truncate font-serif-ed text-2xl leading-tight text-[var(--text-main)]">{documentTitle}</h2>
-                            {example ? <p className="mt-3 text-[11px] text-[var(--text-muted)]">Fictional details—make a copy to use your own.</p> : <>
-                                <div className="mt-4 flex items-center justify-between text-[11px] font-medium">
-                                    <span className="text-[var(--text-muted)]">Profile details</span>
-                                    <span className="text-[var(--text-main)]">{profileCompletion}%</span>
-                                </div>
-                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-input)]">
-                                    <div className="h-full rounded-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${profileCompletion}%` }} />
-                                </div>
-                            </>}
-                        </div>
-
-                        <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-                            {example && <section aria-label="Save example to your profile" className="rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] p-4">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Editable example</p>
-                                <h3 className="mt-2 text-sm font-semibold text-[var(--text-main)]">Make this resume yours</h3>
-                                <p className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">Change the example here, then save a new private copy to your profile. Your existing resumes stay as they are.</p>
-                                <button type="button" data-action="import-example-profile" onClick={handleExampleImport} disabled={isImportingExample} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-3 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
-                                    {isImportingExample ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                                    {isImportingExample ? 'Saving your copy…' : 'Import to profile & edit'}
-                                </button>
-                                <p className="mt-2 text-[10px] leading-4 text-[var(--text-muted)]">Replace the fictional work history and results with your own before applying.</p>
-                            </section>}
-                            <div>
-                                <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Build</p>
-                                <div className="mt-2 space-y-1">
-                                    <button data-tour="personal-details" onClick={() => setShowInfoModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><User size={15} /></span>
-                                        <span className="min-w-0">
-                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Personal details</span>
-                                            <span className="block text-[10px] text-[var(--text-muted)]">Name, links and contact</span>
-                                        </span>
-                                    </button>
-                                    <button data-tour="add-section" onClick={() => setShowSectionTypeModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><FileText size={15} /></span>
-                                        <span className="min-w-0">
-                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Add a section</span>
-                                            <span className="block text-[10px] text-[var(--text-muted)]">{visibleSectionCount} sections visible</span>
-                                        </span>
-                                    </button>
-                                    <button onClick={() => setShowImportModal(true)} className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-[var(--bg-input)]">
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Download size={15} /></span>
-                                        <span className="min-w-0">
-                                            <span className="block text-xs font-semibold text-[var(--text-main)]">Import resume</span>
-                                            <span className="block text-[10px] text-[var(--text-muted)]">Start from an existing PDF</span>
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="flex items-center justify-between gap-2 px-2">
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">AI career tools</p>
-                                    <a href="/ai-tools" className="text-[9px] font-semibold text-[var(--accent)] hover:underline">View all</a>
-                                </div>
-                                <button
-                                    onClick={() => { window.location.href = '/application-copilot'; }}
-                                    className="rv-ai-home-glow mt-2 w-full rounded-2xl border border-[var(--accent)]/30 bg-[var(--accent-subtle)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--accent)]/50 hover:shadow-md"
-                                >
-                                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm"><Zap size={17} /></span>
-                                    <span className="mt-3 block text-sm font-semibold text-[var(--text-main)]">Your application, handled.</span>
-                                    <span className="mt-1 block text-[11px] leading-relaxed text-[var(--text-muted)]">Paste the job. We’ll prepare the resume edits and cover letter—you just approve.</span>
-                                    <span className="mt-3 block text-[10px] font-semibold text-[var(--accent)]">Build my application →</span>
-                                </button>
-                                <button onClick={() => setShowCoverLetterGenerator(true)} className="mt-2 flex w-full items-center gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-3 text-left transition hover:border-[var(--accent)]/35 hover:bg-[var(--bg-input)]">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Mail size={15} /></span>
-                                    <span className="min-w-0">
-                                        <span className="block text-xs font-semibold text-[var(--text-main)]">Generate cover letter</span>
-                                        <span className="block text-[10px] leading-4 text-[var(--text-muted)]">30 tokens · charged only on success</span>
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="border-t border-[var(--border-color)] px-5 py-4">
-                            <p className="text-[10px] leading-relaxed text-[var(--text-muted)]">Tip: click directly on the resume to edit. Your layout updates as you type.</p>
-                        </div>
-                    </aside>
-                )}
-
                 {!isFocusMode && !showRecruiterAI && (
-                    <button
-                        type="button"
-                        data-action="open-resume-copilot"
-                        onClick={openJobMatchHelper}
-                        className={`absolute right-3 z-[59] inline-flex items-center gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--bg-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-main)] shadow-lg transition hover:-translate-y-0.5 hover:border-[var(--accent)]/55 hover:bg-[var(--accent-subtle)] ${activeTab === 'editor' ? 'top-24' : 'top-4'}`}
-                        aria-label="Open Resume Copilot"
-                    >
-                        <Sparkles size={14} className="text-[var(--accent)]" />
-                        AI Copilot
-                    </button>
+                    <div className={`absolute right-3 z-[59] flex flex-col items-end gap-2 ${activeTab === 'editor' ? 'top-24' : 'top-4'}`}>
+                        <button
+                            type="button"
+                            data-action="open-resume-copilot"
+                            onClick={openJobMatchHelper}
+                            className="inline-flex items-center gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--bg-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-main)] shadow-lg transition hover:-translate-y-0.5 hover:border-[var(--accent)]/55 hover:bg-[var(--accent-subtle)]"
+                            aria-label="Open Resume Copilot"
+                        >
+                            <Sparkles size={14} className="text-[var(--accent)]" />
+                            AI Copilot
+                        </button>
+                        <a
+                            href="/application-copilot"
+                            className="rv-ai-home-glow hidden items-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg transition hover:-translate-y-0.5 lg:inline-flex"
+                        >
+                            <Zap size={14} /> Job fit
+                        </a>
+                    </div>
                 )}
 
                 <div
@@ -1328,9 +1329,15 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                         <ImportResumeModal
                             isOpen={showImportModal}
                             onClose={() => setShowImportModal(false)}
-                            onImport={(parsedData) => updateResume(parsedData)}
+                            onImport={(parsedData) => void openImportedDocument(parsedData)}
                         />
                     )}
+
+                    <CreateDocumentModal
+                        isOpen={showCreateModal}
+                        onClose={closeCreateModal}
+                        onChoose={(href) => void leaveForNewDocument(href)}
+                    />
 
                     {showSectionTypeModal && (
                         <SectionTypeDialog
@@ -1348,9 +1355,9 @@ function ResumeBuilderContent({ example }: { example?: ResumeExampleId }) {
                         fullName={data.personalInfo.fullName}
                         username={user?.email?.split('@')[0] || 'user'}
                         isPublic={resumeMetadata?.isPublic || false}
-                        onVisibilityChange={(isPublic) => {
+                        onVisibilityChange={(isPublic, revision) => {
                             if (resumeMetadata) {
-                                setResumeMetadata({ ...resumeMetadata, isPublic });
+                                setResumeMetadata({ ...resumeMetadata, isPublic, revision: revision || resumeMetadata.revision });
                             }
                         }}
                         isAuthenticated={isAuthenticated}

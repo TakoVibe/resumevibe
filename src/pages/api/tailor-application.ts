@@ -1,8 +1,12 @@
 import type { APIRoute } from 'astro';
 import OpenAI from 'openai';
+import { AI_MODEL, AI_REASONING_EFFORT } from '../../lib/aiModel';
+import { buildCoverLetterPrompt } from '../../lib/coverLetter';
 import {
-    TAILORED_RESUME_RESPONSE_FORMAT,
-    TAILORING_SYSTEM_PROMPT,
+    TAILORING_REVIEW_PROMPT,
+    TAILORING_REVIEW_RESPONSE_FORMAT,
+    TAILORING_REWRITE_PROMPT,
+    TAILORING_REWRITE_RESPONSE_FORMAT,
     buildTailoringPayload,
     mergeTailoredResume,
     normalizeChangeReviews,
@@ -13,6 +17,10 @@ import {
 
 const MAX_JOB_DESCRIPTION_CHARS = 16_000;
 const APPLICATION_PACKAGE_TOKEN_COST = 30;
+const GENERATION_TIMEOUT_MS = 90_000;
+const MAX_JSON_OUTPUT_TOKENS = 20_000;
+const MAX_COVER_LETTER_OUTPUT_TOKENS = 1_000;
+const STREAM_CONTENT_TYPE = 'application/x-ndjson';
 const BACKEND_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 
 function failureResponse(
@@ -66,7 +74,6 @@ function generationFailureMessage(error: unknown) {
 
 export const POST: APIRoute = async ({ request }) => {
     const startedAt = Date.now();
-    let phase: 'session' | 'generation' | 'charge' = 'session';
 
     try {
         const token = request.headers.get('authorization')?.replace('Bearer ', '')?.replace('Token ', '');
@@ -114,8 +121,61 @@ export const POST: APIRoute = async ({ request }) => {
             return failureResponse(503, 'The application service is temporarily unavailable. Please try again later.', 'generation_not_configured', true);
         }
 
-        phase = 'generation';
+        const buildPackage = (onPart: PartListener = () => {}) => generatePackage({
+            request, token, resume, trimmedJobDescription, auditResult, apiKey, startedAt, onPart,
+        });
+        if (!request.headers.get('accept')?.includes(STREAM_CONTENT_TYPE)) return await buildPackage();
+        return streamPackage(buildPackage);
+    } catch (error) {
+        console.error('Error verifying the application request:', error);
+        return failureResponse(
+            503,
+            'We could not verify your account right now. Please try again.',
+            'account_service_unavailable',
+            true,
+        );
+    }
+};
 
+type PartListener = (event: Record<string, unknown>) => void;
+
+/**
+ * Sends the cover letter and the review as JSON lines the moment each is ready, then a
+ * final `done` line carrying the status and body the plain JSON response would have had.
+ */
+function streamPackage(buildPackage: (onPart: PartListener) => Promise<Response>) {
+    const encoder = new TextEncoder();
+    let open = true;
+    return new Response(new ReadableStream({
+        async start(controller) {
+            const send: PartListener = (event) => {
+                if (open) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+            };
+            const result = await buildPackage(send);
+            send({ type: 'done', status: result.status, ...(await result.json()) });
+            if (open) controller.close();
+        },
+        // If the browser goes away, generation and the charge still finish, as with the JSON response.
+        cancel() {
+            open = false;
+        },
+    }), {
+        headers: { 'Content-Type': STREAM_CONTENT_TYPE, 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' },
+    });
+}
+
+async function generatePackage({ request, token, resume, trimmedJobDescription, auditResult, apiKey, startedAt, onPart }: {
+    request: Request;
+    token: string;
+    resume: any;
+    trimmedJobDescription: string;
+    auditResult: any;
+    apiKey: string;
+    startedAt: number;
+    onPart: PartListener;
+}): Promise<Response> {
+    let phase: 'generation' | 'charge' = 'generation';
+    try {
         const auditGaps = Array.isArray(auditResult?.insights)
             ? auditResult.insights
                 .filter((insight: any) => insight?.type === 'gap' && insight?.text)
@@ -128,27 +188,56 @@ export const POST: APIRoute = async ({ request }) => {
             auditGaps,
         );
 
-        const openai = new OpenAI({ apiKey });
-        const completion = await openai.chat.completions.create({
-            model: import.meta.env.OPENAI_TAILOR_MODEL || 'gpt-5-mini',
-            reasoning_effort: 'low',
-            // The pass now rewrites every written section, scores requirements,
-            // and returns advisory feedback, so it needs a wider output budget.
-            max_completion_tokens: 20_000,
-            response_format: TAILORED_RESUME_RESPONSE_FORMAT,
+        const openai = new OpenAI({ apiKey, timeout: GENERATION_TIMEOUT_MS });
+        const userContent = JSON.stringify(promptPayload);
+        const generateJson = async (systemPrompt: string, responseFormat: typeof TAILORING_REVIEW_RESPONSE_FORMAT) => {
+            const completion = await openai.chat.completions.create({
+                model: AI_MODEL,
+                reasoning_effort: AI_REASONING_EFFORT,
+                max_completion_tokens: MAX_JSON_OUTPUT_TOKENS,
+                response_format: responseFormat,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent },
+                ],
+            });
+            const text = completion.choices[0]?.message?.content;
+            if (!text) throw new Error('No response from AI');
+            return JSON.parse(text);
+        };
+        // Same letter the standalone Cover letter feature writes, generated alongside the resume work.
+        const coverLetterPrompt = buildCoverLetterPrompt(resume, trimmedJobDescription);
+        const coverLetterTask = openai.chat.completions.create({
+            model: AI_MODEL,
+            reasoning_effort: AI_REASONING_EFFORT,
+            max_completion_tokens: MAX_COVER_LETTER_OUTPUT_TOKENS,
             messages: [
-                { role: 'system', content: TAILORING_SYSTEM_PROMPT },
-                { role: 'user', content: JSON.stringify(promptPayload) },
+                { role: 'system', content: coverLetterPrompt.system },
+                { role: 'user', content: coverLetterPrompt.user },
             ],
+        }).then((completion) => {
+            const coverLetter = completion.choices[0]?.message?.content?.trim() || '';
+            if (!coverLetter) throw new Error('The application package did not include a cover letter.');
+            onPart({ type: 'coverLetter', coverLetter });
+            return coverLetter;
         });
+        const reviewTask = generateJson(TAILORING_REVIEW_PROMPT, TAILORING_REVIEW_RESPONSE_FORMAT).then((review) => {
+            onPart({
+                type: 'review',
+                requirements: normalizeRequirements(review.requirements),
+                missingSkills: normalizeMissingSkills(review.missingSkills),
+                sectionFeedback: normalizeSectionFeedback(review.sectionFeedback),
+            });
+            return review;
+        });
+        const [rewrite, review, coverLetter] = await Promise.all([
+            generateJson(TAILORING_REWRITE_PROMPT, TAILORING_REWRITE_RESPONSE_FORMAT),
+            reviewTask,
+            coverLetterTask,
+        ]);
 
-        const responseText = completion.choices[0]?.message?.content;
-        if (!responseText) throw new Error('No response from AI');
-
-        const parsed = JSON.parse(responseText);
+        const parsed = { ...rewrite, ...review };
         const { optimizedResume, changedSections, proposals, guardNotes } = mergeTailoredResume(resume, parsed);
-        const coverLetter = typeof parsed.coverLetter === 'string' ? parsed.coverLetter.trim() : '';
-        if (!coverLetter) throw new Error('The application package did not include a cover letter.');
 
         const issues = [
             ...(Array.isArray(parsed.issues) ? parsed.issues.map(String) : []),
@@ -201,7 +290,6 @@ export const POST: APIRoute = async ({ request }) => {
             requirements: normalizeRequirements(parsed.requirements),
             missingSkills: normalizeMissingSkills(parsed.missingSkills),
             sectionFeedback: normalizeSectionFeedback(parsed.sectionFeedback),
-            usage: completion.usage,
             timingMs: Date.now() - startedAt,
             tokens_used: APPLICATION_PACKAGE_TOKEN_COST,
             token_balance: tokenResult.token_balance,
@@ -224,15 +312,7 @@ export const POST: APIRoute = async ({ request }) => {
                 headers: { 'Content-Type': 'application/json' },
             });
         }
-        if (phase === 'session') {
-            return failureResponse(
-                503,
-                'We could not verify your account right now. Please try again.',
-                'account_service_unavailable',
-                true,
-            );
-        }
         const failure = generationFailureMessage(error);
         return failureResponse(503, failure.message, failure.code, true);
     }
-};
+}

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { Edit, Trash2, Globe, Lock, Clock, ExternalLink, Loader2, FileText, Plus, LogIn, History, RotateCcw, X, Check } from 'lucide-react';
+import { Edit, Trash2, Globe, Lock, Clock, ExternalLink, Loader2, FileText, GraduationCap, Plus, LogIn, History, RotateCcw, X, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { LoadingScreen } from '../ui/LoadingScreen';
 import { resumeEditorUrl } from '../../lib/resumeNavigation';
 
 interface Version {
     id: string;
-    resume_data: any;
+    resume_data?: any;
+    schema_version: number;
     version_number: number;
     created_at: string;
 }
@@ -17,17 +18,25 @@ interface Resume {
     resume_name: string;
     slug: string;
     resume_data: any;
+    /** Sent with every save from the document's content; documents saved before that read as resumes until saved again. */
+    document_type?: 'resume' | 'cv';
+    schema_version: number;
+    revision: number;
     is_public: boolean;
     updated_at: string;
     versions: Version[];
 }
 
-export function UserResumes() {
+// Month names keep dates unambiguous: 05/11/2026 reads as 5 Nov in India and May 11 in the US.
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
+export function UserResumes({ onCreate }: { onCreate: () => void }) {
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [showVersionsFor, setShowVersionsFor] = useState<Resume | null>(null);
     const [isRestoring, setIsRestoring] = useState<string | null>(null);
+    const [isLoadingVersions, setIsLoadingVersions] = useState<string | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem("auth_token");
@@ -76,6 +85,10 @@ export function UserResumes() {
     };
 
     const handleRestoreVersion = async (resume: Resume, version: Version) => {
+        if (!version.resume_data) {
+            toast.error('This version could not be loaded. Please try again.');
+            return;
+        }
         if (!confirm(`Restore to version ${version.version_number}? This will overwrite your current resume data.`)) return;
 
         setIsRestoring(version.id);
@@ -98,6 +111,20 @@ export function UserResumes() {
             toast.error("Error restoring version.");
         } finally {
             setIsRestoring(null);
+        }
+    };
+
+    const openVersions = async (resume: Resume) => {
+        setIsLoadingVersions(resume.slug);
+        try {
+            const response = await api.get(`/api/resumes/${resume.slug}/`);
+            if (!response.ok) throw new Error(`Could not load versions (${response.status})`);
+            setShowVersionsFor(await response.json());
+        } catch (error) {
+            console.error('Could not load document versions:', error);
+            toast.error('Could not load version history.');
+        } finally {
+            setIsLoadingVersions(null);
         }
     };
 
@@ -141,13 +168,14 @@ export function UserResumes() {
                 <p className="text-[var(--text-muted)] font-medium mb-8 max-w-xs mx-auto text-sm">
                     You haven't saved any resumes yet. Start creating your professional path now.
                 </p>
-                <a
-                    href="/editor"
+                <button
+                    type="button"
+                    onClick={onCreate}
                     className="flex items-center gap-2 px-6 py-3 bg-[var(--bg-input)] hover:bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] rounded-2xl font-bold uppercase tracking-widest transition-all shadow-sm"
                 >
                     <Plus size={18} />
-                    Create First Resume
-                </a>
+                    Create your first document
+                </button>
             </div>
         );
     }
@@ -164,15 +192,22 @@ export function UserResumes() {
                         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-[var(--text-main)]/20 to-transparent"></div>
 
                         <div className="flex justify-between items-start mb-10">
-                            <div className="w-8 h-8 flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity">
-                                <FileText size={24} className="text-[var(--text-main)]" />
-                            </div>
+                            {resume.document_type === 'cv' ? (
+                                <div className="flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent-subtle)] px-3 py-1.5 font-sans-ed text-[9px] font-semibold uppercase tracking-[0.25em] text-[var(--accent)]">
+                                    <GraduationCap size={13} /> Academic CV
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-color)] px-3 py-1.5 font-sans-ed text-[9px] font-semibold uppercase tracking-[0.25em] text-[var(--text-muted)]">
+                                    <FileText size={13} /> Resume
+                                </div>
+                            )}
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => setShowVersionsFor(resume)}
+                                    onClick={() => void openVersions(resume)}
+                                    disabled={isLoadingVersions === resume.slug}
                                     className="flex items-center gap-1.5 font-sans-ed text-[9px] uppercase tracking-[0.25em] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all"
                                 >
-                                    <History size={12} className="opacity-50" /> {resume.versions?.length || 0} Vols
+                                    {isLoadingVersions === resume.slug ? <Loader2 size={12} className="animate-spin" /> : <History size={12} className="opacity-50" />} {resume.versions?.length ? `${resume.versions.length} version${resume.versions.length === 1 ? '' : 's'}` : 'No versions'}
                                 </button>
                                 <span className="text-[var(--border-color)]">|</span>
                                 {resume.is_public ? (
@@ -187,13 +222,13 @@ export function UserResumes() {
                             </div>
                         </div>
 
-                        <h3 className="font-serif-ed text-3xl text-[var(--text-main)] mb-3 tracking-tight line-clamp-1" title={resume.resume_name}>
+                        <h3 className="font-serif-ed text-3xl text-[var(--text-main)] mb-3 tracking-tight line-clamp-2" title={resume.resume_name}>
                             {resume.resume_name}
                         </h3>
 
                         <div className="flex items-center gap-2 text-[var(--text-muted)] font-sans-ed text-[10px] uppercase tracking-[0.25em] mb-10 opacity-70">
                             <Clock size={12} className="opacity-50" />
-                            Edited {new Date(resume.updated_at).toLocaleDateString()}
+                            Edited {new Date(resume.updated_at).toLocaleDateString(undefined, DATE_FORMAT)}
                         </div>
 
                         <div className="mt-auto flex flex-col gap-3">
@@ -283,7 +318,7 @@ export function UserResumes() {
                                             <div>
                                                 <p className="font-serif-ed text-xl text-[var(--text-main)] mb-1">Snapshot {version.version_number}</p>
                                                 <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-[0.2em]">
-                                                    Saved {new Date(version.created_at).toLocaleDateString()}
+                                                    Saved {new Date(version.created_at).toLocaleDateString(undefined, DATE_FORMAT)}
                                                 </p>
                                             </div>
                                         </div>

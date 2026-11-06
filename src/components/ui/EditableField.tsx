@@ -162,11 +162,6 @@ export function EditableField({
 
     const isEmpty = safeValue.length === 0;
 
-    // If not editable and empty, hide completely
-    if (isEmpty && !isEditable) {
-        return null;
-    }
-
     const handleMouseOver = React.useCallback((e: React.MouseEvent<HTMLElement>) => {
         if (!isEditable) return;
         const target = e.target as HTMLElement;
@@ -239,6 +234,11 @@ export function EditableField({
             })
         )
     ), [isEmpty, isEditable, Tag, commonProps, safeValue]);
+
+    // Hide empty read-only fields, but only after every hook has run so the hook count never changes.
+    if (isEmpty && !isEditable) {
+        return null;
+    }
 
     const prompt = (
         <PromptDialog

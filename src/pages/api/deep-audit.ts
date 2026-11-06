@@ -1,6 +1,10 @@
 import type { APIRoute } from 'astro';
 import OpenAI from 'openai';
+import { AI_MODEL, AI_REASONING_EFFORT } from '../../lib/aiModel';
 import { z } from 'zod';
+import { chargeTokens, requireTokens } from '../../lib/tokenGate';
+
+const DEEP_AUDIT_TOKEN_COST = 30;
 
 const AuditInsightSchema = z.object({
     type: z.enum(['strength', 'gap', 'recommendation']),
@@ -45,7 +49,10 @@ Unlike a simple keyword matcher, you look for:
 
 export const POST: APIRoute = async ({ request }) => {
     try {
-        const { resume, jobDescription } = await request.json();
+        const gate = await requireTokens(request, DEEP_AUDIT_TOKEN_COST, 'Deep audit');
+        if (gate instanceof Response) return gate;
+
+        const { resume, jobDescription, actionType } = await request.json();
 
         if (!resume) {
             return new Response(
@@ -74,7 +81,8 @@ ${JSON.stringify(resume, null, 2)}
 Perform a Deep Audit. Return the results in the specified JSON format.`;
 
         const completion = await openai.chat.completions.create({
-            model: 'gpt-5-mini',
+            model: AI_MODEL,
+            reasoning_effort: AI_REASONING_EFFORT,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
                 { role: 'user', content: userPrompt }
@@ -98,6 +106,13 @@ Perform a Deep Audit. Return the results in the specified JSON format.`;
             console.log('Raw Response:', responseText);
             throw new Error('AI response did not match the required schema.');
         }
+
+        const chargeFailure = await chargeTokens(gate.token, {
+            actionType: actionType === 'pilot_mode' ? 'pilot_mode' : 'deep_audit',
+            cost: DEEP_AUDIT_TOKEN_COST,
+            description: 'Deep audit',
+        });
+        if (chargeFailure) return chargeFailure;
 
         return new Response(
             JSON.stringify({

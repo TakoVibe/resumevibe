@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import OpenAI from 'openai';
+import { AI_MODEL, AI_REASONING_EFFORT } from '../../lib/aiModel';
 import { z } from 'zod';
+import { requireTokens } from '../../lib/tokenGate';
 
 // Zod schema matching ResumeSchema
 const BulletItemSchema = z.union([
@@ -147,6 +149,9 @@ Your task is to rewrite the user's resume to align perfectly with the target job
 
 export const POST: APIRoute = async ({ request }) => {
     try {
+        const gate = await requireTokens(request, 0, 'Resume optimization');
+        if (gate instanceof Response) return gate;
+
         const { resume, jobDescription, auditResult } = await request.json();
 
         if (!resume || !jobDescription) {
@@ -195,7 +200,8 @@ If critical gaps are listed above, only surface a skill or competency when it is
 
         // Call OpenAI with structured output
         const completion = await openai.chat.completions.create({
-            model: 'gpt-5-mini', // Assuming this is set up correctly in the environment
+            model: AI_MODEL,
+            reasoning_effort: AI_REASONING_EFFORT,
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
                 { role: 'user', content: userPrompt }

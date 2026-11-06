@@ -9,7 +9,7 @@ interface ShareModalProps {
     fullName: string;
     username: string;
     isPublic: boolean;
-    onVisibilityChange: (isPublic: boolean) => void;
+    onVisibilityChange: (isPublic: boolean, revision?: number) => void;
     isAuthenticated?: boolean;
     onRequireAuth?: () => void;
 }
@@ -30,11 +30,6 @@ export function ShareModal({ isOpen, onClose, resumeId, fullName, username, isPu
     // But backend expects `resume_name` to match exactly?
     // In ResumeBuilder I did: `resumeId={resumeMetadata?.name || ...}`.
     // If I used "My Resume", the URL will be `.../My%20Resume`. That works.
-    const encodedResumeId = encodeURI(resumeId); // encodeURI might be safer for resume names with spaces but not slash
-    // actually encodeURIComponent is better for the segment.
-    // resumeId comes from `resumeMetadata.name` which acts as the ID/Slug.
-
-    // NOTE: If resumeId is undefined or empty, this link will be broken.
     const publicUrl = `${origin}/resume/${username}/${encodeURIComponent(resumeId)}`;
 
     const handleCopy = async () => {
@@ -68,7 +63,8 @@ export function ShareModal({ isOpen, onClose, resumeId, fullName, username, isPu
             });
 
             if (response.ok) {
-                onVisibilityChange(newStatus);
+                const updated = await response.json();
+                onVisibilityChange(newStatus, updated.revision);
             } else {
                 const err = await response.json();
                 console.error(err);
